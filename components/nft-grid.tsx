@@ -1,41 +1,53 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import NFTCard from "./nft-card";
 import useStore from "@/stores/general-state";
 import { NFTWithStats } from "@/utils/nft-loader";
+import NoSSR from "./no-ssr";
 
 interface NFTGridProps {
   initialData: NFTWithStats[];
 }
 
-export default function NFTGrid({ initialData }: NFTGridProps) {
+function NFTGrid({ initialData }: NFTGridProps) {
   const { setNFTs, sortBy } = useStore();
   const [isClient, setIsClient] = useState(false);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [nfts, setNfts] = useState<NFTWithStats[]>(initialData);
+  const [displayedNfts, setDisplayedNfts] =
+    useState<NFTWithStats[]>(initialData);
   const [hasMore, setHasMore] = useState(true);
 
-  const loadNFTs = async (pageNum: number, resetData: boolean = false) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/nfts?page=${pageNum}&limit=20&sortBy=${sortBy}`
-      );
-      const data = await response.json();
+  const loadNFTs = useCallback(
+    async (pageNum: number, resetData: boolean = false) => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `/api/nfts?page=${pageNum}&limit=20&sortBy=${sortBy}`
+        );
+        const data = await response.json();
 
-      if (data.nfts.length > 0) {
-        setNfts(resetData ? data.nfts : [...nfts, ...data.nfts]);
-        setHasMore(data.hasMore);
-      } else {
-        setHasMore(false);
+        if (data.nfts.length > 0) {
+          setDisplayedNfts(
+            resetData ? data.nfts : (prev) => [...prev, ...data.nfts]
+          );
+          setHasMore(data.hasMore);
+        } else {
+          setHasMore(false);
+        }
+      } catch (error) {
+        console.error("Error loading NFTs:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error loading NFTs:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [sortBy]
+  ); // Only depend on sortBy
+
+  useEffect(() => {
+    setIsClient(true);
+    setNFTs(initialData);
+  }, [initialData, setNFTs]);
 
   // Reset and reload when sort changes
   useEffect(() => {
@@ -43,13 +55,7 @@ export default function NFTGrid({ initialData }: NFTGridProps) {
       setPage(1);
       loadNFTs(1, true);
     }
-  }, [sortBy, isClient, loadNFTs]);
-
-  // Initial client-side setup
-  useEffect(() => {
-    setIsClient(true);
-    setNFTs(initialData);
-  }, [initialData, setNFTs]);
+  }, [sortBy]); // Only depend on sortBy
 
   const loadMore = () => {
     const nextPage = page + 1;
@@ -60,7 +66,7 @@ export default function NFTGrid({ initialData }: NFTGridProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-        {nfts.map((nft) => (
+        {displayedNfts.map((nft) => (
           <NFTCard key={nft.name} metadata={nft} stats={nft.stats} />
         ))}
       </div>
@@ -82,5 +88,13 @@ export default function NFTGrid({ initialData }: NFTGridProps) {
         </button>
       )}
     </div>
+  );
+}
+
+export default function NFTGridWrapper({ initialData }: NFTGridProps) {
+  return (
+    <NoSSR>
+      <NFTGrid initialData={initialData} />
+    </NoSSR>
   );
 }
