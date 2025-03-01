@@ -43,7 +43,7 @@ export default function NFTGrid({ initialData }: NFTGridProps) {
       setPage(1);
       loadNFTs(1, true);
     }
-  }, [sortBy]);
+  }, [sortBy, isClient, loadNFTs]);
 
   // Initial client-side setup
   useEffect(() => {

@@ -3,7 +3,6 @@ import { Filters } from "./filters";
 import { SearchBar } from "./searchbar";
 import { Sort } from "./sort";
 import NoSSR from "./no-ssr";
-import useStore from "@/stores/general-state";
 
 export function Controls() {
   return (

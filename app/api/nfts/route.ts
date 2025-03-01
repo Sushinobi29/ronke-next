@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
       total: totalNFTs,
     });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to load NFTs" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load NFTs, " + error },
+      { status: 500 }
+    );
   }
 }
