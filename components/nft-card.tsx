@@ -1,5 +1,6 @@
 import { NFTMetadata } from "@/shared/types/Metadata";
 import Image from "next/image";
+import Link from "next/link";
 
 interface NFTCardProps {
   metadata: NFTMetadata;
@@ -8,10 +9,16 @@ interface NFTCardProps {
 
 export default function NFTCard({ metadata, stats }: NFTCardProps) {
   return (
-    <div className="rounded-lg overflow-hidden bg-black/10 hover:bg-black/20 transition-all duration-300 backdrop-blur-sm">
+    <Link
+      href={`https://marketplace.roninchain.com/collections/ronkeverse/${
+        metadata.name.split("#")[1]
+      }`}
+      target="_blank"
+      className="rounded-lg overflow-hidden bg-black/10 hover:bg-black/20 hover:scale-105 hover:shadow-lg cursor-pointer transition-all duration-300 backdrop-blur-sm"
+    >
       <div className="relative">
         <Image
-          src={metadata.image+'.png'}
+          src={metadata.image + ".png"}
           alt={metadata.name}
           width={500}
           height={500}
@@ -43,6 +50,6 @@ export default function NFTCard({ metadata, stats }: NFTCardProps) {
           )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
