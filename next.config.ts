@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "amaranth-casual-coral-990.mypinata.cloud",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.roninchain.com",
+      },
     ],
   },
 };

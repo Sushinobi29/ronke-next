@@ -10,12 +10,10 @@ interface NFTGridProps {
 }
 
 function NFTGrid({ initialData }: NFTGridProps) {
-  const { setNFTs, sortBy } = useStore();
-  const [isClient, setIsClient] = useState(false);
+  const { setNFTs, sortBy, getCurrentNFTs } = useStore();
+  const setIsClient = useState(false)[1];
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [displayedNfts, setDisplayedNfts] =
-    useState<NFTWithStats[]>(initialData);
   const [hasMore, setHasMore] = useState(true);
 
   const loadNFTs = useCallback(
@@ -28,9 +26,7 @@ function NFTGrid({ initialData }: NFTGridProps) {
         const data = await response.json();
 
         if (data.nfts.length > 0) {
-          setDisplayedNfts(
-            resetData ? data.nfts : (prev) => [...prev, ...data.nfts]
-          );
+          setNFTs(resetData ? data.nfts : [...getCurrentNFTs(), ...data.nfts]);
           setHasMore(data.hasMore);
         } else {
           setHasMore(false);
@@ -41,8 +37,8 @@ function NFTGrid({ initialData }: NFTGridProps) {
         setIsLoading(false);
       }
     },
-    [sortBy]
-  ); // Only depend on sortBy
+    [sortBy, setNFTs, getCurrentNFTs]
+  );
 
   useEffect(() => {
     setIsClient(true);
@@ -51,17 +47,17 @@ function NFTGrid({ initialData }: NFTGridProps) {
 
   // Reset and reload when sort changes
   useEffect(() => {
-    if (isClient) {
-      setPage(1);
-      loadNFTs(1, true);
-    }
-  }, [sortBy]); // Only depend on sortBy
+    setPage(1);
+    loadNFTs(1, true);
+  }, [sortBy, loadNFTs]);
 
   const loadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
     loadNFTs(nextPage, false);
   };
+
+  const displayedNfts = getCurrentNFTs();
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -86,6 +82,12 @@ function NFTGrid({ initialData }: NFTGridProps) {
             "Load More"
           )}
         </button>
+      )}
+
+      {displayedNfts.length === 0 && !isLoading && (
+        <div className="text-center p-4">
+          No NFTs found matching your search.
+        </div>
       )}
     </div>
   );

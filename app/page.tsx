@@ -1,4 +1,5 @@
 import { Controls } from "@/components/controls";
+import Header from "@/components/header";
 import NFTGridWrapper from "@/components/nft-grid";
 import { loadNFTData } from "@/utils/nft-loader";
 
@@ -8,7 +9,8 @@ export default async function Home() {
 
   return (
     <div>
-      <main className="min-w-screen min-h-screen">
+      <Header />
+      <main className="min-w-screen min-h-screen md:px-8 mt-12">
         <Controls />
         <NFTGridWrapper initialData={initialNFTData} />
       </main>

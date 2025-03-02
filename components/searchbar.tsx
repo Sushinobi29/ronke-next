@@ -2,21 +2,15 @@
 
 import * as React from "react";
 import { Search, X } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface SearchBarProps {
-  placeholder?: string;
-  onSearch?: (query: string) => void;
-  className?: string;
+  onSearch: (query: string) => void;
+  isLoading?: boolean;
 }
 
-export function SearchBar({
-  placeholder = "Search...",
-  onSearch = () => {},
-  className = "",
-}: SearchBarProps) {
+export function SearchBar({ onSearch, isLoading = false }: SearchBarProps) {
   const [query, setQuery] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -26,6 +20,7 @@ export function SearchBar({
 
   const handleClear = () => {
     setQuery("");
+    onSearch(""); // Important: also trigger search with empty query
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -38,16 +33,17 @@ export function SearchBar({
   };
 
   return (
-    <div className={`flex w-full items-center space-x-2 ${className}`}>
+    <div className="flex w-full items-center space-x-2">
       <div className="relative flex-1">
         <Input
           ref={inputRef}
           type="text"
-          placeholder={placeholder}
+          placeholder="Search by name or traits..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           className="pr-8"
+          disabled={isLoading}
         />
         {query && (
           <Button
@@ -57,6 +53,7 @@ export function SearchBar({
             className="absolute right-0 top-0 h-full px-3 py-2 text-muted-foreground hover:text-foreground"
             onClick={handleClear}
             aria-label="Clear search"
+            disabled={isLoading}
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Clear search</span>
@@ -65,11 +62,21 @@ export function SearchBar({
       </div>
       <Button
         type="button"
-        className="hover:cursor-pointer hover:invert duration-300"
+        className="hover:cursor-pointer invert hover:invert-0 duration-300"
         onClick={handleSearch}
+        disabled={isLoading}
       >
-        <Search className="mr-2 h-4 w-4" />
-        Search
+        {isLoading ? (
+          <div className="flex items-center gap-2">
+            <div className="animate-spin h-4 w-4 border-2 border-white/50 border-t-white rounded-full" />
+            Searching...
+          </div>
+        ) : (
+          <>
+            <Search className="mr-2 h-4 w-4" />
+            Search
+          </>
+        )}
       </Button>
     </div>
   );
