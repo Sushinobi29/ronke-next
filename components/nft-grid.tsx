@@ -43,7 +43,7 @@ function NFTGrid({ initialData }: NFTGridProps) {
   useEffect(() => {
     setIsClient(true);
     setNFTs(initialData);
-  }, [initialData, setNFTs]);
+  }, [initialData, setIsClient, setNFTs]);
 
   // Reset and reload when sort changes
   useEffect(() => {
