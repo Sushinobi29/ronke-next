@@ -18,7 +18,7 @@ export default function NFTCard({ metadata, stats }: NFTCardProps) {
     >
       <div className="relative">
         <Image
-          src={metadata.image + ".png"}
+          src={metadata.image}
           alt={metadata.name}
           width={500}
           height={500}
