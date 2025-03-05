@@ -14,7 +14,7 @@ export default function NFTCard({ metadata, stats }: NFTCardProps) {
         metadata.name.split("#")[1]
       }`}
       target="_blank"
-      className="rounded-lg overflow-hidden bg-black/10 hover:bg-black/20 hover:scale-105 hover:shadow-lg cursor-pointer transition-all duration-300 backdrop-blur-sm"
+      className="rounded-lg overflow-hidden bg-black/10 hover:bg-black/20 dark:bg-zinc-900 hover:scale-105 hover:shadow-lg cursor-pointer transition-all duration-300 backdrop-blur-sm"
     >
       <div className="relative">
         <Image
@@ -24,8 +24,8 @@ export default function NFTCard({ metadata, stats }: NFTCardProps) {
           height={500}
           className="w-full h-auto aspect-square object-cover"
         />
-        <div className="absolute top-2 right-2 bg-black/60 rounded-full px-3 py-1 text-xs">
-          Rank #{stats.rank}
+        <div className="absolute top-2 right-2 bg-black/40 rounded-full px-3 py-1 text-xs text-white">
+          Rank #{stats.rank > 107 ? stats.rank - 107 : stats.rank }
         </div>
       </div>
       <div className="p-4">
