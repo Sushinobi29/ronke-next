@@ -45,7 +45,7 @@ export default function Header() {
           <div className="ml-12">
             <TraitStats traitDistribution={traitData.traitDistribution} />
           </div>
-          <div className="ml-auto flex items-center">
+          {/* <div className="ml-auto flex items-center">
             <button className="relative px-6 py-3 font-bold text-white rounded-full overflow-hidden group" disabled>
               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 animate-gradient-x"></span>
               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-500 via-green-400 to-yellow-500 animate-gradient-y opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
@@ -54,7 +54,7 @@ export default function Header() {
                 <ArrowUpRightFromSquare size={16} />
               </span>
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
