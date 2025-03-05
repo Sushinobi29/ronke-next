@@ -82,7 +82,7 @@ export default function PassportPage() {
     if (fontLoaded) {
       drawPassport();
     }
-  }, [fields, fontLoaded]);
+  }, [fields, fontLoaded, drawPassport]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;
