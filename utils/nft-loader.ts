@@ -9,10 +9,17 @@ export interface NFTWithStats extends NFTMetadata {
   };
 }
 
+
+type Attribute = {
+  trait_type: string,
+  value: string
+}
+
 export async function loadNFTData(
   limit?: number,
   page: number = 1,
-  sortBy: string = "rarity-desc"
+  sortBy: string = "rarity-desc",
+  showCommunity: boolean = false
 ): Promise<NFTWithStats[]> {
   try {
     const statsPath = path.join(process.cwd(), "nft-statistics.json");
@@ -34,6 +41,17 @@ export async function loadNFTData(
       })
     );
 
+    // Filter NFTs based on showCommunity
+    nftsWithStats = nftsWithStats.filter((nft) => {
+      const communityTrait = nft.attributes.find(
+        (attr: Attribute) => attr.trait_type === "Community 1/1"
+      );
+      
+      // If showCommunity is false, only show non-community NFTs
+      // If showCommunity is true, show all NFTs
+      return showCommunity ? true : !communityTrait;
+    });
+
     // Sort the NFTs
     nftsWithStats = nftsWithStats.sort((a, b) => {
       switch (sortBy) {
@@ -42,13 +60,9 @@ export async function loadNFTData(
         case "rarity-asc":
           return a.stats.rarityScore - b.stats.rarityScore;
         case "id-asc":
-          return (
-            parseInt(a.name.split("#")[1]) - parseInt(b.name.split("#")[1])
-          );
+          return parseInt(a.name.split("#")[1]) - parseInt(b.name.split("#")[1]);
         case "id-desc":
-          return (
-            parseInt(b.name.split("#")[1]) - parseInt(a.name.split("#")[1])
-          );
+          return parseInt(b.name.split("#")[1]) - parseInt(a.name.split("#")[1]);
         default:
           return 0;
       }

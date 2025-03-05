@@ -7,10 +7,12 @@ interface GeneralState {
   nfts: NFTWithStats[];
   searchResults: NFTWithStats[] | null;
   searchQuery: string;
+  showCommunity: boolean;
   setSortBy: (sort: string) => void;
   setNFTs: (nfts: NFTWithStats[]) => void;
   setSearchQuery: (query: string) => void;
   setSearchResults: (results: NFTWithStats[] | null) => void;
+  setShowCommunity: (show: boolean) => void;
   getSortedNFTs: () => NFTWithStats[];
   getCurrentNFTs: () => NFTWithStats[];
 }
@@ -22,10 +24,12 @@ const useStore = create<GeneralState>()(
       nfts: [],
       searchResults: null,
       searchQuery: "",
+      showCommunity: false,
       setSortBy: (sort) => set({ sortBy: sort }),
       setNFTs: (nfts) => set({ nfts }),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setSearchResults: (results) => set({ searchResults: results }),
+      setShowCommunity: (show) => set({ showCommunity: show }),
       getSortedNFTs: () => {
         const { nfts, sortBy, searchQuery } = get();
 

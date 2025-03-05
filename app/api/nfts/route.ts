@@ -7,9 +7,11 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "20");
   const sortBy = searchParams.get("sortBy") || "rarity-desc";
   const search = searchParams.get("search") || "";
+  const showCommunity = searchParams.get("showCommunity") === "true";
 
   try {
-    const allNFTs = await loadNFTData();
+    // Get pre-sorted NFTs from the loader
+    const allNFTs = await loadNFTData(undefined, undefined, sortBy, showCommunity);
 
     // Filter NFTs by search query
     const filteredNFTs = search
@@ -22,35 +24,15 @@ export async function GET(request: NextRequest) {
         )
       : allNFTs;
 
-    // Sort filtered NFTs
-    const sortedNFTs = [...filteredNFTs].sort((a, b) => {
-      switch (sortBy) {
-        case "rarity-desc":
-          return b.stats.rarityScore - a.stats.rarityScore;
-        case "rarity-asc":
-          return a.stats.rarityScore - b.stats.rarityScore;
-        case "id-asc":
-          return (
-            parseInt(a.name.split("#")[1]) - parseInt(b.name.split("#")[1])
-          );
-        case "id-desc":
-          return (
-            parseInt(b.name.split("#")[1]) - parseInt(a.name.split("#")[1])
-          );
-        default:
-          return 0;
-      }
-    });
-
     // Handle pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedNFTs = sortedNFTs.slice(startIndex, endIndex);
+    const paginatedNFTs = filteredNFTs.slice(startIndex, endIndex);
 
     return NextResponse.json({
       nfts: paginatedNFTs,
-      hasMore: endIndex < sortedNFTs.length,
-      total: sortedNFTs.length,
+      hasMore: endIndex < filteredNFTs.length,
+      total: filteredNFTs.length,
     });
   } catch (error) {
     return NextResponse.json(

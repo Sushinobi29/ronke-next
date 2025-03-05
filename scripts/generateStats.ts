@@ -84,11 +84,26 @@ class NFTStatsGenerator {
   }
 
   private calculateRarityScore(attributes: Attribute[]): number {
-    return attributes.reduce((score, attr) => {
-      const traitRarity =
-        this.attributeStats[attr.trait_type][attr.value].rarity;
-      return score + 1 / traitRarity;
+    let score = 0;
+    
+    // Check for special 1/1 trait first
+    const isSpecial1of1 = attributes.some(
+      attr => attr.trait_type === "Special" && attr.value === "1/1"
+    );
+    
+    // Calculate base rarity score
+    score = attributes.reduce((sum, attr) => {
+      const traitRarity = this.attributeStats[attr.trait_type][attr.value].rarity;
+      return sum + 1 / traitRarity;
     }, 0);
+
+    // Apply multiplier for special 1/1 NFTs
+    // You can adjust the multiplier (2.5) to make special NFTs more or less rare
+    if (isSpecial1of1) {
+      score *= 3.5;
+    }
+
+    return score;
   }
 
   generateStatistics() {
