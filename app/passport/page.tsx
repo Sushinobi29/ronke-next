@@ -8,9 +8,9 @@ export default function PassportPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fontLoaded, setFontLoaded] = useState(false);
   const [fields, setFields] = useState({
-    name: "",
-    rank: "",
-    score: "",
+    owner: "owner name",
+    givenName: "given name",
+    ronkeId: "#6969",
     date: new Date().toLocaleDateString(),
   });
 
@@ -60,20 +60,20 @@ export default function PassportPage() {
       ctx.fillStyle = "#00b1ff"; // Set text color to cyan
       ctx.textAlign = "left";
       
-      // Draw name
-      ctx.font = "bold 98px UglyHandwriting"; // Using custom font
-      ctx.fillText(fields.name, 300, 200);
-      
-      // Draw rank
+      // Draw owner
       ctx.font = "56px UglyHandwriting"; // Using custom font
-      ctx.fillText(`Rank: #${fields.rank}`, 300, 300);
+      ctx.fillText(`${fields.owner}`, 900, 1270);
       
-      // Draw rarity score
-      ctx.fillText(`Rarity Score: ${fields.score}`, 300, 350);
+      // Draw givenName
+      ctx.font = "56px UglyHandwriting"; // Using custom font
+      ctx.fillText(`${fields.givenName}`, 900, 1390);
+      
+      // Draw rarity ronkeId
+      ctx.fillText(`${fields.ronkeId}`, 1340, 1270);
       
       // Draw date
       ctx.font = "56px UglyHandwriting"; // Using custom font
-      ctx.fillText(`Generated: ${fields.date}`, 300, 400);
+      ctx.fillText(`${fields.date}`, 900, 1620);
     };
   };
 
@@ -90,7 +90,7 @@ export default function PassportPage() {
 
     // Create download link
     const link = document.createElement("a");
-    link.download = `ronke-passport-${fields.name}.png`;
+    link.download = `ronke-passport-${fields.owner}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
   };
@@ -110,39 +110,39 @@ export default function PassportPage() {
       {/* Controls */}
       <div className="w-full md:w-80 space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name">NFT Name</Label>
+          <Label htmlFor="owner">NFT owner</Label>
           <Input
-            id="name"
-            value={fields.name}
-            onChange={(e) => setFields({ ...fields, name: e.target.value })}
-            placeholder="Enter NFT name"
+            id="owner"
+            value={fields.owner}
+            onChange={(e) => setFields({ ...fields, owner: e.target.value })}
+            placeholder="Enter NFT owner"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="rank">Rank</Label>
+          <Label htmlFor="givenName">givenName</Label>
           <Input
-            id="rank"
-            value={fields.rank}
-            onChange={(e) => setFields({ ...fields, rank: e.target.value })}
-            placeholder="Enter rank"
+            id="givenName"
+            value={fields.givenName}
+            onChange={(e) => setFields({ ...fields, givenName: e.target.value })}
+            placeholder="Enter givenName"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="score">Rarity Score</Label>
+          <Label htmlFor="ronkeId">Rarity ronkeId</Label>
           <Input
-            id="score"
-            value={fields.score}
-            onChange={(e) => setFields({ ...fields, score: e.target.value })}
-            placeholder="Enter rarity score"
+            id="ronkeId"
+            value={fields.ronkeId}
+            onChange={(e) => setFields({ ...fields, ronkeId: e.target.value })}
+            placeholder="Enter rarity ronkeId"
           />
         </div>
 
         <Button 
           className="w-full" 
           onClick={handleDownload}
-          disabled={!fields.name || !fields.rank || !fields.score}
+          disabled={!fields.owner || !fields.givenName || !fields.ronkeId}
         >
           Download Passport
         </Button>
