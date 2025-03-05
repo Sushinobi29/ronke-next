@@ -61,18 +61,18 @@ export default function PassportPage() {
       ctx.textAlign = "left";
       
       // Draw name
-      ctx.font = "bold 48px UglyHandwriting"; // Using custom font
+      ctx.font = "bold 98px UglyHandwriting"; // Using custom font
       ctx.fillText(fields.name, 300, 200);
       
       // Draw rank
-      ctx.font = "32px UglyHandwriting"; // Using custom font
+      ctx.font = "56px UglyHandwriting"; // Using custom font
       ctx.fillText(`Rank: #${fields.rank}`, 300, 300);
       
       // Draw rarity score
       ctx.fillText(`Rarity Score: ${fields.score}`, 300, 350);
       
       // Draw date
-      ctx.font = "24px UglyHandwriting"; // Using custom font
+      ctx.font = "56px UglyHandwriting"; // Using custom font
       ctx.fillText(`Generated: ${fields.date}`, 300, 400);
     };
   };
