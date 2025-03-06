@@ -3,7 +3,7 @@ import { SearchBar } from "./searchbar";
 import { Sort } from "./sort";
 import NoSSR from "./no-ssr";
 import useStore from "@/stores/general-state";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -43,6 +43,10 @@ export function Controls() {
       setIsSearching(false);
     }
   };
+  
+  useEffect(()=>{
+    setShowCommunity(false)
+  }, [])
 
   return (
     <NoSSR>
