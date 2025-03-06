@@ -10,7 +10,7 @@ interface NFTGridProps {
 }
 
 function NFTGrid({ initialData }: NFTGridProps) {
-  const { setNFTs, sortBy, getCurrentNFTs } = useStore();
+  const { setNFTs, sortBy, getCurrentNFTs, showCommunity } = useStore();
   const setIsClient = useState(false)[1];
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +21,7 @@ function NFTGrid({ initialData }: NFTGridProps) {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `/api/nfts?page=${pageNum}&limit=20&sortBy=${sortBy}`
+          `/api/nfts?page=${pageNum}&limit=20&sortBy=${sortBy}&showCommunity=${showCommunity}`
         );
         const data = await response.json();
 
@@ -37,7 +37,7 @@ function NFTGrid({ initialData }: NFTGridProps) {
         setIsLoading(false);
       }
     },
-    [sortBy, setNFTs, getCurrentNFTs]
+    [sortBy, showCommunity, setNFTs, getCurrentNFTs]
   );
 
   useEffect(() => {

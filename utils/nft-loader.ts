@@ -46,9 +46,9 @@ export async function loadNFTData(
       const communityTrait = nft.attributes.find(
         (attr: Attribute) => attr.trait_type === "Community 1/1"
       );
-      
-      // If showCommunity is false, only show non-community NFTs
-      // If showCommunity is true, show all NFTs
+
+      // If showCommunity is true, include community NFTs
+      // If showCommunity is false, exclude community NFTs
       return showCommunity ? true : !communityTrait;
     });
 

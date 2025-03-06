@@ -24,15 +24,26 @@ export async function GET(request: NextRequest) {
         )
       : allNFTs;
 
+    // Filter NFTs based on showCommunity
+    const nftsWithStats = filteredNFTs.filter((nft) => {
+      const communityTrait = nft.attributes.find(
+        (attr: Attribute) => attr.trait_type === "Community 1/1"
+      );
+
+      // If showCommunity is true, include community NFTs
+      // If showCommunity is false, exclude community NFTs
+      return showCommunity ? true : !communityTrait;
+    });
+
     // Handle pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedNFTs = filteredNFTs.slice(startIndex, endIndex);
+    const paginatedNFTs = nftsWithStats.slice(startIndex, endIndex);
 
     return NextResponse.json({
       nfts: paginatedNFTs,
-      hasMore: endIndex < filteredNFTs.length,
-      total: filteredNFTs.length,
+      hasMore: endIndex < nftsWithStats.length,
+      total: nftsWithStats.length,
     });
   } catch (error) {
     return NextResponse.json(
