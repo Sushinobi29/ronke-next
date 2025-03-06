@@ -1,6 +1,11 @@
 import { loadNFTData } from "@/utils/nft-loader";
 import { NextRequest, NextResponse } from "next/server";
 
+type Attribute = {
+  trait_type: string;
+  value: string;
+};
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const page = parseInt(searchParams.get("page") || "1");

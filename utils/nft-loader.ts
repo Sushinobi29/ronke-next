@@ -11,9 +11,9 @@ export interface NFTWithStats extends NFTMetadata {
 
 
 type Attribute = {
-  trait_type: string,
-  value: string
-}
+  trait_type: string;
+  value: string;
+};
 
 export async function loadNFTData(
   limit?: number,
