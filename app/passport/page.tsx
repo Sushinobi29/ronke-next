@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ export default function PassportPage() {
       loadFont();
     }, []);
   
-    const drawPassport = async () => {
+    const drawPassport = useCallback(async () => {
       const canvas = canvasRef.current;
       if (!canvas || !fontLoaded) return;
   
@@ -115,7 +115,7 @@ export default function PassportPage() {
       } catch (error) {
         console.error('Error loading images:', error);
       }
-    };
+    }, [fontLoaded, imageToPlaceSrc, fields]); // Added dependencies
   
     useEffect(() => {
       const idMatch = fields.ronkeId.match(/(\d+)/);
@@ -136,7 +136,7 @@ export default function PassportPage() {
       if (fontLoaded) {
         drawPassport();
       }
-    }, [fields, fontLoaded, imageToPlaceSrc]); // Added imageToPlaceSrc as dependency
+    }, [fields, fontLoaded, imageToPlaceSrc, drawPassport]); // Added imageToPlaceSrc as dependency
   
     const drawSignatureOnMainCanvas = () => {
       const mainCanvas = canvasRef.current; // Get the main canvas reference
@@ -156,7 +156,6 @@ export default function PassportPage() {
     const handleDownload = async () => {
       try {
         const mainCanvas = canvasRef.current;
-        const signatureCanvas = signatureCanvasRef.current;
     
         if (!mainCanvas) return;
     
