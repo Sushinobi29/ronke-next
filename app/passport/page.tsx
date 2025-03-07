@@ -4,6 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
+declare global {
+  interface GlobalEventHandlersEventMap {
+    touchstart: TouchEvent;
+    touchend: TouchEvent;
+    touchmove: TouchEvent;
+  }
+}
+
+
 export default function PassportPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -215,9 +224,9 @@ export default function PassportPage() {
       const ctx = signatureCanvas.getContext("2d");
       if (!ctx) return;
     
-      // Add these initialization properties
-      ctx.strokeStyle = "#00b1ff"; // Set stroke color
-      ctx.lineWidth = 2; // Set line width
+      // Set up drawing properties
+      ctx.strokeStyle = "#00b1ff";
+      ctx.lineWidth = 2;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       
@@ -226,8 +235,9 @@ export default function PassportPage() {
         const scaleX = signatureCanvas.width / rect.width;
         const scaleY = signatureCanvas.height / rect.height;
         
-        const clientX = e instanceof TouchEvent ? e.touches[0].clientX : e.clientX;
-        const clientY = e instanceof TouchEvent ? e.touches[0].clientY : e.clientY;
+        // Handle both mouse and touch events
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
         return {
           x: (clientX - rect.left) * scaleX,
@@ -236,6 +246,7 @@ export default function PassportPage() {
       };
 
       const startDrawing = (e: MouseEvent | TouchEvent) => {
+        e.preventDefault(); // Prevent default touch behavior
         const { x, y } = getScaledCoordinates(e);
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -243,6 +254,7 @@ export default function PassportPage() {
       };
 
       const draw = (e: MouseEvent | TouchEvent) => {
+        e.preventDefault(); // Prevent default touch behavior
         if (!isDrawing) return;
         const { x, y } = getScaledCoordinates(e);
         
@@ -251,20 +263,20 @@ export default function PassportPage() {
       };
 
       const stopDrawing = () => {
-        ctx.closePath();
         setIsDrawing(false);
-        drawSignatureOnMainCanvas()
       };
 
+      // Add event listeners
       signatureCanvas.addEventListener("mousedown", startDrawing);
       signatureCanvas.addEventListener("mousemove", draw);
       signatureCanvas.addEventListener("mouseup", stopDrawing);
       signatureCanvas.addEventListener("mouseout", stopDrawing);
-      signatureCanvas.addEventListener("touchstart", startDrawing);
-      signatureCanvas.addEventListener("touchmove", draw);
+      signatureCanvas.addEventListener("touchstart", startDrawing, { passive: false });
+      signatureCanvas.addEventListener("touchmove", draw, { passive: false });
       signatureCanvas.addEventListener("touchend", stopDrawing);
 
       return () => {
+        // Cleanup event listeners
         signatureCanvas.removeEventListener("mousedown", startDrawing);
         signatureCanvas.removeEventListener("mousemove", draw);
         signatureCanvas.removeEventListener("mouseup", stopDrawing);
@@ -273,7 +285,7 @@ export default function PassportPage() {
         signatureCanvas.removeEventListener("touchmove", draw);
         signatureCanvas.removeEventListener("touchend", stopDrawing);
       };
-    }, [isDrawing]); 
+    }, [isDrawing]);
 
   return (
     <div className="flex flex-col md:flex-row gap-8 p-8">
