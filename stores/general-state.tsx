@@ -5,15 +5,16 @@ import { NFTWithStats } from "@/utils/nft-loader";
 interface GeneralState {
   sortBy: string;
   nfts: NFTWithStats[];
-  searchResults: NFTWithStats[] | null;
   searchQuery: string;
   showCommunity: boolean;
+  hasMore: boolean;
+  currentPage: number;
   setSortBy: (sort: string) => void;
   setNFTs: (nfts: NFTWithStats[]) => void;
   setSearchQuery: (query: string) => void;
-  setSearchResults: (results: NFTWithStats[] | null) => void;
   setShowCommunity: (show: boolean) => void;
-  getSortedNFTs: () => NFTWithStats[];
+  setHasMore: (hasMore: boolean) => void;
+  setCurrentPage: (page: number) => void;
   getCurrentNFTs: () => NFTWithStats[];
 }
 
@@ -22,56 +23,27 @@ const useStore = create<GeneralState>()(
     (set, get) => ({
       sortBy: "rarity-desc",
       nfts: [],
-      searchResults: null,
       searchQuery: "",
       showCommunity: false,
+      hasMore: true,
+      currentPage: 1,
+      
+      // State setters
       setSortBy: (sort) => set({ sortBy: sort }),
       setNFTs: (nfts) => set({ nfts }),
-      setSearchQuery: (query) => set({ searchQuery: query }),
-      setSearchResults: (results) => set({ searchResults: results }),
-      setShowCommunity: (show) => set({ showCommunity: show }),
-      getSortedNFTs: () => {
-        const { nfts, sortBy, searchQuery } = get();
-
-        // First filter by search query
-        const filteredNFTs = searchQuery
-          ? nfts.filter(
-              (nft) =>
-                nft.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                nft.attributes.some((attr) =>
-                  attr.value.toLowerCase().includes(searchQuery.toLowerCase())
-                )
-            )
-          : nfts;
-
-        // Then sort the filtered results
-        switch (sortBy) {
-          case "rarity-desc":
-            return [...filteredNFTs].sort(
-              (a, b) => b.stats.rarityScore - a.stats.rarityScore
-            );
-          case "rarity-asc":
-            return [...filteredNFTs].sort(
-              (a, b) => a.stats.rarityScore - b.stats.rarityScore
-            );
-          case "id-asc":
-            return [...filteredNFTs].sort(
-              (a, b) =>
-                parseInt(a.name.split("#")[1]) - parseInt(b.name.split("#")[1])
-            );
-          case "id-desc":
-            return [...filteredNFTs].sort(
-              (a, b) =>
-                parseInt(b.name.split("#")[1]) - parseInt(a.name.split("#")[1])
-            );
-          default:
-            return filteredNFTs;
-        }
-      },
-      getCurrentNFTs: () => {
-        const { searchResults, nfts } = get();
-        return searchResults !== null ? searchResults : nfts;
-      },
+      setSearchQuery: (query) => set({ 
+        searchQuery: query,
+        currentPage: 1 // Reset to first page when search changes
+      }),
+      setShowCommunity: (show) => set({ 
+        showCommunity: show,
+        currentPage: 1 // Reset to first page when filter changes
+      }),
+      setHasMore: (hasMore) => set({ hasMore }),
+      setCurrentPage: (page) => set({ currentPage: page }),
+      
+      // Get current NFTs (direct from store)
+      getCurrentNFTs: () => get().nfts
     }),
     {
       name: "general-storage",

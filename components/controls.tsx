@@ -8,17 +8,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
 export function Controls() {
-  const { setSearchResults, setNFTs, showCommunity, setShowCommunity } = useStore();
+  const { 
+    setSearchQuery, 
+    setNFTs, 
+    showCommunity, 
+    setShowCommunity,
+    setHasMore,
+    setCurrentPage
+  } = useStore();
   const [isSearching, setIsSearching] = useState(false);
 
   const handleSearch = async (query: string) => {
     setIsSearching(true);
     try {
+      setSearchQuery(query);
+      setCurrentPage(1);
+      
       const response = await fetch(
         `/api/nfts?page=1&limit=20&search=${encodeURIComponent(query)}&showCommunity=${showCommunity}`
       );
       const data = await response.json();
-      setSearchResults(query ? data.nfts : null);
+      
+      setNFTs(data.nfts);
+      setHasMore(data.hasMore);
     } catch (error) {
       console.error("Error searching NFTs:", error);
     } finally {
@@ -28,25 +40,27 @@ export function Controls() {
 
   const handleCommunityToggle = async (checked: boolean) => {
     setShowCommunity(checked);
+    setCurrentPage(1);
     setIsSearching(true);
+    
     try {
-      // Fetch new NFTs with updated showCommunity value
       const response = await fetch(
         `/api/nfts?page=1&limit=20&showCommunity=${checked}`
       );
       const data = await response.json();
+      
       setNFTs(data.nfts);
-      setSearchResults(null); // Reset search results when toggling community filter
+      setHasMore(data.hasMore);
     } catch (error) {
       console.error("Error fetching NFTs:", error);
     } finally {
       setIsSearching(false);
     }
   };
-  
-  useEffect(()=>{
-    setShowCommunity(false)
-  }, [])
+
+  useEffect(() => {
+    setShowCommunity(false);
+  }, [setShowCommunity]);
 
   return (
     <NoSSR>

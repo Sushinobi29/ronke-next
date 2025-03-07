@@ -10,34 +10,44 @@ interface NFTGridProps {
 }
 
 function NFTGrid({ initialData }: NFTGridProps) {
-  const { setNFTs, sortBy, getCurrentNFTs, showCommunity } = useStore();
+  const { 
+    setNFTs, 
+    sortBy, 
+    getCurrentNFTs, 
+    showCommunity, 
+    searchQuery,
+    hasMore,
+    setHasMore,
+    setCurrentPage
+  } = useStore();
   const setIsClient = useState(false)[1];
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
 
   const loadNFTs = useCallback(
     async (pageNum: number, resetData: boolean = false) => {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `/api/nfts?page=${pageNum}&limit=20&sortBy=${sortBy}&showCommunity=${showCommunity}`
+          `/api/nfts?page=${pageNum}&limit=40&sortBy=${sortBy}&showCommunity=${showCommunity}&search=${searchQuery}`
         );
         const data = await response.json();
-
-        if (data.nfts.length > 0) {
-          setNFTs(resetData ? data.nfts : [...getCurrentNFTs(), ...data.nfts]);
-          setHasMore(data.hasMore);
+  
+        if (resetData) {
+          setNFTs(data.nfts);
         } else {
-          setHasMore(false);
+          setNFTs([...getCurrentNFTs(), ...data.nfts]);
         }
+        
+        setHasMore(data.hasMore);
+        setCurrentPage(pageNum);
       } catch (error) {
         console.error("Error loading NFTs:", error);
       } finally {
         setIsLoading(false);
       }
     },
-    [sortBy, showCommunity, setNFTs, getCurrentNFTs]
+    [sortBy, showCommunity, searchQuery, setNFTs, getCurrentNFTs, setHasMore, setCurrentPage]
   );
 
   useEffect(() => {
@@ -45,16 +55,16 @@ function NFTGrid({ initialData }: NFTGridProps) {
     setNFTs(initialData);
   }, [initialData, setIsClient, setNFTs]);
 
-  // Reset and reload when sort changes
+  // Reset and reload when sort or search changes
   useEffect(() => {
-    setPage(1);
-    loadNFTs(1, true);
-  }, [sortBy, loadNFTs]);
+    setPage(1); // Reset to the first page
+    loadNFTs(1, true); // Load the first page with resetData set to true
+  }, [sortBy, showCommunity, searchQuery, loadNFTs]);
 
   const loadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    loadNFTs(nextPage, false);
+    loadNFTs(nextPage, false); // Load the next page without resetting data
   };
 
   const displayedNfts = getCurrentNFTs();

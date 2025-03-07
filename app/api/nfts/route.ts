@@ -9,7 +9,7 @@ type Attribute = {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const page = parseInt(searchParams.get("page") || "1");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const limit = parseInt(searchParams.get("limit") || "40");
   const sortBy = searchParams.get("sortBy") || "rarity-desc";
   const search = searchParams.get("search") || "";
   const showCommunity = searchParams.get("showCommunity") === "true";
@@ -37,13 +37,15 @@ export async function GET(request: NextRequest) {
 
       // If showCommunity is true, include community NFTs
       // If showCommunity is false, exclude community NFTs
-      return showCommunity ? true : !communityTrait;
+      return showCommunity ? communityTrait : !communityTrait;
     });
 
     // Handle pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedNFTs = nftsWithStats.slice(startIndex, endIndex);
+
+    console.log({ paginatedNFTs });
 
     return NextResponse.json({
       nfts: paginatedNFTs,
