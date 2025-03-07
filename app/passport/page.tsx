@@ -221,25 +221,28 @@ export default function PassportPage() {
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       
-      const getScaledCoordinates = (e: MouseEvent) => {
+      const getScaledCoordinates = (e: MouseEvent | TouchEvent) => {
         const rect = signatureCanvas.getBoundingClientRect();
         const scaleX = signatureCanvas.width / rect.width;
         const scaleY = signatureCanvas.height / rect.height;
         
+        const clientX = e instanceof TouchEvent ? e.touches[0].clientX : e.clientX;
+        const clientY = e instanceof TouchEvent ? e.touches[0].clientY : e.clientY;
+
         return {
-          x: (e.clientX - rect.left) * scaleX,
-          y: (e.clientY - rect.top) * scaleY
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
         };
       };
 
-      const startDrawing = (e: MouseEvent) => {
+      const startDrawing = (e: MouseEvent | TouchEvent) => {
         const { x, y } = getScaledCoordinates(e);
         ctx.beginPath();
         ctx.moveTo(x, y);
         setIsDrawing(true);
       };
 
-      const draw = (e: MouseEvent) => {
+      const draw = (e: MouseEvent | TouchEvent) => {
         if (!isDrawing) return;
         const { x, y } = getScaledCoordinates(e);
         
@@ -257,12 +260,18 @@ export default function PassportPage() {
       signatureCanvas.addEventListener("mousemove", draw);
       signatureCanvas.addEventListener("mouseup", stopDrawing);
       signatureCanvas.addEventListener("mouseout", stopDrawing);
+      signatureCanvas.addEventListener("touchstart", startDrawing);
+      signatureCanvas.addEventListener("touchmove", draw);
+      signatureCanvas.addEventListener("touchend", stopDrawing);
 
       return () => {
         signatureCanvas.removeEventListener("mousedown", startDrawing);
         signatureCanvas.removeEventListener("mousemove", draw);
         signatureCanvas.removeEventListener("mouseup", stopDrawing);
         signatureCanvas.removeEventListener("mouseout", stopDrawing);
+        signatureCanvas.removeEventListener("touchstart", startDrawing);
+        signatureCanvas.removeEventListener("touchmove", draw);
+        signatureCanvas.removeEventListener("touchend", stopDrawing);
       };
     }, [isDrawing]); 
 
