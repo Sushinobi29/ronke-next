@@ -15,46 +15,98 @@ export async function GET(request: NextRequest) {
   const showCommunity = searchParams.get("showCommunity") === "true";
 
   try {
-    // Get pre-sorted NFTs from the loader
-    const allNFTs = await loadNFTData(undefined, undefined, sortBy, showCommunity);
+    // Load all NFTs without initial sorting
+    const allNFTs = await loadNFTData();
 
-    // Filter NFTs by search query
-    const filteredNFTs = search
-      ? allNFTs.filter(
-          (nft) =>
-            nft.name.toLowerCase().includes(search.toLowerCase()) ||
-            nft.attributes.some((attr) =>
-              attr.value.toLowerCase().includes(search.toLowerCase())
-            )
-        )
-      : allNFTs;
+    // Add relevance scoring
+    const scoredNFTs = search
+      ? allNFTs.map(nft => {
+          const cleanName = nft.name.toLowerCase();
+          const searchTerm = search.toLowerCase();
+          const exactNumberMatch = nft.name.match(/#(\d+)$/);
+          const searchNumber = parseInt(search);
+          
+          let relevanceScore = 0;
+          
+          // Exact ID match (e.g. #13)
+          if (exactNumberMatch && parseInt(exactNumberMatch[1]) === searchNumber) {
+            relevanceScore = 100;
+          }
+          // Name contains exact search term
+          else if (cleanName.includes(searchTerm)) {
+            relevanceScore = 50;
+          }
+          
+          // Attribute matches
+          const attributeMatches = nft.attributes.filter(attr => 
+            attr.value.toLowerCase().includes(searchTerm)
+          ).length;
+          
+          // Partial number matches (e.g. 1337 contains 13)
+          const idNumber = parseInt(nft.name.split("#")[1]) || 0;
+          if (!isNaN(searchNumber) && idNumber.toString().includes(search)) {
+            relevanceScore += 10;
+          }
+
+          return {
+            ...nft,
+            relevanceScore: relevanceScore + attributeMatches
+          };
+        })
+      : allNFTs.map(nft => ({...nft, relevanceScore: 0}));
 
     // Filter NFTs based on showCommunity
-    const nftsWithStats = filteredNFTs.filter((nft) => {
+    const nftsWithStats = scoredNFTs.filter((nft) => {
       const communityTrait = nft.attributes.find(
         (attr: Attribute) => attr.trait_type === "Community 1/1"
       );
-
-      // If showCommunity is true, include community NFTs
-      // If showCommunity is false, exclude community NFTs
       return showCommunity ? communityTrait : !communityTrait;
     });
 
-    // Handle pagination
+    // Sort logic
+    let sortedNFTs = [...nftsWithStats];
+    if (search && sortBy === "relevance") {
+      sortedNFTs = sortedNFTs.sort((a, b) => 
+        b.relevanceScore - a.relevanceScore || // First by relevance
+        b.stats.rarityScore - a.stats.rarityScore // Then by rarity
+      );
+    } else {
+      switch (sortBy) {
+        case "relevance": // Fallback if no search
+        case "rarity-desc":
+          sortedNFTs.sort((a, b) => b.stats.rarityScore - a.stats.rarityScore);
+          break;
+        case "rarity-asc":
+          sortedNFTs.sort((a, b) => a.stats.rarityScore - b.stats.rarityScore);
+          break;
+        case "id-asc":
+          sortedNFTs.sort((a, b) => 
+            parseInt(a.name.split("#")[1]) - parseInt(b.name.split("#")[1])
+          );
+          break;
+        case "id-desc":
+          sortedNFTs.sort((a, b) => 
+            parseInt(b.name.split("#")[1]) - parseInt(a.name.split("#")[1])
+          );
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Pagination
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
-    const paginatedNFTs = nftsWithStats.slice(startIndex, endIndex);
-
-    console.log({ paginatedNFTs });
+    const paginatedNFTs = sortedNFTs.slice(startIndex, endIndex);
 
     return NextResponse.json({
       nfts: paginatedNFTs,
-      hasMore: endIndex < nftsWithStats.length,
-      total: nftsWithStats.length,
+      hasMore: endIndex < sortedNFTs.length,
+      total: sortedNFTs.length,
     });
   } catch (error) {
     return NextResponse.json(
-      { error: "Failed to load NFTs, " + error },
+      { error: "Failed to load NFTs: " + (error instanceof Error ? error.message : "Unknown error") },
       { status: 500 }
     );
   }

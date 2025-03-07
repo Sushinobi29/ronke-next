@@ -14,7 +14,8 @@ export function Controls() {
     showCommunity, 
     setShowCommunity,
     setHasMore,
-    setCurrentPage
+    setCurrentPage,
+    setSortBy
   } = useStore();
   const [isSearching, setIsSearching] = useState(false);
 
@@ -23,9 +24,10 @@ export function Controls() {
     try {
       setSearchQuery(query);
       setCurrentPage(1);
+      setSortBy("relevance"); // Set default sort to relevance when searching
       
       const response = await fetch(
-        `/api/nfts?page=1&limit=20&search=${encodeURIComponent(query)}&showCommunity=${showCommunity}`
+        `/api/nfts?page=1&limit=20&search=${encodeURIComponent(query)}&showCommunity=${showCommunity}&sortBy=relevance`
       );
       const data = await response.json();
       

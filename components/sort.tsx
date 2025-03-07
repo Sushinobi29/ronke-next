@@ -37,6 +37,10 @@ const options = [
     value: "id-desc",
     label: "ID: Highest to Lowest",
   },
+  {
+    value: "relevance",
+    label: "Relevance",
+  },
 ];
 
 export function Sort() {

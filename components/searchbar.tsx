@@ -4,6 +4,7 @@ import * as React from "react";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import useStore from "@/stores/general-state";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -11,7 +12,10 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ onSearch, isLoading = false }: SearchBarProps) {
-  const [query, setQuery] = React.useState("");
+  const { 
+    searchQuery
+  } = useStore();
+  const [query, setQuery] = React.useState(searchQuery);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleSearch = () => {
