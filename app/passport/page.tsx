@@ -103,14 +103,14 @@ export default function PassportPage() {
         ctx.fillStyle = "black";
         ctx.fillText(`${fields.date.replaceAll("/", "-")}`, 900, 1620);
 
-        const randomX = Math.floor(Math.random() * 91); // Randomize X position by -20 to 20
-        const randomY = Math.floor(Math.random() * 91); // Randomize Y position by -20 to 20
-        const rotation = (Math.random() * 45 - 10) * (Math.PI / 180); // Random rotation between -15 and 15 degrees
-        ctx.save(); // Save the current state
-        ctx.translate(randomX + 500 + 388.5, randomY + 150 + 388.5); // Move to the center of the stamp
-        ctx.rotate(rotation); // Rotate the context
-        ctx.drawImage(stamp, -388.5, -388.5, 777, 777); // Draw the image centered at the new position
-        ctx.restore(); // Restore the original state
+        // const randomX = Math.floor(Math.random() * 91); // Randomize X position by -20 to 20
+        // const randomY = Math.floor(Math.random() * 91); // Randomize Y position by -20 to 20
+        // const rotation = (Math.random() * 45 - 10) * (Math.PI / 180); // Random rotation between -15 and 15 degrees
+        // ctx.save(); // Save the current state
+        // ctx.translate(randomX + 500 + 388.5, randomY + 150 + 388.5); // Move to the center of the stamp
+        // ctx.rotate(rotation); // Rotate the context
+        // ctx.drawImage(stamp, -388.5, -388.5, 777, 777); // Draw the image centered at the new position
+        // ctx.restore(); // Restore the original state
 
       } catch (error) {
         console.error('Error loading images:', error);
