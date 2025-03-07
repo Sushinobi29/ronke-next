@@ -57,11 +57,10 @@ export default function PassportPage() {
       });
   
       try {
-        const [bgImg, maskImg, nftImage, stamp] = await Promise.all([
+        const [bgImg, maskImg, nftImage] = await Promise.all([
           loadImage("/passport/passport.png"),
           loadImage("/passport/photomask2.png"),
           imageToPlaceSrc ? loadImage(imageToPlaceSrc) : null,
-          loadImage("/passport/stamp.png"),
         ]);
     
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
