@@ -146,20 +146,20 @@ export default function PassportPage() {
       }
     }, [fields, fontLoaded, imageToPlaceSrc, drawPassport]); // Added imageToPlaceSrc as dependency
   
-    // const drawSignatureOnMainCanvas = () => {
-    //   const mainCanvas = canvasRef.current; // Get the main canvas reference
-    //   const signatureCanvas = signatureCanvasRef.current; // Get the signature canvas reference
+    const drawSignatureOnMainCanvas = () => {
+      const mainCanvas = canvasRef.current; // Get the main canvas reference
+      const signatureCanvas = signatureCanvasRef.current; // Get the signature canvas reference
 
-    //   if (!mainCanvas || !signatureCanvas) return;
+      if (!mainCanvas || !signatureCanvas) return;
 
-    //   const mainCtx = mainCanvas.getContext("2d");
-    //   const signatureCtx = signatureCanvas.getContext("2d");
+      const mainCtx = mainCanvas.getContext("2d");
+      const signatureCtx = signatureCanvas.getContext("2d");
 
-    //   if (!mainCtx || !signatureCtx) return;
+      if (!mainCtx || !signatureCtx) return;
 
-    //   // Draw the signature canvas onto the main canvas at (1400, 1500)
-    //   mainCtx.drawImage(signatureCanvas, 1300, 1550);
-    // };
+      // Draw the signature canvas onto the main canvas at (1400, 1500)
+      mainCtx.drawImage(signatureCanvas, 1300, 1550);
+    };
   
     const handleDownload = async () => {
       try {
@@ -264,6 +264,7 @@ export default function PassportPage() {
 
       const stopDrawing = () => {
         setIsDrawing(false);
+        drawSignatureOnMainCanvas()
       };
 
       // Add event listeners
