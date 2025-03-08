@@ -11,11 +11,8 @@ import { useNFTFetcher } from "@/hooks/useNftFetcher";
 export function Controls() {
   const { 
     setSearchQuery, 
-    setNFTs, 
     showCommunity, 
     setShowCommunity,
-    setHasMore,
-    setCurrentPage,
     setSortBy
   } = useStore();
   const [isSearching, setIsSearching] = useState(false);

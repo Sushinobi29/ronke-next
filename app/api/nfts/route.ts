@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: "Failed to load NFTs" },
+      { error: `Failed to load NFTs ${error}` },
       { status: 500 }
     );
   }
