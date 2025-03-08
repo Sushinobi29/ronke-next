@@ -4,6 +4,7 @@ import NFTCard from "./nft-card";
 import useStore from "@/stores/general-state";
 import { NFTWithStats } from "@/utils/nft-loader";
 import NoSSR from "./no-ssr";
+import { useNFTFetcher } from "@/hooks/useNftFetcher";
 
 interface NFTGridProps {
   initialData: NFTWithStats[];
@@ -13,41 +14,28 @@ function NFTGrid({ initialData }: NFTGridProps) {
   const { 
     setNFTs, 
     sortBy, 
-    getCurrentNFTs, 
+    nfts, 
     showCommunity, 
     searchQuery,
     hasMore,
-    setHasMore,
+    currentPage,
     setCurrentPage
   } = useStore();
   const setIsClient = useState(false)[1];
-  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const { handleFetch } = useNFTFetcher();
 
   const loadNFTs = useCallback(
     async (pageNum: number, resetData: boolean = false) => {
       setIsLoading(true);
-      try {
-        const response = await fetch(
-          `/api/nfts?page=${pageNum}&limit=40&sortBy=${sortBy}&showCommunity=${showCommunity}&search=${searchQuery}`
-        );
-        const data = await response.json();
-  
-        if (resetData) {
-          setNFTs(data.nfts);
-        } else {
-          setNFTs([...getCurrentNFTs(), ...data.nfts]);
-        }
-        
-        setHasMore(data.hasMore);
-        setCurrentPage(pageNum);
-      } catch (error) {
-        console.error("Error loading NFTs:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      const success = await handleFetch(
+        { page: pageNum, limit: 40, resetData },
+        { sortBy, showCommunity, search: searchQuery }
+      );
+      setIsLoading(false);
+      return success;
     },
-    [sortBy, showCommunity, searchQuery, setNFTs, getCurrentNFTs, setHasMore, setCurrentPage]
+    [handleFetch, sortBy, showCommunity, searchQuery]
   );
 
   useEffect(() => {
@@ -55,19 +43,18 @@ function NFTGrid({ initialData }: NFTGridProps) {
     setNFTs(initialData);
   }, [initialData, setIsClient, setNFTs]);
 
-  // Reset and reload when sort or search changes
   useEffect(() => {
-    setPage(1); // Reset to the first page
-    loadNFTs(1, true); // Load the first page with resetData set to true
-  }, [sortBy, showCommunity, searchQuery, loadNFTs]);
+    setCurrentPage(1); 
+    loadNFTs(1, true); 
+  }, [sortBy, showCommunity, setCurrentPage, searchQuery, loadNFTs]);
 
   const loadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    loadNFTs(nextPage, false); // Load the next page without resetting data
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    loadNFTs(nextPage, false); 
   };
 
-  const displayedNfts = getCurrentNFTs();
+  const displayedNfts = Array.isArray(nfts) ? nfts : [];
 
   return (
     <div className="flex flex-col items-center gap-4">

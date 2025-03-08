@@ -15,7 +15,6 @@ interface GeneralState {
   setShowCommunity: (show: boolean) => void;
   setHasMore: (hasMore: boolean) => void;
   setCurrentPage: (page: number) => void;
-  getCurrentNFTs: () => NFTWithStats[];
 }
 
 const useStore = create<GeneralState>()(
@@ -28,22 +27,19 @@ const useStore = create<GeneralState>()(
       hasMore: true,
       currentPage: 1,
       
-      // State setters
+      // setters
       setSortBy: (sort) => set({ sortBy: sort }),
       setNFTs: (nfts) => set({ nfts }),
       setSearchQuery: (query) => set({ 
         searchQuery: query,
-        currentPage: 1 // Reset to first page when search changes
+        currentPage: 1 
       }),
       setShowCommunity: (show) => set({ 
         showCommunity: show,
-        currentPage: 1 // Reset to first page when filter changes
+        currentPage: 1 
       }),
       setHasMore: (hasMore) => set({ hasMore }),
       setCurrentPage: (page) => set({ currentPage: page }),
-      
-      // Get current NFTs (direct from store)
-      getCurrentNFTs: () => get().nfts
     }),
     {
       name: "general-storage",

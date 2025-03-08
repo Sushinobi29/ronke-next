@@ -2,35 +2,58 @@ import fs from "fs";
 import path from "path";
 import { NFTMetadata } from "@/shared/types/Metadata";
 
-export interface NFTWithStats extends NFTMetadata {
-  stats: {
-    rank: number;
-    rarityScore: number;
-  };
-}
-
-
 type Attribute = {
   trait_type: string;
   value: string;
 };
 
-export async function loadNFTData(
-  limit?: number,
-  page: number = 1,
-  sortBy: string = "rarity-desc",
-  showCommunity: boolean = false
-): Promise<NFTWithStats[]> {
+export interface NFTWithStats extends NFTMetadata {
+  stats: {
+    rank: number;
+    rarityScore: number;
+  };
+  relevanceScore?: number;
+}
+
+type LoadOptions = {
+  limit?: number;
+  page?: number;
+  sortBy?: string;
+  showCommunity?: boolean;
+  search?: string;
+};
+
+const MAX_LIMIT = 100;
+const CACHE = new Map<string, any>();
+
+function getCacheKey(options: LoadOptions) {
+  return JSON.stringify(options);
+}
+
+export async function loadNFTData(options: LoadOptions = {}): Promise<{
+  nfts: NFTWithStats[];
+  total: number;
+  hasMore: boolean;
+}> {
+
+  const cacheKey = getCacheKey(options);
+  
+  if (CACHE.has(cacheKey)) {
+    return CACHE.get(cacheKey);
+  }
+
+  options.limit = Math.min(options.limit || 40, MAX_LIMIT);
+
+  
   try {
     const statsPath = path.join(process.cwd(), "nft-statistics.json");
     const statsData = JSON.parse(fs.readFileSync(statsPath, "utf-8"));
 
-    let nftsWithStats = await Promise.all(
+    // Load base data
+    let nfts = await Promise.all(
       statsData.nftRankings.map(async (ranking: any) => {
         const nftPath = path.join(process.cwd(), "data", `${ranking.id}.json`);
-        const nftData: NFTMetadata = JSON.parse(
-          fs.readFileSync(nftPath, "utf-8")
-        );
+        const nftData: NFTMetadata = JSON.parse(fs.readFileSync(nftPath, "utf-8"));
         return {
           ...nftData,
           stats: {
@@ -41,43 +64,69 @@ export async function loadNFTData(
       })
     );
 
-    // Filter NFTs based on showCommunity
-    nftsWithStats = nftsWithStats.filter((nft) => {
-      const communityTrait = nft.attributes.find(
-        (attr: Attribute) => attr.trait_type === "Community 1/1"
+    // Apply community filter
+    nfts = nfts.filter(nft => {
+      const hasCommunity = nft.attributes.some(
+        (attr:Attribute) => attr.trait_type === "Community 1/1"
       );
-
-      // If showCommunity is true, include community NFTs
-      // If showCommunity is false, exclude community NFTs
-      return showCommunity ? true : !communityTrait;
+      return options.showCommunity ? hasCommunity : !hasCommunity;
     });
 
-    // Sort the NFTs
-    nftsWithStats = nftsWithStats.sort((a, b) => {
-      switch (sortBy) {
-        case "rarity-desc":
-          return b.stats.rarityScore - a.stats.rarityScore;
-        case "rarity-asc":
-          return a.stats.rarityScore - b.stats.rarityScore;
-        case "id-asc":
-          return parseInt(a.name.split("#")[1]) - parseInt(b.name.split("#")[1]);
-        case "id-desc":
-          return parseInt(b.name.split("#")[1]) - parseInt(a.name.split("#")[1]);
-        default:
-          return 0;
+    // Calculate relevance scores if searching
+    if (options.search) {
+      const searchTerm = options.search.toLowerCase();
+      nfts = nfts.map(nft => {
+        let relevance = 0;
+        const cleanName = nft.name.toLowerCase();
+        
+        // Exact ID match
+        const idMatch = nft.name.match(/#(\d+)$/);
+        if (idMatch && idMatch[1] === options.search) relevance += 100;
+        
+        // Name contains search term
+        if (cleanName.includes(searchTerm)) relevance += 50;
+        
+        // Attribute matches
+        relevance += nft.attributes.filter((attr:Attribute) => 
+          attr.value.toLowerCase().includes(searchTerm)
+        ).length;
+
+        return { ...nft, relevanceScore: relevance };
+      }).filter(nft => nft.relevanceScore > 0);
+    }
+
+    // Sorting
+    nfts.sort((a, b) => {
+      if (options.search && options.sortBy === "relevance") {
+        return (b.relevanceScore || 0) - (a.relevanceScore || 0) || 
+               b.stats.rarityScore - a.stats.rarityScore;
+      }
+      
+      switch (options.sortBy) {
+        case "rarity-desc": return b.stats.rarityScore - a.stats.rarityScore;
+        case "rarity-asc": return a.stats.rarityScore - b.stats.rarityScore;
+        case "id-asc": return parseInt(a.name.split("#")[1]) - parseInt(b.name.split("#")[1]);
+        case "id-desc": return parseInt(b.name.split("#")[1]) - parseInt(a.name.split("#")[1]);
+        default: return 0;
       }
     });
 
-    // Handle pagination
-    if (limit) {
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      return nftsWithStats.slice(startIndex, endIndex);
-    }
+    // Pagination
+    const total = nfts.length;
+    const startIndex = ((options.page || 1) - 1) * (options.limit || 40);
+    const endIndex = startIndex + (options.limit || 40);
+    
+    const result = {
+      nfts: nfts.slice(startIndex, endIndex),
+      total,
+      hasMore: endIndex < total
+    };
 
-    return nftsWithStats;
+    CACHE.set(cacheKey, result);
+    return result;
+
   } catch (error) {
     console.error("Error loading NFT data:", error);
-    return [];
+    return { nfts: [], total: 0, hasMore: false };
   }
 }

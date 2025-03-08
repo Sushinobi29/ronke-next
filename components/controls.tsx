@@ -6,6 +6,7 @@ import useStore from "@/stores/general-state";
 import { useEffect, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { useNFTFetcher } from "@/hooks/useNftFetcher";
 
 export function Controls() {
   const { 
@@ -18,46 +19,31 @@ export function Controls() {
     setSortBy
   } = useStore();
   const [isSearching, setIsSearching] = useState(false);
+  const { handleFetch } = useNFTFetcher();
 
   const handleSearch = async (query: string) => {
     setIsSearching(true);
-    try {
-      setSearchQuery(query);
-      setCurrentPage(1);
-      setSortBy("relevance"); // Set default sort to relevance when searching
-      
-      const response = await fetch(
-        `/api/nfts?page=1&limit=20&search=${encodeURIComponent(query)}&showCommunity=${showCommunity}&sortBy=relevance`
-      );
-      const data = await response.json();
-      
-      setNFTs(data.nfts);
-      setHasMore(data.hasMore);
-    } catch (error) {
-      console.error("Error searching NFTs:", error);
-    } finally {
-      setIsSearching(false);
-    }
+    setSearchQuery(query);
+    setSortBy("relevance");
+    
+    await handleFetch(
+      { page: 1, limit: 40, resetData: true },
+      { search: query, sortBy: "relevance" }
+    );
+    
+    setIsSearching(false);
   };
 
   const handleCommunityToggle = async (checked: boolean) => {
-    setShowCommunity(checked);
-    setCurrentPage(1);
     setIsSearching(true);
+    setShowCommunity(checked);
     
-    try {
-      const response = await fetch(
-        `/api/nfts?page=1&limit=20&showCommunity=${checked}`
-      );
-      const data = await response.json();
-      
-      setNFTs(data.nfts);
-      setHasMore(data.hasMore);
-    } catch (error) {
-      console.error("Error fetching NFTs:", error);
-    } finally {
-      setIsSearching(false);
-    }
+    await handleFetch(
+      { page: 1, limit: 40, resetData: true },
+      { showCommunity: checked }
+    );
+    
+    setIsSearching(false);
   };
 
   useEffect(() => {

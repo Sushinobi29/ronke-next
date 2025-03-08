@@ -79,7 +79,7 @@ class NFTStatsGenerator {
       };
     });
 
-    // Sort NFTs by rarity score (descending)
+    // Sort NFTs by rarity score 
     this.nftRarities.sort((a, b) => b.rarityScore - a.rarityScore);
   }
 
@@ -98,7 +98,6 @@ class NFTStatsGenerator {
     }, 0);
 
     // Apply multiplier for special 1/1 NFTs
-    // You can adjust the multiplier (2.5) to make special NFTs more or less rare
     if (isSpecial1of1) {
       score *= 3.5;
     }
@@ -122,7 +121,6 @@ class NFTStatsGenerator {
       }, {} as { [key: string]: number }),
     };
 
-    // Write statistics to file
     fs.writeFileSync(
       path.join(process.cwd(), "nft-statistics.json"),
       JSON.stringify(statistics, null, 2)
@@ -139,6 +137,5 @@ class NFTStatsGenerator {
   }
 }
 
-// Run the generator
 const generator = new NFTStatsGenerator();
 generator.generate().catch(console.error);

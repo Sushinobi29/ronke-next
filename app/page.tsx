@@ -4,15 +4,19 @@ import NFTGridWrapper from "@/components/nft-grid";
 import { loadNFTData } from "@/utils/nft-loader";
 
 export default async function Home() {
-  // Instead of using fetch, let's directly use our loadNFTData function
-  const initialNFTData = await loadNFTData(20);
+  const initialNFTData = await loadNFTData({ 
+    limit: 20,
+    page: 1,
+    sortBy: "rarity-desc",
+    showCommunity: false 
+  });
 
   return (
     <div>
       <Header />
       <main className="min-w-screen min-h-screen md:px-8 mt-12">
         <Controls />
-        <NFTGridWrapper initialData={initialNFTData} />
+        <NFTGridWrapper initialData={initialNFTData.nfts} />
       </main>
       {/* <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
        
