@@ -37,8 +37,8 @@ This project is a Next.js-powered NFT exploration platform that enables users to
 2. **Setup**:  
    ```bash
    # Clone the repository
-   git clone https://github.com/your-username/ronkeverse.git
-   cd ronkeverse
+   git clone https://github.com/Clstialdev/ronke-next.git
+   cd ronke-next
 
    # Install dependencies
    pnpm install
@@ -66,22 +66,23 @@ NEXT_PUBLIC_API_URL=http://localhost:3000/api/nfts
 ├── app/                   # App Router routes
 ├── components/            # Reusable UI components (SearchBar, Sort, NFTGrid)
 ├── stores/                # Zustand state management
+├── hooks/                 # Custom hooks
 ├── utils/                 # Utilities (NFT data loader, API helpers)
 ├── data/                  # NFT metadata JSON files
 ├── public/                # Static assets
-└── types/                 # TypeScript type definitions
+└── shared/types/          # TypeScript type definitions
 ```
 
 ---
 
 ### 🧩 Scripts  
-| Command           | Description                          |
-|-------------------|--------------------------------------|
-| `pnpm dev`        | Start development server             |
-| `pnpm build`      | Create optimized production build    |
-| `pnpm start`      | Run production build                 |
-| `pnpm lint`       | Run ESLint for code quality checks   |
-| `pnpm typecheck`  | Validate TypeScript types            |
+| Command              | Description                          |
+|----------------------|--------------------------------------|
+| `pnpm dev`           | Start development server             |
+| `pnpm build`         | Create optimized production build    |
+| `pnpm start`         | Run production build                 |
+| `pnpm lint`          | Run ESLint for code quality checks   |
+| `pnpm generate-stats`| Generate statistics and rankings     |
 
 ---
 
