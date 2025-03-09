@@ -92,6 +92,7 @@ export default function NFTCard({ metadata, stats, priceInfo }: NFTCardProps) {
                 width={16}
                 height={16}
                 className="w-4 h-5"
+                unoptimized
               />
               {isLoading ? (
                 <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
