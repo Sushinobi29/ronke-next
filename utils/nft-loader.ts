@@ -13,6 +13,18 @@ export interface NFTWithStats extends NFTMetadata {
     rarityScore: number;
   };
   relevanceScore?: number;
+  priceInfo?: {
+    minPrice: string;
+    order?: {
+      basePrice: string;
+      currentPrice: string;
+    };
+    highestOffer?: {
+      currentPrice: string;
+      basePrice: string;
+      suggestedPrice: string;
+    };
+  };
 }
 
 type LoadOptions = {
@@ -25,9 +37,13 @@ type LoadOptions = {
 
 const MAX_LIMIT = 100;
 const CACHE = new Map<string, any>();
+const CACHE_TTL = 320000; // 320 seconds
 
 function getCacheKey(options: LoadOptions) {
-  return JSON.stringify(options);
+  return JSON.stringify({
+    ...options,
+    timestamp: Math.floor(Date.now() / CACHE_TTL) // New cache key every 320s
+  });
 }
 
 export async function loadNFTData(options: LoadOptions = {}): Promise<{
