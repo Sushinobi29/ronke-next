@@ -4,10 +4,8 @@ import { Sort } from "./sort";
 import NoSSR from "./no-ssr";
 import useStore from "@/stores/general-state";
 import { useEffect, useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useNFTFetcher } from "@/hooks/useNftFetcher";
-import { Toggle } from "./ui/toggle";
 import { Switch } from "./ui/switch";
 
 export function Controls() {
