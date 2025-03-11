@@ -7,13 +7,17 @@ import { useEffect, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useNFTFetcher } from "@/hooks/useNftFetcher";
+import { Toggle } from "./ui/toggle";
+import { Switch } from "./ui/switch";
 
 export function Controls() {
-  const { 
-    setSearchQuery, 
-    showCommunity, 
+  const {
+    setSearchQuery,
+    showCommunity,
     setShowCommunity,
-    setSortBy
+    setSortBy,
+    onlyListed,
+    setOnlyListed,
   } = useStore();
   const [isSearching, setIsSearching] = useState(false);
   const { handleFetch } = useNFTFetcher();
@@ -22,24 +26,24 @@ export function Controls() {
     setIsSearching(true);
     setSearchQuery(query);
     setSortBy("relevance");
-    
+
     await handleFetch(
-      { page: 1, limit: 40, resetData: true },
+      { page: 1, limit: 80, resetData: true },
       { search: query, sortBy: "relevance" }
     );
-    
+
     setIsSearching(false);
   };
 
   const handleCommunityToggle = async (checked: boolean) => {
     setIsSearching(true);
     setShowCommunity(checked);
-    
+
     await handleFetch(
-      { page: 1, limit: 40, resetData: true },
+      { page: 1, limit: 80, resetData: true },
       { showCommunity: checked }
     );
-    
+
     setIsSearching(false);
   };
 
@@ -53,16 +57,24 @@ export function Controls() {
         <div className="w-full md:col-span-4 flex gap-4 items-center">
           <Sort />
           <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="community" 
+            <Switch
+              id="community"
               checked={showCommunity}
-              onCheckedChange={(checked) => handleCommunityToggle(checked as boolean)}
+              onCheckedChange={handleCommunityToggle}
+              aria-label="Toggle community 1/1s"
             />
-            <Label 
-              htmlFor="community" 
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
+            <Label htmlFor="community" className="text-sm font-medium">
               Community 1/1s
+            </Label>
+
+            <Switch
+              id="listed"
+              checked={onlyListed}
+              onCheckedChange={setOnlyListed}
+              aria-label="Toggle listed NFTs"
+            />
+            <Label htmlFor="listed" className="text-sm font-medium">
+              Listed
             </Label>
           </div>
         </div>

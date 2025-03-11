@@ -17,6 +17,8 @@ interface GeneralState {
   setShowCommunity: (show: boolean) => void;
   setHasMore: (hasMore: boolean) => void;
   setCurrentPage: (page: number) => void;
+  onlyListed: boolean;
+  setOnlyListed: (showListed: boolean) => void;
 }
 
 const useStore = create<GeneralState>()(
@@ -28,6 +30,7 @@ const useStore = create<GeneralState>()(
       showCommunity: false,
       hasMore: true,
       currentPage: 1,
+      onlyListed: false,
 
       // setters
       setSortBy: (sort: string) => set({ sortBy: sort }),
@@ -37,6 +40,7 @@ const useStore = create<GeneralState>()(
         set((state) => ({
           nfts: typeof nfts === "function" ? nfts(state.nfts) : nfts,
         })),
+
       setSearchQuery: (query: string) =>
         set({
           searchQuery: query,
@@ -49,6 +53,13 @@ const useStore = create<GeneralState>()(
         }),
       setHasMore: (hasMore) => set({ hasMore }),
       setCurrentPage: (page) => set({ currentPage: page }),
+      setOnlyListed: (onlyListed: boolean | ((prev: boolean) => boolean)) =>
+        set((state) => ({
+          onlyListed:
+            typeof onlyListed === "function"
+              ? onlyListed(state.onlyListed)
+              : onlyListed,
+        })),
     }),
     {
       name: "general-storage",

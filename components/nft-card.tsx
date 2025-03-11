@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatPrice } from "@/utils/format-price";
+import useStore from "@/stores/general-state";
 
 interface NFTCardProps {
   metadata: NFTMetadata;
@@ -27,6 +28,7 @@ interface NFTCardProps {
 }
 
 export default function NFTCard({ metadata, stats, priceInfo }: NFTCardProps) {
+  const { onlyListed } = useStore();
   const isLoading = !priceInfo; // Add loading state check
 
   const priceData = (() => {
@@ -57,6 +59,10 @@ export default function NFTCard({ metadata, stats, priceInfo }: NFTCardProps) {
       icon: null,
     };
   })();
+
+  if (onlyListed && priceData.origin !== "listing") {
+    return null;
+  }
 
   // Convert price from wei to RON
   const formattedPrice = formatPrice(priceData.value);

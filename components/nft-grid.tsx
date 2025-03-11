@@ -44,7 +44,7 @@ function NFTGrid({ initialData }: NFTGridProps) {
     async (pageNum: number, resetData: boolean = false) => {
       setIsLoading(true);
       const success = await handleFetch(
-        { page: pageNum, limit: 40, resetData },
+        { page: pageNum, limit: 80, resetData },
         { sortBy, showCommunity, search: searchQuery }
       );
       setIsLoading(false);
