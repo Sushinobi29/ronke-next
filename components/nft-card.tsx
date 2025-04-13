@@ -14,7 +14,7 @@ interface NFTCardProps {
   metadata: NFTMetadata;
   stats: { rank: number; rarityScore: number };
   priceInfo?: {
-    minPrice: string;
+    minPrice?: string; // Make minPrice optional as it might not always be present
     order?: {
       basePrice: string;
       currentPrice: string;
@@ -77,7 +77,7 @@ export default function NFTCard({ metadata, stats, priceInfo }: NFTCardProps) {
     >
       <div className="relative">
         <Image
-          src={metadata.image}
+          src={`/images/${metadata.name.split('#')[1]}.png`}
           alt={metadata.name}
           width={500}
           height={500}

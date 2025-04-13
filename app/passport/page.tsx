@@ -129,14 +129,10 @@ export default function PassportPage() {
       const idMatch = fields.ronkeId.match(/(\d+)/);
       if (idMatch) {
         const id = idMatch[1];
-        import(`@/data/${id}.json`)
-          .then((nftData) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous"; // Add this line
-            img.src = nftData.image;
-            img.onload = () => setImageToPlaceSrc(nftData.image);
-          })
-          .catch(console.error);
+        const img = new Image();
+        img.crossOrigin = "anonymous"; // Add this line
+        img.src = `/images/${id}.png`;
+        img.onload = () => setImageToPlaceSrc(`/images/${id}.png`);
       }
     }, [fields.ronkeId]);
   
