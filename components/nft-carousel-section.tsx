@@ -1,5 +1,5 @@
 import * as React from "react";
-import { loadNFTData, NFTWithStats } from "@/utils/nft-loader";
+import { loadNFTData } from "@/utils/nft-loader";
 import {
   Accordion,
   AccordionContent,
@@ -14,7 +14,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import NftCard from "@/components/nft-card"; // Use default import
-import { AlertTriangle, BadgePercent, Diamond } from "lucide-react"; // Example icons
+import { AlertTriangle } from "lucide-react"; // Example icons
 
 interface NftCarouselSectionProps {
   title: string;
