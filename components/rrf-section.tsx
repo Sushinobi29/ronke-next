@@ -29,7 +29,7 @@ export default function RRFSection() {
   }, []);
 
   return (
-    <section id="rrf" className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-green-50 py-20">
+    <section id="rrf" className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-green-50 dark:from-black dark:via-gray-900 dark:to-black py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Title */}
@@ -39,7 +39,7 @@ export default function RRFSection() {
           <div className="flex items-center justify-center mb-6">
             {/* Left rice icon */}
             <Image src="/rice.webp" alt="Rice Logo" width={60} height={60} className="mr-8" />
-            <h2 className="text-5xl md:text-7xl font-extralight text-gray-900">
+            <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100">
               RONKE RICE
               <span className="block text-4xl md:text-6xl font-thin text-green-600 mt-2">
                 FARMER
@@ -49,7 +49,7 @@ export default function RRFSection() {
             {/* Right rice icon */}
             <Image src="/rice.webp" alt="Rice Logo" width={60} height={60} className="ml-8" />
           </div>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
             The ultimate <span className="text-green-600 font-medium">69.69-day farming competition</span> where strategy beats speed, 
             and only the strongest hands survive to harvest the greatest rewards.
           </p>
@@ -63,8 +63,8 @@ export default function RRFSection() {
             isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-16'
           }`}>
             <div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-4">What is RRF?</h3>
-              <p className="text-lg text-gray-700 leading-relaxed mb-6">
+                              <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">What is RRF?</h3>
+              <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed mb-6">
                 Ronke Rice Farmer (RRF) is a strategic blockchain farming game where players compete to accumulate 
                 the highest amount of <span className="text-green-600 font-medium">$RICE</span> tokens over a limited 
                 69.69-day period. Built on the Ronin Network in collaboration with the Ronke community.
@@ -72,31 +72,31 @@ export default function RRFSection() {
             </div>
 
             {/* Game Features */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg">
-              <h4 className="text-xl font-bold text-gray-900 mb-4">Core Gameplay</h4>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+                              <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Core Gameplay</h4>
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                   <div>
-                    <p className="text-gray-700"><strong>Build Farms:</strong> Use $RONKE and $RICE to acquire farms of varying tiers</p>
+                    <p className="text-gray-700 dark:text-gray-300"><strong>Build Farms:</strong> Use $RONKE and $RICE to acquire farms of varying tiers</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                   <div>
-                    <p className="text-gray-700"><strong>Hire Farmers:</strong> Deploy legendary, master, and expert farmers to maximize production</p>
+                    <p className="text-gray-700 dark:text-gray-300"><strong>Hire Farmers:</strong> Deploy legendary, master, and expert farmers to maximize production</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                   <div>
-                    <p className="text-gray-700"><strong>Passive Income:</strong> Farms generate $RICE automatically over time</p>
+                    <p className="text-gray-700 dark:text-gray-300"><strong>Passive Income:</strong> Farms generate $RICE automatically over time</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                   <div>
-                    <p className="text-gray-700"><strong>NFT Boosts:</strong> Ronkeverse NFTs provide up to 1.5x yield multipliers</p>
+                    <p className="text-gray-700 dark:text-gray-300"><strong>NFT Boosts:</strong> Ronkeverse NFTs provide up to 1.5x yield multipliers</p>
                   </div>
                 </div>
               </div>
@@ -121,18 +121,18 @@ export default function RRFSection() {
 
 
         {/* Jeet Jail Warning */}
-        <div className={`bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl p-8 border-l-4 border-red-400 mb-16 transition-all duration-1000 ease-out delay-900 ${
+        <div className={`bg-gradient-to-r from-red-50 to-orange-50 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-8 border-l-4 border-red-400 dark:border-red-500 mb-16 transition-all duration-1000 ease-out delay-900 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
           <div className="flex items-center mb-4">
             <span className="text-3xl mr-3">⚠️</span>
-            <h4 className="text-2xl font-bold text-gray-900">Jeet Jail System</h4>
+                          <h4 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Jeet Jail System</h4>
           </div>
-          <p className="text-lg text-gray-700 leading-relaxed mb-4">
+          <p className="text-lg text-gray-700 dark:text-white leading-relaxed mb-4">
             <strong>Strategy over speed.</strong> The Jeet Jail system penalizes excessive withdrawals and paper hands. 
             Players who cash out too early get locked out, encouraging long-term strategic thinking over quick profits.
           </p>
-          <p className="text-gray-600 italic">
+          <p className="text-gray-600 dark:text-gray-100 italic">
             "Only real farmers survive the full 69.69 days. Are you built for the long haul?"
           </p>
         </div>
@@ -141,7 +141,7 @@ export default function RRFSection() {
         <div className={`text-center transition-all duration-1000 ease-out delay-1100 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <p className="text-lg text-gray-600 mb-8">
+          <p className="text-lg text-gray-600 dark:text-gray-100 mb-8">
             Ready to test your farming strategy and compete for the ultimate rice harvest?
           </p>
           <div className="flex flex-wrap justify-center gap-4">

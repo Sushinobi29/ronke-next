@@ -124,17 +124,17 @@ export default function BurnonomicsSection() {
   };
 
   return (
-    <section id="burnonomics" className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 py-20">
+    <section id="burnonomics" className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 dark:from-black dark:via-gray-900 dark:to-black py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Title */}
         <div className={`text-center mb-16 transition-all duration-1000 ease-out ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 mb-4">
+          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
             BURN<span className="text-red-600 font-thin">ONOMICS</span>
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
             Deflationary tokenomics through <span className="text-red-600 font-medium">casino buybacks</span>, 
             <span className="text-red-600 font-medium"> RRF burns</span>, and 
             <span className="text-red-600 font-medium"> community incentives</span> - 
@@ -146,13 +146,13 @@ export default function BurnonomicsSection() {
         <div className={`mb-16 transition-all duration-1000 ease-out delay-300 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <div className="bg-white rounded-3xl shadow-2xl p-8 lg:p-12">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 lg:p-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               
               <div className="text-center">
                 <div className="text-4xl mb-4">🎰</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">Casino Revenue Burns</h3>
-                <p className="text-gray-600 leading-relaxed">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Casino Revenue Burns</h3>
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                   A percentage of casino profits are automatically used to buy back and burn tokens, 
                   directly reducing circulating supply with every game played.
                 </p>
@@ -160,8 +160,8 @@ export default function BurnonomicsSection() {
 
               <div className="text-center">
                 <div className="text-4xl mb-4">🌾</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">RRF Farming Burns</h3>
-                <p className="text-gray-600 leading-relaxed">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">RRF Farming Burns</h3>
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                   Ronke Rice Farmer operations include systematic token burns as part of the 
                   yield farming mechanics, creating deflationary pressure.
                 </p>
@@ -181,29 +181,29 @@ export default function BurnonomicsSection() {
           {isLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-              <p className="text-gray-600 mt-4">Loading blockchain data...</p>
+              <p className="text-gray-600 dark:text-gray-300 mt-4">Loading blockchain data...</p>
             </div>
           ) : (
             tokenData.map((token, index) => (
               <div key={token.symbol} className={`transition-all duration-1000 ease-out delay-${700 + index * 200}`}>
-                <div className="bg-white rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
                   <div className="p-8 lg:p-12">
                     
                     {/* Token Header */}
                     <div className="flex items-center justify-between mb-8">
                       <div>
-                        <h3 className="text-3xl font-bold text-gray-900">${token.symbol}</h3>
-                        <p className="text-gray-600">{token.name}</p>
+                                        <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100">${token.symbol}</h3>
+                <p className="text-gray-600 dark:text-gray-300">{token.name}</p>
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-red-600">{token.burnPercentage}%</div>
-                        <div className="text-sm text-gray-500">Burned</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-300">Burned</div>
                       </div>
                     </div>
 
                     {/* Progress Bar */}
                     <div className="mb-6">
-                      <div className="flex justify-between text-sm text-gray-600 mb-2">
+                      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
                         <span>Burned: {formatNumber(token.burnedAmount)} {token.symbol}</span>
                         <span>Total Supply: {formatNumber(token.totalSupply)} {token.symbol}</span>
                       </div>
@@ -220,22 +220,22 @@ export default function BurnonomicsSection() {
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="text-sm text-gray-500 mb-1">Circulating Supply</div>
-                        <div className="text-lg font-bold text-gray-900">
+                                              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                                                  <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">Circulating Supply</div>
+                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
                           {formatNumber(token.totalSupply - token.burnedAmount)} {token.symbol}
                         </div>
                       </div>
                       
-                      <div className="bg-red-50 rounded-xl p-4">
-                        <div className="text-sm text-gray-500 mb-1">Burned Forever</div>
+                                              <div className="bg-red-50 dark:bg-gray-700 rounded-xl p-4">
+                                                  <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">Burned Forever</div>
                         <div className="text-lg font-bold text-red-600">
                           {formatNumber(token.burnedAmount)} {token.symbol}
                         </div>
                       </div>
                       
-                      <div className="bg-orange-50 rounded-xl p-4">
-                        <div className="text-sm text-gray-500 mb-1">Deflation Rate</div>
+                                              <div className="bg-orange-50 dark:bg-gray-700 rounded-xl p-4">
+                                                  <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">Deflation Rate</div>
                         <div className="text-lg font-bold text-orange-600">
                           {token.burnPercentage}% Burned
                         </div>
@@ -254,7 +254,7 @@ export default function BurnonomicsSection() {
         <div className={`text-center mt-16 transition-all duration-1000 ease-out delay-1000 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <p className="text-lg text-gray-600 mb-8">
+          <p className="text-lg text-gray-600 dark:text-gray-300 mb-8">
             Every transaction in the Ronkeverse contributes to the deflationary pressure
           </p>
           <div className="flex flex-wrap justify-center gap-4">

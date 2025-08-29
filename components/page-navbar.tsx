@@ -1,6 +1,7 @@
 'use client';
 
 import Image from "next/image";
+import { ThemeToggle } from "./theme-toggle";
 
 export default function PageNavbar() {
   // Only external navigation items for cross-page navigation
@@ -12,7 +13,7 @@ export default function PageNavbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50">
-      <div className="bg-[#27B9FC] shadow-lg">
+      <div className="bg-[#27B9FC] dark:bg-gray-900/95 shadow-lg backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -36,16 +37,19 @@ export default function PageNavbar() {
                 <a
                   key={item.href}
                   href={item.href}
-                  className="text-white/80 hover:text-white hover:scale-105 transition-all duration-200 font-medium"
+                  className="text-white/80 dark:text-gray-300 hover:text-white dark:hover:text-white hover:scale-105 transition-all duration-200 font-medium"
                 >
                   {item.label}
                 </a>
               ))}
+              
+              {/* Theme Toggle */}
+              <ThemeToggle />
             </div>
 
             {/* Mobile menu button */}
             <div className="md:hidden">
-              <button className="text-white hover:text-gray-200">
+              <button className="text-white dark:text-gray-100 hover:text-gray-200 dark:hover:text-gray-300">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>

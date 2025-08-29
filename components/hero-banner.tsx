@@ -216,12 +216,12 @@ export default function HeroBanner() {
               showSpeechBubble ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2'
             }`}>
               <div className="relative">
-                <div className="bg-white text-gray-800 px-4 py-2 rounded-full text-sm font-medium shadow-lg border">
+                <div className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-full text-sm font-medium shadow-lg border dark:border-gray-600">
                   feed me 🍚
                 </div>
                 {/* Speech bubble tail */}
                 <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                  <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-white"></div>
+                  <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-white dark:border-t-gray-800"></div>
                 </div>
               </div>
             </div>
@@ -232,7 +232,7 @@ export default function HeroBanner() {
               isLoaded ? 'opacity-100' : 'opacity-0 translate-x-4'
             }`}>
               <div className="flex flex-col items-center">
-                <span className="text-sm text-gray-400 mb-2">$RONKE</span>
+                <span className="text-sm text-gray-400 dark:text-gray-300 mb-2">$RONKE</span>
                 <button
                   onClick={() => copyContractAddress('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb', 'RONKE-HERO')}
                   className={`font-mono text-xs px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${
@@ -251,7 +251,7 @@ export default function HeroBanner() {
               isLoaded ? 'opacity-100' : 'opacity-0 -translate-x-4'
             }`}>
               <div className="flex flex-col items-center">
-                <span className="text-sm text-gray-400 mb-2">$RICE</span>
+                <span className="text-sm text-gray-400 dark:text-gray-300 mb-2">$RICE</span>
                 <button
                   onClick={() => copyContractAddress('0x9049ca10dd4cba0248226b4581443201f8f225c6', 'RICE-HERO')}
                   className={`font-mono text-xs px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${
@@ -286,7 +286,7 @@ export default function HeroBanner() {
             }`}>
               {/* RONKE Contract - Mobile */}
               <div className="flex flex-col items-center">
-                <span className="text-sm text-gray-400 mb-2">$RONKE</span>
+                <span className="text-sm text-gray-400 dark:text-gray-300 mb-2">$RONKE</span>
                 <button
                   onClick={() => copyContractAddress('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb', 'RONKE-HERO-MOBILE')}
                   className={`font-mono text-xs px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${
@@ -301,7 +301,7 @@ export default function HeroBanner() {
 
               {/* RICE Contract - Mobile */}
               <div className="flex flex-col items-center">
-                <span className="text-sm text-gray-400 mb-2">$RICE</span>
+                <span className="text-sm text-gray-400 dark:text-gray-300 mb-2">$RICE</span>
                 <button
                   onClick={() => copyContractAddress('0x9049ca10dd4cba0248226b4581443201f8f225c6', 'RICE-HERO-MOBILE')}
                   className={`font-mono text-xs px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${
@@ -323,7 +323,7 @@ export default function HeroBanner() {
         }`}>
           <p className="text-xl md:text-2xl font-light text-[#9FD7DF] mt-12 max-w-2xl mx-auto leading-relaxed">
             Beauty Standards redefined.
-            <span className="block mt-2 text-lg md:text-xl text-gray-400">
+                            <span className="block mt-2 text-lg md:text-xl text-gray-400 dark:text-gray-300">
               Where luxury meets Blue Monke
             </span>
           </p>

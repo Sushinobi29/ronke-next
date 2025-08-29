@@ -34,9 +34,9 @@ export default function Header() {
           <ThemeToggle />
         </div>
       </div>
-      <div className="p-8">
+      <div className="p-8 bg-background">
         <div className="flex flex-col md:flex-row gap-4 md:gap-0">
-          <div className="md:w-42 w-full border-2 border-black -mt-20 relative rounded-xl aspect-square overflow-hidden">
+          <div className="md:w-42 w-full border-2 border-black dark:border-gray-600 -mt-20 relative rounded-xl aspect-square overflow-hidden">
             <Image
               alt=""
               src="https://cdn.roninchain.com/ronin/2020/erc721/0x810b6d1374ac7ba0e83612e7d49f49a13f1de019/logo.png"
@@ -46,10 +46,10 @@ export default function Header() {
             />
           </div>
           <div className="ml-8">
-            <h1 className="text-3xl font-bold">Ronkeverse</h1>
-            <p className="opacity-50">Rarity & Ranking</p>
+            <h1 className="text-3xl font-bold text-foreground">Ronkeverse</h1>
+            <p className="opacity-50 text-muted-foreground">Rarity & Ranking</p>
             <Link href="https://marketplace.roninchain.com/collections/ronkeverse?sort=PriceDesc">
-              <p className="bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 duration-200 flex gap-4 justify-around items-center rounded-full text-center mt-2 px-4 py-2">
+              <p className="bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-foreground duration-200 flex gap-4 justify-around items-center rounded-full text-center mt-2 px-4 py-2">
                 <span>View Marketplace</span>{" "}
                 <ArrowUpRightFromSquare
                   className="mt-1 hidden md:block"

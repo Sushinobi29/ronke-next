@@ -29,17 +29,17 @@ export default function CasinoSection() {
   }, []);
 
   return (
-    <section id="ronke-casino" className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 py-20">
+    <section id="ronke-casino" className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-black dark:via-gray-900 dark:to-black py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Title */}
         <div className={`text-center mb-16 transition-all duration-1000 ease-out ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 mb-4">
+          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
             RONKE <span className="text-purple-600 font-thin">CASINO</span>
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
             Enter the high-stakes world of blockchain gaming where <span className="text-purple-600 font-medium">tokens and NFTs</span> are your chips, 
             and fortune favors the bold.
           </p>
@@ -52,10 +52,10 @@ export default function CasinoSection() {
           <div className={`transition-all duration-1000 ease-out delay-300 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}>
-            <div className="bg-white rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="flex flex-col lg:flex-row">
                 {/* Live Game Section */}
-                <div className="lg:w-1/2 flex items-center justify-center p-6 lg:p-8 bg-gray-50">
+                <div className="lg:w-1/2 flex items-center justify-center p-6 lg:p-8 bg-gray-50 dark:bg-gray-700">
                   <div className="w-full max-w-2xl h-96 lg:h-[500px] rounded-xl shadow-lg overflow-hidden border-2 border-orange-200">
                     <iframe
                       src="https://games.ronkeverse.com/"
@@ -71,13 +71,13 @@ export default function CasinoSection() {
                 {/* Content Section */}
                 <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-3xl lg:text-4xl font-bold text-gray-900">Coinflip</h3>
+                    <h3 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100">Coinflip</h3>
                     <div className="bg-orange-100 text-orange-700 px-4 py-2 rounded-full text-sm font-medium">
                       50/50 Odds
                     </div>
                   </div>
                   
-                  <p className="text-lg text-gray-700 leading-relaxed mb-8">
+                  <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed mb-8">
                     The ultimate test of luck. Bet your <span className="font-semibold text-purple-600">$RONKE tokens</span> or 
                     <span className="font-semibold text-purple-600"> Ronkeverse NFTs</span> on heads or tails. 
                     Win and <span className="font-bold text-green-600">double your bet</span>, lose and walk away empty-handed.
@@ -86,19 +86,19 @@ export default function CasinoSection() {
                   <div className="space-y-4 mb-8">
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>Simple:</strong> Just pick heads or tails</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>Simple:</strong> Just pick heads or tails</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>Fair:</strong> Provably fair 50/50 odds</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>Fair:</strong> Provably fair 50/50 odds</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>Instant:</strong> Win or lose in seconds</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>Instant:</strong> Win or lose in seconds</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>High Stakes:</strong> Bet tokens or NFTs</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>High Stakes:</strong> Bet tokens or NFTs</span>
                     </div>
                   </div>
 
@@ -114,18 +114,18 @@ export default function CasinoSection() {
           <div className={`transition-all duration-1000 ease-out delay-500 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}>
-            <div className="bg-white rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="flex flex-col lg:flex-row">
                 {/* Content Section */}
                 <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center order-2 lg:order-1">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-3xl lg:text-4xl font-bold text-gray-900">Mines</h3>
+                    <h3 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100">Mines</h3>
                     <div className="bg-red-100 text-red-700 px-4 py-2 rounded-full text-sm font-medium">
                       High Risk
                     </div>
                   </div>
                   
-                  <p className="text-lg text-gray-700 leading-relaxed mb-8">
+                  <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed mb-8">
                     Navigate the treacherous minefield where <span className="font-semibold text-red-600">one mine lurks in each row</span>. 
                     Climb higher for bigger multipliers, but one wrong step and you lose everything. 
                     Cash out anytime to secure your winnings.
@@ -134,19 +134,19 @@ export default function CasinoSection() {
                   <div className="space-y-4 mb-8">
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>Strategy:</strong> Risk vs reward decisions</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>Strategy:</strong> Risk vs reward decisions</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>Multipliers:</strong> Higher rows = bigger rewards</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>Multipliers:</strong> Higher rows = bigger rewards</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>Cash Out:</strong> Secure winnings anytime</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>Cash Out:</strong> Secure winnings anytime</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-gray-600"><strong>One Mine:</strong> Per row increases tension</span>
+                      <span className="text-gray-600 dark:text-gray-300"><strong>One Mine:</strong> Per row increases tension</span>
                     </div>
                   </div>
 
@@ -156,7 +156,7 @@ export default function CasinoSection() {
                 </div>
 
                 {/* Live Game Section */}
-                <div className="lg:w-1/2 order-1 lg:order-2 flex items-center justify-center p-6 lg:p-8 bg-gray-50">
+                <div className="lg:w-1/2 order-1 lg:order-2 flex items-center justify-center p-6 lg:p-8 bg-gray-50 dark:bg-gray-700">
                   <div className="w-full max-w-2xl h-96 lg:h-[500px] rounded-xl shadow-lg overflow-hidden border-2 border-red-200">
                     <iframe
                       src="https://games.ronkeverse.com/mines"
@@ -186,37 +186,37 @@ export default function CasinoSection() {
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {/* Left Column - Description */}
-                <div className="bg-white/95 rounded-2xl p-6 shadow-xl h-full border border-white/30">
-                  <p className="text-lg lg:text-xl leading-relaxed mb-6 text-gray-700">
+                <div className="bg-white/95 dark:bg-gray-800/95 rounded-2xl p-6 shadow-xl h-full border border-white/30 dark:border-gray-600/30">
+                                      <p className="text-lg lg:text-xl leading-relaxed mb-6 text-gray-700 dark:text-gray-300">
                     Every <span className="font-bold text-[#27B9FC]">2 weeks</span>, the casino resets and a new season begins. 
                     Compete across 4 categories and secure your place among the elite.
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-[#27B9FC]/20">
-                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC]">🤑 Highest Winnings</h4>
-                      <p className="text-sm text-gray-600">Total profit earned across all games</p>
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border border-[#27B9FC]/20 dark:border-gray-600/30">
+                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC] dark:text-blue-400">🤑 Highest Winnings</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-100">Total profit earned across all games</p>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-[#27B9FC]/20">
-                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC]">🚀 Most Flips</h4>
-                      <p className="text-sm text-gray-600">Total number of coinflips played</p>
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border border-[#27B9FC]/20 dark:border-gray-600/30">
+                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC] dark:text-blue-400">🚀 Most Flips</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-100">Total number of coinflips played</p>
                     </div>
 
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-[#27B9FC]/20">
-                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC]">🔥 Highest Volume</h4>
-                      <p className="text-sm text-gray-600">Total amount wagered across games</p>
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border border-[#27B9FC]/20 dark:border-gray-600/30">
+                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC] dark:text-blue-400">🔥 Highest Volume</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-100">Total amount wagered across games</p>
                     </div>
                     
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-[#27B9FC]/20">
-                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC]">🤡 Most Ronke</h4>
-                      <p className="text-sm text-gray-600">Biggest losses (honorable mention!)</p>
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border border-[#27B9FC]/20 dark:border-gray-600/30">
+                      <h4 className="text-lg font-semibold mb-2 text-[#27B9FC] dark:text-blue-400">🤡 Most Ronke</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-100">Biggest losses (honorable mention!)</p>
                     </div>
                   </div>
 
-                  <div className="mt-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-[#27B9FC]/20">
-                    <h4 className="text-lg font-semibold mb-2 text-[#27B9FC]">🎁 How to Win</h4>
-                    <p className="text-sm text-gray-600">
+                  <div className="mt-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border border-[#27B9FC]/20 dark:border-gray-600/30">
+                    <h4 className="text-lg font-semibold mb-2 text-[#27B9FC] dark:text-blue-400">🎁 How to Win</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-100">
                       Top 100 players in each category automatically qualify for the raffle. 
                       Prizes awarded every 2 weeks including exclusive NFTs and bonus tokens!
                     </p>
@@ -225,7 +225,7 @@ export default function CasinoSection() {
 
                 {/* Right Column - Live Leaderboard */}
                 <div>
-                  <div className="bg-white/95 rounded-2xl p-6 shadow-xl h-full border border-white/30">
+                  <div className="bg-white/95 dark:bg-gray-800/95 rounded-2xl p-6 shadow-xl h-full border border-white/30 dark:border-gray-600/30">
                     <h4 className="text-xl font-bold mb-4 text-center text-[#27B9FC]">🎮 Live Leaderboard</h4>
                     <div className="relative h-96 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl overflow-hidden shadow-inner border-2 border-[#27B9FC]/20">
                       <iframe

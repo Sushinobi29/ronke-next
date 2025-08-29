@@ -271,16 +271,16 @@ export default function PassportPage() {
     }, [isDrawing]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-black dark:via-gray-900 dark:to-black">
       <PageNavbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
         
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             RONKE <span className="text-purple-600">PASSPORT</span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Create your official Ronkeverse passport with your NFT and signature
           </p>
         </div>
@@ -289,21 +289,21 @@ export default function PassportPage() {
           
           {/* Canvas Preview */}
           <div className="flex-1">
-            <div className="bg-white rounded-2xl shadow-xl p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Passport Preview</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Passport Preview</h2>
               <canvas
                 ref={canvasRef}
                 width={WIDTH}
                 height={HEIGHT}
-                className="w-full h-auto border-2 border-gray-200 rounded-xl"
+                className="w-full h-auto border-2 border-gray-200 dark:border-gray-600 rounded-xl"
               />
             </div>
           </div>
 
           {/* Controls */}
           <div className="w-full lg:w-96">
-            <div className="bg-white rounded-2xl shadow-xl p-6 space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">Passport Details</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 space-y-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Passport Details</h2>
               
               <div className="space-y-2">
                 <Label htmlFor="owner">NFT Owner</Label>
@@ -338,12 +338,12 @@ export default function PassportPage() {
               {/* Signature Canvas */}
               <div className="space-y-2">
                 <Label htmlFor="signature">Digital Signature</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-4">
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4">
                   <canvas
                     ref={signatureCanvasRef}
                     width={SIGNATURE_WIDTH}
                     height={SIGNATURE_HEIGHT}
-                    className="w-full h-auto border border-gray-200 rounded-lg bg-gray-50"
+                    className="w-full h-auto border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"
                   />
                   <Button 
                     variant="outline" 

@@ -58,17 +58,17 @@ export default function StakingSection() {
   }, []);
 
   return (
-    <section id="ronke-staking" className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-20">
+    <section id="ronke-staking" className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-black dark:via-gray-900 dark:to-black py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Title */}
         <div className={`text-center mb-16 transition-all duration-1000 ease-out ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 mb-4">
+          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
             RONKE <span className="text-emerald-600 font-thin">STAKING</span>
           </h2>
-          <p className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed">
             Stake your <span className="text-emerald-600 font-medium">Ronke NFTs</span> and 
             <span className="text-emerald-600 font-medium"> $RONKE tokens</span> during the remainder of the 
             <span className="font-bold text-emerald-700"> 69-day season</span> to earn 
@@ -80,7 +80,7 @@ export default function StakingSection() {
         <div className={`transition-all duration-1000 ease-out delay-300 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden mb-16">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden mb-16">
             <div className="flex flex-col lg:flex-row">
               
               {/* Left Side - Season Info */}
@@ -135,7 +135,7 @@ export default function StakingSection() {
 
               {/* Right Side - Rewards & Features */}
               <div className="lg:w-1/2 p-8 lg:p-12">
-                <h3 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-8">
+                <h3 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-8">
                   Earn <span className="text-yellow-600">$RICE</span> Rewards
                 </h3>
 
@@ -198,28 +198,28 @@ export default function StakingSection() {
         }`}>
           
           {/* Feature 1 */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300">
             <div className="text-4xl mb-4">💎</div>
-            <h4 className="text-xl font-bold text-gray-900 mb-3">Stake NFTs & Tokens</h4>
-            <p className="text-gray-600 leading-relaxed">
+            <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Stake NFTs & Tokens</h4>
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
               Combine your RONKE NFTs and $RONKE tokens for maximum earning potential during the 69-day season.
             </p>
           </div>
 
           {/* Feature 2 */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300">
             <div className="text-4xl mb-4">⚡</div>
-            <h4 className="text-xl font-bold text-gray-900 mb-3">Bonus Points</h4>
-            <p className="text-gray-600 leading-relaxed">
+            <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Bonus Points</h4>
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
               Earn additional bonus points on top of your $RICE rewards for extra benefits in the ecosystem.
             </p>
           </div>
 
           {/* Feature 3 */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300">
             <div className="text-4xl mb-4">🚀</div>
-            <h4 className="text-xl font-bold text-gray-900 mb-3">Long-term Rewards</h4>
-            <p className="text-gray-600 leading-relaxed">
+            <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Long-term Rewards</h4>
+            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
               The longer you commit, the greater your rewards. Full 69-day lock-up participants get exclusive bonuses.
             </p>
           </div>

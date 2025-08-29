@@ -118,22 +118,22 @@ export default function NFTCard({ metadata, stats, priceInfo }: NFTCardProps) {
             )}
           </TooltipContent>
         </Tooltip>
-        <p className="opacity-50 text-xs">{metadata.name.split("#")[0]}</p>
-        <p className="font-semibold">{metadata.name}</p>
-        <p className="opacity-50 text-xs mt-2">
+        <p className="opacity-50 text-xs text-muted-foreground">{metadata.name.split("#")[0]}</p>
+        <p className="font-semibold text-foreground">{metadata.name}</p>
+        <p className="opacity-50 text-xs mt-2 text-muted-foreground">
           Rarity Score: {stats.rarityScore.toFixed(2)}
         </p>
         <div className="mt-2 flex flex-wrap gap-1">
           {metadata.attributes.slice(0, 3).map((attr) => (
             <span
               key={`${attr.trait_type}-${attr.value}`}
-              className="text-xs bg-black/20 rounded-full px-2 py-1"
+              className="text-xs bg-black/20 dark:bg-white/10 text-foreground rounded-full px-2 py-1"
             >
               {attr.value}
             </span>
           ))}
           {metadata.attributes.length > 3 && (
-            <span className="text-xs bg-black/20 rounded-full px-2 py-1">
+            <span className="text-xs bg-black/20 dark:bg-white/10 text-foreground rounded-full px-2 py-1">
               +{metadata.attributes.length - 3}
             </span>
           )}

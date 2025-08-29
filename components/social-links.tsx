@@ -129,7 +129,7 @@ export default function SocialLinks() {
                   <span 
                     className={`
                       text-sm font-medium transition-colors duration-300
-                      ${hoveredLink === social.name ? 'text-white' : 'text-gray-400'}
+                      ${hoveredLink === social.name ? 'text-white' : 'text-gray-300'}
                     `}
                   >
                     {social.name}
@@ -154,7 +154,7 @@ export default function SocialLinks() {
 
         {/* Call to action */}
         <div className="text-center mt-16">
-          <p className="text-gray-400 text-lg">
+          <p className="text-gray-300 text-lg">
             Stay updated with the latest from the{' '}
             <span className="text-[#27B9FC] font-semibold">RonkeVerse</span>
           </p>

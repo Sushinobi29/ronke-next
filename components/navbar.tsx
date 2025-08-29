@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 export default function Navbar() {
   const [isVisible, setIsVisible] = useState(false);
@@ -143,7 +144,7 @@ export default function Navbar() {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
       isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full'
     }`}>
-      <div className="bg-[#27B9FC] shadow-lg">
+      <div className="bg-[#27B9FC] dark:bg-gray-900/95 shadow-lg backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -165,10 +166,10 @@ export default function Navbar() {
                 <button 
                   key={item.id}
                   onClick={() => scrollToSection(item.id)}
-                  className={`text-white transition-all duration-200 font-medium relative ${
+                  className={`text-white dark:text-gray-100 transition-all duration-200 font-medium relative ${
                     activeSection === item.id 
-                      ? 'text-white scale-105' 
-                      : 'text-white/80 hover:text-white hover:scale-105'
+                      ? 'text-white dark:text-white scale-105' 
+                      : 'text-white/80 dark:text-gray-300 hover:text-white dark:hover:text-white hover:scale-105'
                   }`}
                 >
                   {item.label}
@@ -187,18 +188,21 @@ export default function Navbar() {
                 <a
                   key={item.href}
                   href={item.href}
-                  className="text-white/80 hover:text-white hover:scale-105 transition-all duration-200 font-medium"
+                  className="text-white/80 dark:text-gray-300 hover:text-white dark:hover:text-white hover:scale-105 transition-all duration-200 font-medium"
                 >
                   {item.label}
                 </a>
               ))}
+              
+              {/* Theme Toggle */}
+              <ThemeToggle />
             </div>
 
             {/* Mobile menu button */}
             <div className="md:hidden">
               <button 
                 onClick={toggleMobileMenu}
-                className="text-white hover:text-gray-200 transition-colors duration-200"
+                className="text-white dark:text-gray-100 hover:text-gray-200 dark:hover:text-gray-300 transition-colors duration-200"
                 aria-label="Toggle mobile menu"
               >
                 <svg 
@@ -231,8 +235,8 @@ export default function Navbar() {
                   onClick={() => scrollToSection(item.id)}
                   className={`block w-full text-left px-3 py-2 rounded-md transition-all duration-200 font-medium ${
                     activeSection === item.id
-                      ? 'bg-white/20 text-white'
-                      : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      ? 'bg-white/20 dark:bg-gray-700/50 text-white dark:text-white'
+                      : 'text-white/80 dark:text-gray-300 hover:bg-white/10 dark:hover:bg-gray-700/50 hover:text-white dark:hover:text-white'
                   }`}
                 >
                   {item.label}
@@ -247,12 +251,17 @@ export default function Navbar() {
                 <a
                   key={item.href}
                   href={item.href}
-                  className="block px-3 py-2 rounded-md text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200 font-medium"
+                  className="block px-3 py-2 rounded-md text-white/80 dark:text-gray-300 hover:bg-white/10 dark:hover:bg-gray-700/50 hover:text-white dark:hover:text-white transition-all duration-200 font-medium"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.label}
                 </a>
               ))}
+              
+              {/* Theme Toggle in Mobile Menu */}
+              <div className="px-3 py-2">
+                <ThemeToggle />
+              </div>
             </div>
           </div>
         </div>
