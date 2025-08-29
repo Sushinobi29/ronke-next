@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 export default function StakingSection() {
   const [isVisible, setIsVisible] = useState(false);
-  const [timeLeft, setTimeLeft] = useState({ days: 69, hours: 0, minutes: 0, seconds: 0 });
+  const [daysLeft, setDaysLeft] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -29,21 +30,27 @@ export default function StakingSection() {
   }, []);
 
   useEffect(() => {
-    // Calculate end date (69 days from today)
-    const startDate = new Date();
+    // Start date: August 29, 2025 (today)
+    const startDate = new Date('2025-08-29');
+    // End date: 69 days from start date (November 6, 2025)
     const endDate = new Date(startDate.getTime() + (69 * 24 * 60 * 60 * 1000));
     
     const timer = setInterval(() => {
-      const now = new Date().getTime();
-      const distance = endDate.getTime() - now;
+      const now = new Date();
+      const distance = endDate.getTime() - now.getTime();
       
       if (distance > 0) {
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        const days = Math.ceil(distance / (1000 * 60 * 60 * 24));
+        setDaysLeft(days);
         
-        setTimeLeft({ days, hours, minutes, seconds });
+        // Calculate progress: days passed out of total 69 days
+        const totalDays = 69;
+        const daysPassed = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const progressPercentage = Math.max(0, Math.min(100, (daysPassed / totalDays) * 100));
+        setProgress(progressPercentage);
+      } else {
+        setDaysLeft(0);
+        setProgress(100);
       }
     }, 1000);
 
@@ -85,38 +92,32 @@ export default function StakingSection() {
                   </p>
                 </div>
 
-                                 {/* Season Progress */}
-                 <div className="bg-white/10 rounded-2xl p-6 mb-6 backdrop-blur-sm">
-                   <h4 className="text-xl font-semibold mb-4 flex items-center">
-                     <span className="text-2xl mr-3">⏰</span>
-                     Season Countdown
-                   </h4>
-                   <div className="space-y-4">
-                     <div className="grid grid-cols-2 gap-4 text-center">
-                       <div className="bg-white/20 rounded-xl p-3">
-                         <div className="font-bold text-2xl text-yellow-300">{timeLeft.days}</div>
-                         <div className="text-emerald-100 text-sm">Days</div>
-                       </div>
-                       <div className="bg-white/20 rounded-xl p-3">
-                         <div className="font-bold text-2xl text-yellow-300">{timeLeft.hours}</div>
-                         <div className="text-emerald-100 text-sm">Hours</div>
-                       </div>
-                     </div>
-                     <div className="grid grid-cols-2 gap-4 text-center">
-                       <div className="bg-white/20 rounded-xl p-3">
-                         <div className="font-bold text-2xl text-yellow-300">{timeLeft.minutes}</div>
-                         <div className="text-emerald-100 text-sm">Minutes</div>
-                       </div>
-                       <div className="bg-white/20 rounded-xl p-3">
-                         <div className="font-bold text-2xl text-yellow-300">{timeLeft.seconds}</div>
-                         <div className="text-emerald-100 text-sm">Seconds</div>
-                       </div>
-                     </div>
-                     <div className="w-full bg-white/20 rounded-full h-3">
-                       <div className="bg-yellow-400 h-3 rounded-full transition-all duration-500" style={{width: `${((69 - timeLeft.days) / 69) * 100}%`}}></div>
-                     </div>
-                   </div>
-                 </div>
+                {/* Season Countdown */}
+                <div className="bg-white/10 rounded-2xl p-6 mb-6 backdrop-blur-sm">
+                  <h4 className="text-xl font-semibold mb-6 flex items-center">
+                    <span className="text-2xl mr-3">⏰</span>
+                    Season Countdown
+                  </h4>
+                  
+                  {/* Days Left Display */}
+                  <div className="text-center mb-6">
+                    <div className="bg-white/20 rounded-2xl p-6">
+                      <div className="font-bold text-6xl text-yellow-300 mb-2">{daysLeft}</div>
+                      <div className="text-emerald-100 text-xl font-medium">Days Left</div>
+                    </div>
+                  </div>
+                  
+                  {/* Simple Progress Bar */}
+                  <div className="w-full bg-white/20 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-yellow-400 to-yellow-500 h-3 rounded-full transition-all duration-1000 ease-out" 
+                      style={{width: `${progress}%`}}
+                    ></div>
+                  </div>
+                  <div className="text-center mt-2">
+                    <span className="text-emerald-100 text-sm">Day {Math.floor(progress * 69 / 100) + 1} of 69</span>
+                  </div>
+                </div>
 
                 {/* Requirements */}
                 <div className="bg-white/10 rounded-2xl p-6 backdrop-blur-sm">
