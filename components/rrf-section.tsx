@@ -133,7 +133,7 @@ export default function RRFSection() {
             Players who cash out too early get locked out, encouraging long-term strategic thinking over quick profits.
           </p>
           <p className="text-gray-600 dark:text-gray-100 italic">
-            "Only real farmers survive the full 69.69 days. Are you built for the long haul?"
+            &ldquo;Only real farmers survive the full 69.69 days. Are you built for the long haul?&rdquo;
           </p>
         </div>
 

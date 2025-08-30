@@ -2,24 +2,6 @@
 const RONIN_RPC_URL = 'https://api.roninchain.com/rpc';
 const NULL_ADDRESS = '0x000000000000000000000000000000000000dead';
 
-// ERC20 ABI for totalSupply and balanceOf functions
-const ERC20_ABI = [
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "totalSupply",
-    "outputs": [{"name": "", "type": "uint256"}],
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [{"name": "_owner", "type": "address"}],
-    "name": "balanceOf",
-    "outputs": [{"name": "balance", "type": "uint256"}],
-    "type": "function"
-  }
-];
-
 interface TokenInfo {
   totalSupply: string;
   burnedAmount: string;

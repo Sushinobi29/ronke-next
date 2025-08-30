@@ -1,6 +1,7 @@
 'use client';
 
 import Image from "next/image";
+import Link from "next/link";
 import { ThemeToggle } from "./theme-toggle";
 
 export default function PageNavbar() {
@@ -18,7 +19,7 @@ export default function PageNavbar() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <a href="/" className="flex items-center">
+              <Link href="/" className="flex items-center">
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
                   <Image
                     src="/ronke-logo.webp"
@@ -28,7 +29,7 @@ export default function PageNavbar() {
                     className="rounded-full"
                   />
                 </div>
-              </a>
+              </Link>
             </div>
 
             {/* Navigation Links */}

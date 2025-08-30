@@ -69,7 +69,7 @@ export default function NextSection() {
               isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}>
               <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 leading-relaxed">
-                <span className="italic">"What is dead, may never die"</span> — Born from a simple MS Paint creation, 
+                <span className="italic">&ldquo;What is dead, may never die&rdquo;</span> — Born from a simple MS Paint creation, 
                 <span className="text-[#27B9FC] font-medium"> reborn through community power</span>.
               </p>
             </div>
@@ -80,7 +80,7 @@ export default function NextSection() {
             }`}>
               <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed max-w-lg">
                 From abandoned project to cultural phenomenon—RONKE proves that sometimes the most unexpected 
-                heroes rise from the ashes. Our blue monkey didn't just survive; she built an empire on Ronin blockchain.
+                heroes rise from the ashes. Our blue monkey didn&apos;t just survive; she built an empire on Ronin blockchain.
               </p>
             </div>
 
