@@ -101,9 +101,14 @@ export default function CasinoSection() {
                     </div>
                   </div>
 
-                  <button className="bg-gradient-to-r from-orange-500 to-red-600 text-white py-4 px-8 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition-all duration-200 text-lg">
+                  <a 
+                    href="https://games.ronkeverse.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-gradient-to-r from-orange-500 to-red-600 text-white py-4 px-8 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition-all duration-200 text-lg"
+                  >
                     Play Coinflip
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
@@ -149,9 +154,14 @@ export default function CasinoSection() {
                     </div>
                   </div>
 
-                  <button className="bg-gradient-to-r from-gray-700 to-black text-white py-4 px-8 rounded-xl font-semibold hover:from-gray-800 hover:to-gray-900 transition-all duration-200 text-lg">
+                  <a 
+                    href="https://games.ronkeverse.com/mines"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-gradient-to-r from-gray-700 to-black text-white py-4 px-8 rounded-xl font-semibold hover:from-gray-800 hover:to-gray-900 transition-all duration-200 text-lg"
+                  >
                     Enter Minefield
-                  </button>
+                  </a>
                 </div>
 
                 {/* Live Game Section */}
