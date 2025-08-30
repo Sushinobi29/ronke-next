@@ -88,8 +88,8 @@ export default function TokensSection() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
                 {/* Chart Section */}
-                <div className="lg:col-span-3 p-4 sm:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
+                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
                     <div className="flex items-center space-x-3 sm:space-x-4">
                         <Image src="/ronke-logo.webp" alt="Ronke Logo" width={48} height={48} className="sm:w-[60px] sm:h-[60px]" />
                       <div className="min-w-0 flex-1">
@@ -113,12 +113,12 @@ export default function TokensSection() {
                       </div>
                     </div>
                   </div>
-                  <div className="relative h-64 sm:h-80 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl overflow-hidden shadow-inner">
+                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl overflow-hidden shadow-inner border border-blue-100 dark:border-blue-800">
                     <iframe
-                      src="https://www.geckoterminal.com/ronin/pools/0x75ae353997242927c701d4d6c2722ebef43fd2d3?embed=1&info=0&swaps=0"
+                      src="https://www.geckoterminal.com/ronin/pools/0x75ae353997242927c701d4d6c2722ebef43fd2d3?embed=1&info=0&swaps=0&trades=0"
                       width="100%"
                       height="100%"
-                      className="border-0"
+                      className="border-0 scale-110 origin-center"
                       title="RONKE Token Chart"
                       allow="fullscreen"
                       loading="lazy"
@@ -155,8 +155,8 @@ export default function TokensSection() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
                 {/* Chart Section */}
-                <div className="lg:col-span-3 p-4 sm:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
+                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
                     <div className="flex items-center space-x-3 sm:space-x-4">
                       <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                         <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -169,7 +169,7 @@ export default function TokensSection() {
                       </div>
                     </div>
                   </div>
-                  <div className="relative h-64 sm:h-80 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-xl overflow-hidden shadow-inner">
+                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-xl overflow-hidden shadow-inner border border-purple-100 dark:border-purple-800">
                     <Image
                       src="/ronkeverse-banner.png"
                       alt="Ronkeverse Banner"
@@ -217,8 +217,8 @@ export default function TokensSection() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
                 {/* Chart Section */}
-                <div className="lg:col-span-3 p-4 sm:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
+                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
                     <div className="flex items-center space-x-3 sm:space-x-4">
                       <Image src="/rice.webp" alt="Rice Logo" width={48} height={48} className="sm:w-[60px] sm:h-[60px] flex-shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -242,14 +242,15 @@ export default function TokensSection() {
                       </div>
                     </div>
                   </div>
-                  <div className="relative h-64 sm:h-80 bg-gradient-to-br from-green-50 to-yellow-50 rounded-xl overflow-hidden shadow-inner">
+                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-green-50 to-yellow-50 dark:from-green-900/20 dark:to-yellow-900/20 rounded-xl overflow-hidden shadow-inner border border-green-100 dark:border-green-800">
                     <iframe
-                      src="https://www.geckoterminal.com/ronin/pools/0x93171ecace2f6b8be8dd09539f55fabe7f805af1?embed=1&info=0&swaps=0"
+                      src="https://www.geckoterminal.com/ronin/pools/0x93171ecace2f6b8be8dd09539f55fabe7f805af1?embed=1&info=0&swaps=0&trades=0"
                       width="100%"
                       height="100%"
-                      className="border-0"
+                      className="border-0 scale-110 origin-center"
                       title="RICE Token Chart"
                       allow="fullscreen"
+                      loading="lazy"
                     />
                   </div>
                 </div>

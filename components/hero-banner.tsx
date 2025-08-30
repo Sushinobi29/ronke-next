@@ -7,7 +7,7 @@ import RonkeCursor from "./ronke-cursor";
 export default function HeroBanner() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [showSpeechBubble, setShowSpeechBubble] = useState(false);
-  const [bananaPosition, setBananaPosition] = useState({ x: 100, y: 100 });
+  const [bananaPosition, setBananaPosition] = useState({ x: 100, y: 200 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [ronkeJumping, setRonkeJumping] = useState(false);
@@ -216,7 +216,7 @@ export default function HeroBanner() {
               showSpeechBubble ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2'
             }`}>
               <div className="relative">
-                <div className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-full text-sm font-medium shadow-lg border dark:border-gray-600">
+                <div className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-6 py-3 rounded-full text-lg md:text-xl font-semibold shadow-lg border dark:border-gray-600">
                   feed me 🍚
                 </div>
                 {/* Speech bubble tail */}
@@ -334,7 +334,7 @@ export default function HeroBanner() {
       {/* Floating Banana */}
       {!bananaFed && (
         <div
-          className={`absolute text-4xl cursor-grab select-none transition-all duration-1000 ease-out ${
+          className={`absolute text-6xl md:text-7xl cursor-grab select-none transition-all duration-1000 ease-out ${
             isDragging ? 'cursor-grabbing scale-125' : 'hover:scale-110'
           } ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
           style={{
