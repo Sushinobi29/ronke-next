@@ -58,53 +58,62 @@ export default function TokensSection() {
     }, 2000);
   };
 
+  const formatAddressForMobile = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
   return (
-    <section id="charts" className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-black dark:via-gray-900 dark:to-black py-20">
+    <section id="charts" className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-black dark:via-gray-900 dark:to-black py-12 sm:py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Title */}
-        <div className={`text-center mb-16 transition-all duration-1000 ease-out ${
+        <div className={`text-center mb-12 sm:mb-16 transition-all duration-1000 ease-out ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`}>
-          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
+          <h2 className="text-4xl sm:text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
             LIVE <span className="text-[#27B9FC] font-thin">CHARTS</span>
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto px-4">
             Track the pulse of the Ronkeverse ecosystem in real-time
           </p>
         </div>
 
         {/* Token Cards - Single Column */}
-        <div className="space-y-12">
+        <div className="space-y-8 sm:space-y-12">
           
           {/* RONKE Token Card */}
           <div className={`transition-all duration-1000 ease-out delay-200 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
                 {/* Chart Section */}
-                <div className="lg:col-span-3 p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center space-x-4">
-                        <Image src="/ronke-logo.webp" alt="Ronke Logo" width={60} height={60} />
-                      <div>
-                        <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100">$RONKE</h3>
-                                                  <p className="text-gray-500 dark:text-gray-300">The Blue Monkey Token</p>
+                <div className="lg:col-span-3 p-4 sm:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                        <Image src="/ronke-logo.webp" alt="Ronke Logo" width={48} height={48} className="sm:w-[60px] sm:h-[60px]" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">$RONKE</h3>
+                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">The Blue Monkey Token</p>
                         <button
                           onClick={() => copyToClipboard('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb', 'RONKE-CA')}
-                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 max-w-full truncate ${
+                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 block w-fit ${
                             copiedToken === 'RONKE-CA' 
                               ? 'bg-green-100 text-green-700' 
                               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                           }`}
                         >
-                          {copiedToken === 'RONKE-CA' ? '✓ Copied!' : '0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb'}
+                          <span className="sm:hidden">
+                            {copiedToken === 'RONKE-CA' ? '✓ Copied!' : formatAddressForMobile('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb')}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {copiedToken === 'RONKE-CA' ? '✓ Copied!' : '0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb'}
+                          </span>
                         </button>
                       </div>
                     </div>
                   </div>
-                  <div className="relative h-80 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl overflow-hidden shadow-inner">
+                  <div className="relative h-64 sm:h-80 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl overflow-hidden shadow-inner">
                     <iframe
                       src="https://www.geckoterminal.com/ronin/pools/0x75ae353997242927c701d4d6c2722ebef43fd2d3?embed=1&info=0&swaps=0"
                       width="100%"
@@ -118,18 +127,18 @@ export default function TokensSection() {
                 </div>
                 
                 {/* Info Section */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-8 flex flex-col justify-between">
+                <div className="lg:col-span-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
                   <div>
-                                          <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">The New World Token</h4>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-6">
+                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">The New World Token</h4>
+                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
                       Born from a simple MS Paint creation, abandoned by its original developer, but reborn through 
                       community power. RONKE represents resilience and the unstoppable force of collective belief.
                     </p>
                   </div>
-                  <div className="mt-6">
+                  <div className="mt-4 sm:mt-6">
                     <button
                       onClick={() => handleBuyToken('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb')}
-                      className="w-full bg-[#27B9FC] text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200"
+                      className="w-full bg-[#27B9FC] text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 text-sm sm:text-base"
                     >
                       Buy RONKE
                     </button>
@@ -143,24 +152,24 @@ export default function TokensSection() {
           <div className={`transition-all duration-1000 ease-out delay-400 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
                 {/* Chart Section */}
-                <div className="lg:col-span-3 p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                        <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <div className="lg:col-span-3 p-4 sm:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div>
-                        <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Ronkeverse NFTs</h3>
-                                                  <p className="text-gray-500 dark:text-gray-300">Premium Collection</p>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Ronkeverse NFTs</h3>
+                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">Premium Collection</p>
                       </div>
                     </div>
                   </div>
-                  <div className="relative h-80 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-xl overflow-hidden shadow-inner">
+                  <div className="relative h-64 sm:h-80 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-xl overflow-hidden shadow-inner">
                     <Image
                       src="/ronkeverse-banner.png"
                       alt="Ronkeverse Banner"
@@ -171,7 +180,7 @@ export default function TokensSection() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                     <div className="absolute bottom-4 left-4 right-4 text-center">
-                      <h4 className="text-white text-lg font-bold mb-1 drop-shadow-lg">
+                      <h4 className="text-white text-base sm:text-lg font-bold mb-1 drop-shadow-lg">
                         The Rolex of the 21st Century
                       </h4>
                     </div>
@@ -179,19 +188,19 @@ export default function TokensSection() {
                 </div>
                 
                 {/* Info Section */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-700 dark:to-gray-800 p-8 flex flex-col justify-between">
+                <div className="lg:col-span-2 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
                   <div>
-                                          <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">RONKEVERSE NFTs</h4>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-6">
+                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">RONKEVERSE NFTs</h4>
+                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
                       The Rolex of the 21st Century. Scarce by design. 6969 Blue Citizens of the new world.
                     </p>
                   </div>
-                  <div className="mt-6">
+                  <div className="mt-4 sm:mt-6">
                     <a 
                       href="https://marketplace.roninchain.com/collections/ronkeverse"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-pink-700 transition-all duration-200 text-center block"
+                      className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-pink-700 transition-all duration-200 text-center block text-sm sm:text-base"
                     >
                       Browse Collection
                     </a>
@@ -205,30 +214,35 @@ export default function TokensSection() {
           <div className={`transition-all duration-1000 ease-out delay-600 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
                 {/* Chart Section */}
-                <div className="lg:col-span-3 p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center space-x-4">
-                      <Image src="/rice.webp" alt="Rice Logo" width={60} height={60} />
-                      <div>
-                        <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100">$RICE</h3>
-                                                  <p className="text-gray-500 dark:text-gray-300">Ronke Rice Farmer Token</p>
+                <div className="lg:col-span-3 p-4 sm:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <Image src="/rice.webp" alt="Rice Logo" width={48} height={48} className="sm:w-[60px] sm:h-[60px] flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">$RICE</h3>
+                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">Ronke Rice Farmer Token</p>
                         <button
                           onClick={() => copyToClipboard('0x9049ca10dd4cba0248226b4581443201f8f225c6', 'RICE-CA')}
-                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 max-w-full truncate ${
+                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 block w-fit ${
                             copiedToken === 'RICE-CA' 
                               ? 'bg-green-100 text-green-700' 
                               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                           }`}
                         >
-                          {copiedToken === 'RICE-CA' ? '✓ Copied!' : '0x9049ca10dd4cba0248226b4581443201f8f225c6'}
+                          <span className="sm:hidden">
+                            {copiedToken === 'RICE-CA' ? '✓ Copied!' : formatAddressForMobile('0x9049ca10dd4cba0248226b4581443201f8f225c6')}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {copiedToken === 'RICE-CA' ? '✓ Copied!' : '0x9049ca10dd4cba0248226b4581443201f8f225c6'}
+                          </span>
                         </button>
                       </div>
                     </div>
                   </div>
-                  <div className="relative h-80 bg-gradient-to-br from-green-50 to-yellow-50 rounded-xl overflow-hidden shadow-inner">
+                  <div className="relative h-64 sm:h-80 bg-gradient-to-br from-green-50 to-yellow-50 rounded-xl overflow-hidden shadow-inner">
                     <iframe
                       src="https://www.geckoterminal.com/ronin/pools/0x93171ecace2f6b8be8dd09539f55fabe7f805af1?embed=1&info=0&swaps=0"
                       width="100%"
@@ -241,24 +255,24 @@ export default function TokensSection() {
                 </div>
                 
                 {/* Info Section */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-green-50 to-yellow-50 dark:from-gray-700 dark:to-gray-800 p-8 flex flex-col justify-between">
+                <div className="lg:col-span-2 bg-gradient-to-br from-green-50 to-yellow-50 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
                   <div>
-                                          <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Farming Ecosystem</h4>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-6">
+                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Farming Ecosystem</h4>
+                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
                       The agricultural backbone of the Ronkeverse. RICE powers the Ronke Rice Farmer (RRF) ecosystem, 
                       providing sustainable yield generation through innovative farming mechanics.
                     </p>
                   </div>
-                  <div className="mt-6 space-y-3">
+                  <div className="mt-4 sm:mt-6 space-y-3">
                     <button
                       onClick={scrollToRRF}
-                      className="w-full bg-gray-800 text-white py-3 px-6 rounded-xl font-semibold hover:bg-gray-900 transition-colors duration-200"
+                      className="w-full bg-gray-800 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-gray-900 transition-colors duration-200 text-sm sm:text-base"
                     >
                       What is Ronke Rice Farmer?
                     </button>
                     <button
                       onClick={() => handleBuyToken('0x9049ca10dd4cba0248226b4581443201f8f225c6')}
-                      className="w-full bg-[#27B9FC] text-white py-3 px-6 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200"
+                      className="w-full bg-[#27B9FC] text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 text-sm sm:text-base"
                     >
                       Buy RICE
                     </button>
