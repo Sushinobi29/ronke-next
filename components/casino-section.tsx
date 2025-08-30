@@ -4,15 +4,24 @@ import { useEffect, useState } from "react";
 
 export default function CasinoSection() {
   const [isVisible, setIsVisible] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    // Check if mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true);
         }
       },
-      { threshold: 0.2 }
+      { threshold: isMobile ? 0.1 : 0.2 }
     );
 
     const section = document.getElementById('ronke-casino');
@@ -21,19 +30,22 @@ export default function CasinoSection() {
     }
 
     return () => {
+      window.removeEventListener('resize', checkMobile);
       if (section) {
         observer.unobserve(section);
       }
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <section id="ronke-casino" className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-black dark:via-gray-900 dark:to-black py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Title */}
-        <div className={`text-center mb-16 transition-all duration-1000 ease-out ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+        <div className={`text-center mb-16 ${
+          isMobile 
+            ? `transition-all duration-500 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`
+            : `transition-all duration-1000 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`
         }`}>
           <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
             RONKE <span className="text-purple-600 font-thin">CASINO</span>
@@ -48,8 +60,10 @@ export default function CasinoSection() {
         <div className="space-y-16 mb-20">
           
           {/* Coinflip Game Card - Image Left, Text Right */}
-          <div className={`transition-all duration-1000 ease-out delay-300 ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          <div className={`${
+            isMobile 
+              ? `${isVisible ? 'opacity-100' : 'opacity-0'}`
+              : `transition-all duration-1000 ease-out delay-300 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`
           }`}>
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="flex flex-col lg:flex-row">
@@ -63,6 +77,7 @@ export default function CasinoSection() {
                       className="border-0 rounded-xl"
                       title="Ronke Coinflip - Live Game"
                       allow="fullscreen"
+                      loading="lazy"
                     />
                   </div>
                 </div>
@@ -115,8 +130,10 @@ export default function CasinoSection() {
           </div>
 
           {/* Mines Game Card - Text Left, Image Right */}
-          <div className={`transition-all duration-1000 ease-out delay-500 ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          <div className={`${
+            isMobile 
+              ? `${isVisible ? 'opacity-100' : 'opacity-0'}`
+              : `transition-all duration-1000 ease-out delay-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`
           }`}>
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
               <div className="flex flex-col lg:flex-row">
@@ -174,6 +191,7 @@ export default function CasinoSection() {
                       className="border-0 rounded-xl"
                       title="Ronke Mines - Live Game"
                       allow="fullscreen"
+                      loading="lazy"
                     />
                   </div>
                 </div>
@@ -183,8 +201,10 @@ export default function CasinoSection() {
         </div>
 
         {/* Seasonal Rewards & Live Leaderboard Section */}
-        <div className={`transition-all duration-1000 ease-out delay-700 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+        <div className={`${
+          isMobile 
+            ? `${isVisible ? 'opacity-100' : 'opacity-0'}`
+            : `transition-all duration-1000 ease-out delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`
         }`}>
           <div className="bg-[#27B9FC] rounded-3xl shadow-2xl overflow-hidden">
             <div className="p-8 lg:p-12 text-white">
@@ -244,6 +264,7 @@ export default function CasinoSection() {
                         className="border-0 rounded-xl"
                         title="Ronke Casino Live Leaderboard"
                         allow="fullscreen"
+                        loading="lazy"
                       />
                     </div>
                     <p className="text-xs text-gray-600 text-center mt-2">
@@ -257,8 +278,10 @@ export default function CasinoSection() {
         </div>
 
         {/* Call to Action */}
-        <div className={`text-center mt-16 transition-all duration-1000 ease-out delay-900 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+        <div className={`text-center mt-16 ${
+          isMobile 
+            ? `${isVisible ? 'opacity-100' : 'opacity-0'}`
+            : `transition-all duration-1000 ease-out delay-900 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`
         }`}>
           <p className="text-lg text-gray-600 mb-8">
             Ready to test your luck and strategy in the Ronkeverse Casino?
