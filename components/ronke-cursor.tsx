@@ -14,7 +14,7 @@ export default function RonkeCursor({ isActive, isExcited = false }: RonkeCursor
   const [direction, setDirection] = useState({ x: 1, y: 0 });
   const [showCursor, setShowCursor] = useState(false);
   const targetRef = useRef({ x: 0, y: 0 });
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!isActive) return;
