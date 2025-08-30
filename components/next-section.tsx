@@ -80,7 +80,7 @@ export default function NextSection() {
             }`}>
               <p className="text-sm sm:text-base lg:text-lg text-gray-700 dark:text-gray-300 leading-relaxed max-w-lg">
                 From abandoned project to cultural phenomenon—RONKE proves that sometimes the most unexpected 
-                heroes rise from the ashes. Our blue monkey didn&apos;t just survive; she built an empire on Ronin blockchain.
+                heroes rise from the ashes. Our blue monkey didn&apos;t just survive; he built an empire on Ronin blockchain.
               </p>
             </div>
 
