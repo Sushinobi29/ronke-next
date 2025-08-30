@@ -26,18 +26,28 @@ export const metadata: Metadata = {
     title: "Ronkeverse - Home of Ronke the Monke | Blue Monke on Ronin",
     description: "Welcome to the official Ronkeverse! Join Ronke the Monke in the ultimate Blue Monke gaming and DeFi ecosystem on Ronin Network.",
     url: "https://ronkeverse.com",
+    siteName: "Ronkeverse",
     images: [
       {
-        url: "/ronkeverse-banner.png",
+        url: "https://ronkeverse.com/ronkeverse-banner.png",
         width: 1200,
         height: 630,
         alt: "Ronkeverse Homepage - Ronke the Monke Blue Monke Empire",
+      },
+      {
+        url: "https://ronkeverse.com/ronke-logo.webp",
+        width: 512,
+        height: 512,
+        alt: "Ronke the Monke Logo",
       }
     ],
+    type: "website",
   },
   twitter: {
+    card: "summary_large_image",
     title: "Ronkeverse - Home of Ronke the Monke | Blue Monke on Ronin",
     description: "Welcome to the official Ronkeverse! Beauty standards redefined where luxury meets Blue Monke. 🐵✨",
+    images: ["https://ronkeverse.com/ronkeverse-banner.png"],
   },
   alternates: {
     canonical: "https://ronkeverse.com",
