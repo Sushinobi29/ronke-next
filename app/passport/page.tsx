@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import PageNavbar from "@/components/page-navbar";
 
 declare global {
   interface GlobalEventHandlersEventMap {
@@ -11,7 +12,6 @@ declare global {
     touchmove: TouchEvent;
   }
 }
-
 
 export default function PassportPage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -111,15 +111,6 @@ export default function PassportPage() {
         ctx.fillStyle = "black";
         ctx.fillText(`${fields.date.replaceAll("/", "-")}`, 900, 1620);
 
-        // const randomX = Math.floor(Math.random() * 91); // Randomize X position by -20 to 20
-        // const randomY = Math.floor(Math.random() * 91); // Randomize Y position by -20 to 20
-        // const rotation = (Math.random() * 45 - 10) * (Math.PI / 180); // Random rotation between -15 and 15 degrees
-        // ctx.save(); // Save the current state
-        // ctx.translate(randomX + 500 + 388.5, randomY + 150 + 388.5); // Move to the center of the stamp
-        // ctx.rotate(rotation); // Rotate the context
-        // ctx.drawImage(stamp, -388.5, -388.5, 777, 777); // Draw the image centered at the new position
-        // ctx.restore(); // Restore the original state
-
       } catch (error) {
         console.error('Error loading images:', error);
       }
@@ -173,11 +164,6 @@ export default function PassportPage() {
     
         // 1. Draw main canvas content
         tempCtx.drawImage(mainCanvas, 0, 0);
-    
-        // 2. Draw signature if it exists
-        // if (signatureCanvas) {
-        //   tempCtx.drawImage(signatureCanvas, 1400, 1500);
-        // }
     
         // 3. Convert to data URL and download
         const link = document.createElement("a");
@@ -285,70 +271,100 @@ export default function PassportPage() {
     }, [isDrawing]);
 
   return (
-    <div className="flex flex-col md:flex-row gap-8 p-8">
-      {/* Canvas Preview */}
-      <div className="flex-1">
-        <canvas
-          ref={canvasRef}
-          width={WIDTH}
-          height={HEIGHT}
-          className="w-full h-auto border border-zinc-200 dark:border-zinc-800 rounded-lg"
-        />
-      </div>
-
-      {/* Controls */}
-      <div className="w-full md:w-80 space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="owner">NFT owner</Label>
-          <Input
-            id="owner"
-            value={fields.owner}
-            onChange={(e) => setFields({ ...fields, owner: e.target.value })}
-            placeholder="Enter NFT owner"
-          />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-black dark:via-gray-900 dark:to-black">
+      <PageNavbar />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
+        
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            RONKE <span className="text-purple-600">PASSPORT</span>
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            Create your official Ronkeverse passport with your NFT and signature
+          </p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="givenName">givenName</Label>
-          <Input
-            id="givenName"
-            value={fields.givenName}
-            onChange={(e) => setFields({ ...fields, givenName: e.target.value })}
-            placeholder="Enter givenName"
-          />
-        </div>
+        <div className="flex flex-col lg:flex-row gap-12">
+          
+          {/* Canvas Preview */}
+          <div className="flex-1">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Passport Preview</h2>
+              <canvas
+                ref={canvasRef}
+                width={WIDTH}
+                height={HEIGHT}
+                className="w-full h-auto border-2 border-gray-200 dark:border-gray-600 rounded-xl"
+              />
+            </div>
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="ronkeId">Rarity ronkeId</Label>
-          <Input
-            id="ronkeId"
-            value={fields.ronkeId}
-            onChange={(e) => setFields({ ...fields, ronkeId: e.target.value })}
-            placeholder="Enter rarity ronkeId"
-          />
-        </div>
+          {/* Controls */}
+          <div className="w-full lg:w-96">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 space-y-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Passport Details</h2>
+              
+              <div className="space-y-2">
+                <Label htmlFor="owner">NFT Owner</Label>
+                <Input
+                  id="owner"
+                  value={fields.owner}
+                  onChange={(e) => setFields({ ...fields, owner: e.target.value })}
+                  placeholder="Enter NFT owner"
+                />
+              </div>
 
-        {/* Signature Canvas */}
-        <div className="space-y-2">
-          <Label htmlFor="signature">Signature</Label>
-          <canvas
-            ref={signatureCanvasRef}
-            width={SIGNATURE_WIDTH}
-            height={SIGNATURE_HEIGHT}
-            className="w-full h-auto border border-zinc-200 dark:border-zinc-800 rounded-lg"
-          />
-          <Button className="w-full" onClick={clearSignature}>
-            Clear Signature
-          </Button>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="givenName">Given Name</Label>
+                <Input
+                  id="givenName"
+                  value={fields.givenName}
+                  onChange={(e) => setFields({ ...fields, givenName: e.target.value })}
+                  placeholder="Enter given name"
+                />
+              </div>
 
-        <Button 
-          className="w-full" 
-          onClick={handleDownload}
-          disabled={!fields.owner || !fields.givenName || !fields.ronkeId}
-        >
-          Download Passport
-        </Button>
+              <div className="space-y-2">
+                <Label htmlFor="ronkeId">Ronke ID</Label>
+                <Input
+                  id="ronkeId"
+                  value={fields.ronkeId}
+                  onChange={(e) => setFields({ ...fields, ronkeId: e.target.value })}
+                  placeholder="Enter Ronke ID (e.g., #6969)"
+                />
+              </div>
+
+              {/* Signature Canvas */}
+              <div className="space-y-2">
+                <Label htmlFor="signature">Digital Signature</Label>
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4">
+                  <canvas
+                    ref={signatureCanvasRef}
+                    width={SIGNATURE_WIDTH}
+                    height={SIGNATURE_HEIGHT}
+                    className="w-full h-auto border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"
+                  />
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-3" 
+                    onClick={clearSignature}
+                  >
+                    Clear Signature
+                  </Button>
+                </div>
+              </div>
+
+              <Button 
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 text-lg" 
+                onClick={handleDownload}
+                disabled={!fields.owner || !fields.givenName || !fields.ronkeId}
+              >
+                🎫 Download Passport
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

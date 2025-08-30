@@ -67,6 +67,13 @@ export function usePriceUpdater() {
         for (const chunk of chunks) {
           const priceData = await fetchNFTPrices(chunk);
           console.log("✅ Price data received:", priceData);
+          
+          // Safety check to ensure priceData is an object
+          if (!priceData || typeof priceData !== 'object') {
+            console.warn("⚠️ Invalid price data received, skipping chunk");
+            continue;
+          }
+          
           Object.entries(priceData).forEach(([key, value]) => {
             const index = parseInt(key.replace("token", ""));
             const tokenId = chunk[index];

@@ -28,8 +28,8 @@ export async function fetchNFTPrices(tokenIds: string[]): Promise<Record<string,
 
       console.log(response)
       
-      const {data} = await response.json();
-      return data;
+      const result = await response.json();
+      return result?.data || {};
     } catch (error) {
       console.error('Error fetching prices:', error);
       return {};

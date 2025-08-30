@@ -126,4 +126,4 @@ export function TraitStats({
       </div>
     </div>
   );
-}
+} 
