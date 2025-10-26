@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -6,24 +6,25 @@ import { ThemeToggle } from "./theme-toggle";
 
 export default function Navbar() {
   const [isVisible, setIsVisible] = useState(false);
-  const [activeSection, setActiveSection] = useState('');
+  const [activeSection, setActiveSection] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   // Navigation items in the desired order
   const navItems = [
-    { id: 'about', label: 'ABOUT' },
-    { id: 'charts', label: 'CHARTS' },
-    { id: 'rrf', label: 'RRF' },
-    { id: 'ronke-casino', label: 'RONKE CASINO' },
-    { id: 'ronke-staking', label: 'STAKING' },
-    { id: 'burnonomics', label: 'BURNONOMICS' },
+    { id: "about", label: "ABOUT" },
+    { id: "charts", label: "CHARTS" },
+    { id: "rrf", label: "RRF" },
+    { id: "ronke-casino", label: "RONKE CASINO" },
+    { id: "ronke-staking", label: "STAKING" },
+    { id: "burnonomics", label: "BURNONOMICS" },
   ];
 
   // External navigation items
   const externalNavItems = [
-    { href: '/gallery', label: 'GALLERY' },
-    { href: '/passport', label: 'PASSPORT' },
+    { href: "/gallery", label: "GALLERY" },
+    { href: "/passport", label: "PASSPORT" },
+    { href: "https://halloween.ronkeverse.com", label: "ZRONKIFIER" },
   ];
 
   // Handle hydration
@@ -35,7 +36,7 @@ export default function Navbar() {
     if (!isMounted) return;
 
     const handleScroll = () => {
-      const aboutSection = document.getElementById('about');
+      const aboutSection = document.getElementById("about");
       if (aboutSection) {
         const rect = aboutSection.getBoundingClientRect();
         // Show navbar when next section is in view (top of section reaches top of viewport)
@@ -43,44 +44,44 @@ export default function Navbar() {
       }
 
       // Determine active section based on scroll position
-      const sections = navItems.map(item => item.id);
-      let currentActiveSection = '';
-      
+      const sections = navItems.map((item) => item.id);
+      let currentActiveSection = "";
+
       // Get current scroll position plus some offset to account for navbar
       const scrollPosition = window.scrollY + 100;
-      
+
       // Check each section and find which one we're currently in
       for (let i = 0; i < sections.length; i++) {
         const element = document.getElementById(sections[i]);
         if (element) {
           const rect = element.getBoundingClientRect();
           const elementTop = window.scrollY + rect.top;
-          
+
           // Check if this section starts at or before our current scroll position
           if (elementTop <= scrollPosition) {
             currentActiveSection = sections[i];
           }
         }
       }
-      
+
       // Fallback: if no section is found or we're at the very top, default to 'about'
       if (!currentActiveSection || window.scrollY < 200) {
-        currentActiveSection = 'about';
+        currentActiveSection = "about";
       }
 
       setActiveSection(currentActiveSection);
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
     handleScroll(); // Check initial state
 
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [isMounted]);
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
       // Close mobile menu after navigation
       setIsMobileMenuOpen(false);
     }
@@ -117,10 +118,10 @@ export default function Navbar() {
                     {item.label}
                   </div>
                 ))}
-                
+
                 {/* Separator */}
                 <div className="w-px h-6 bg-white/30"></div>
-                
+
                 {/* External Links */}
                 {externalNavItems.map((item) => (
                   <div key={item.href} className="text-white/80 font-medium">
@@ -141,9 +142,11 @@ export default function Navbar() {
   }
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
-      isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full'
-    }`}>
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-full"
+      }`}
+    >
       <div className="bg-[#27B9FC] dark:bg-gray-900/95 shadow-lg backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -163,13 +166,13 @@ export default function Navbar() {
             {/* Desktop Navigation Links */}
             <div className="hidden md:flex items-center space-x-8">
               {navItems.map((item) => (
-                <button 
+                <button
                   key={item.id}
                   onClick={() => scrollToSection(item.id)}
                   className={`text-white dark:text-gray-100 transition-all duration-200 font-medium relative ${
-                    activeSection === item.id 
-                      ? 'text-white dark:text-white scale-105' 
-                      : 'text-white/80 dark:text-gray-300 hover:text-white dark:hover:text-white hover:scale-105'
+                    activeSection === item.id
+                      ? "text-white dark:text-white scale-105"
+                      : "text-white/80 dark:text-gray-300 hover:text-white dark:hover:text-white hover:scale-105"
                   }`}
                 >
                   {item.label}
@@ -179,10 +182,10 @@ export default function Navbar() {
                   )}
                 </button>
               ))}
-              
+
               {/* Separator */}
               <div className="w-px h-6 bg-white/30"></div>
-              
+
               {/* External Links */}
               {externalNavItems.map((item) => (
                 <a
@@ -193,28 +196,40 @@ export default function Navbar() {
                   {item.label}
                 </a>
               ))}
-              
+
               {/* Theme Toggle */}
               <ThemeToggle />
             </div>
 
             {/* Mobile menu button */}
             <div className="md:hidden">
-              <button 
+              <button
                 onClick={toggleMobileMenu}
                 className="text-white dark:text-gray-100 hover:text-gray-200 dark:hover:text-gray-300 transition-colors duration-200"
                 aria-label="Toggle mobile menu"
               >
-                <svg 
-                  className={`h-6 w-6 transition-transform duration-200 ${isMobileMenuOpen ? 'rotate-90' : ''}`} 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
+                <svg
+                  className={`h-6 w-6 transition-transform duration-200 ${
+                    isMobileMenuOpen ? "rotate-90" : ""
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
                   {isMobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
                   )}
                 </svg>
               </button>
@@ -222,11 +237,13 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Menu */}
-          <div className={`md:hidden transition-all duration-300 ease-out ${
-            isMobileMenuOpen 
-              ? 'max-h-96 opacity-100 pb-4' 
-              : 'max-h-0 opacity-0 overflow-hidden'
-          }`}>
+          <div
+            className={`md:hidden transition-all duration-300 ease-out ${
+              isMobileMenuOpen
+                ? "max-h-96 opacity-100 pb-4"
+                : "max-h-0 opacity-0 overflow-hidden"
+            }`}
+          >
             <div className="space-y-1 pt-2">
               {/* Mobile Section Links */}
               {navItems.map((item) => (
@@ -235,17 +252,17 @@ export default function Navbar() {
                   onClick={() => scrollToSection(item.id)}
                   className={`block w-full text-left px-3 py-2 rounded-md transition-all duration-200 font-medium ${
                     activeSection === item.id
-                      ? 'bg-white/20 dark:bg-gray-700/50 text-white dark:text-white'
-                      : 'text-white/80 dark:text-gray-300 hover:bg-white/10 dark:hover:bg-gray-700/50 hover:text-white dark:hover:text-white'
+                      ? "bg-white/20 dark:bg-gray-700/50 text-white dark:text-white"
+                      : "text-white/80 dark:text-gray-300 hover:bg-white/10 dark:hover:bg-gray-700/50 hover:text-white dark:hover:text-white"
                   }`}
                 >
                   {item.label}
                 </button>
               ))}
-              
+
               {/* Separator */}
               <div className="my-2 border-t border-white/20"></div>
-              
+
               {/* Mobile External Links */}
               {externalNavItems.map((item) => (
                 <a
@@ -257,7 +274,7 @@ export default function Navbar() {
                   {item.label}
                 </a>
               ))}
-              
+
               {/* Theme Toggle in Mobile Menu */}
               <div className="px-3 py-2">
                 <ThemeToggle />
