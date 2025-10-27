@@ -15,6 +15,7 @@ export default function Navbar() {
     { id: "about", label: "ABOUT" },
     { id: "charts", label: "CHARTS" },
     { id: "rrf", label: "RRF" },
+    { id: "ronin-strategy", label: "RONINSTRATEGY" },
     { id: "ronke-casino", label: "RONKE CASINO" },
     { id: "ronke-staking", label: "STAKING" },
     { id: "burnonomics", label: "BURNONOMICS" },
@@ -47,8 +48,8 @@ export default function Navbar() {
       const sections = navItems.map((item) => item.id);
       let currentActiveSection = "";
 
-      // Get current scroll position plus some offset to account for navbar
-      const scrollPosition = window.scrollY + 100;
+      // Get current scroll position plus offset to account for navbar height
+      const scrollPosition = window.scrollY + 200;
 
       // Check each section and find which one we're currently in
       for (let i = 0; i < sections.length; i++) {

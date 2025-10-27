@@ -3,6 +3,7 @@ import HeroBanner from "@/components/hero-banner";
 import NextSection from "@/components/next-section";
 import TokensSection from "@/components/tokens-section";
 import RRFSection from "@/components/rrf-section";
+import RoninStrategySection from "@/components/ronin-strategy-section";
 import CasinoSection from "@/components/casino-section";
 import StakingSection from "@/components/staking-section";
 import BurnonomicsSection from "@/components/burnonomics-section";
@@ -147,7 +148,11 @@ export default function Home() {
         <section id="rrf" aria-label="RRF - Ronke Revenue Framework">
           <RRFSection />
         </section>
-        
+
+        <section id="ronin-strategy" aria-label="RoninStrategy - NFT Perpetual Machine">
+          <RoninStrategySection />
+        </section>
+
         <section id="ronke-casino" aria-label="Ronke Casino - Gaming Platform">
           <CasinoSection />
         </section>
