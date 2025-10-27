@@ -123,7 +123,7 @@ export default function RoninStrategySection() {
               </div>
 
               <p className="text-base sm:text-lg text-gray-700 dark:text-gray-300 mb-8 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border-l-4 border-orange-600">
-                We're starting with <span className="font-bold text-orange-600">$RONKESTR</span>, the NFTStrategy token for the Ronkeverse.
+                We&apos;re starting with <span className="font-bold text-orange-600">$RONKESTR</span>, the NFTStrategy token for the Ronkeverse.
               </p>
 
               {/* Fee Breakdown */}
