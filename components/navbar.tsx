@@ -25,7 +25,6 @@ export default function Navbar() {
   const externalNavItems = [
     { href: "/gallery", label: "GALLERY" },
     { href: "/passport", label: "PASSPORT" },
-    { href: "https://halloween.ronkeverse.com", label: "ZRONKIFIER" },
   ];
 
   // Handle hydration
