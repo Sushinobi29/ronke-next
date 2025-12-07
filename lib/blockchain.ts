@@ -1,6 +1,7 @@
 // Blockchain utility functions for Ronin network
 const RONIN_RPC_URL = 'https://api.roninchain.com/rpc';
-const NULL_ADDRESS = '0x000000000000000000000000000000000000dead';
+const DEAD_ADDRESS = '0x000000000000000000000000000000000000dead';
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 interface TokenInfo {
   totalSupply: string;
@@ -40,44 +41,57 @@ export async function fetchTokenData(contractAddress: string): Promise<TokenInfo
       throw new Error(`RPC error: ${totalSupplyData.error.message}`);
     }
     
-    // Fetch burned amount (balance of dead address)
-    // Properly construct balanceOf function call data
-    const paddedDeadAddress = NULL_ADDRESS.slice(2).padStart(64, '0'); // Remove 0x and pad to 64 chars
-    const balanceOfData = '0x70a08231' + paddedDeadAddress; // balanceOf function selector + padded address
-    
-    const burnedAmountResponse = await fetch(RONIN_RPC_URL, {
+    // Fetch burned amount from both dead address and zero address
+    const paddedDeadAddress = DEAD_ADDRESS.slice(2).padStart(64, '0');
+    const paddedZeroAddress = ZERO_ADDRESS.slice(2).padStart(64, '0');
+
+    // Fetch balance of dead address
+    const deadBalanceResponse = await fetch(RONIN_RPC_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0',
         method: 'eth_call',
-        params: [{
-          to: contractAddress,
-          data: balanceOfData
-        }, 'latest'],
+        params: [{ to: contractAddress, data: '0x70a08231' + paddedDeadAddress }, 'latest'],
         id: 2
       })
     });
 
-    if (!burnedAmountResponse.ok) {
-      console.warn('Burned amount fetch failed, using 0');
-      return {
-        totalSupply: totalSupplyData.result || '0x0',
-        burnedAmount: '0x0'
-      };
+    // Fetch balance of zero address
+    const zeroBalanceResponse = await fetch(RONIN_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_call',
+        params: [{ to: contractAddress, data: '0x70a08231' + paddedZeroAddress }, 'latest'],
+        id: 3
+      })
+    });
+
+    let deadBalance = '0x0';
+    let zeroBalance = '0x0';
+
+    if (deadBalanceResponse.ok) {
+      const deadData = await deadBalanceResponse.json();
+      console.log('Dead address balance:', deadData);
+      if (!deadData.error) deadBalance = deadData.result || '0x0';
     }
 
-    const burnedAmountData = await burnedAmountResponse.json();
-    console.log('Burned amount response:', burnedAmountData);
+    if (zeroBalanceResponse.ok) {
+      const zeroData = await zeroBalanceResponse.json();
+      console.log('Zero address balance:', zeroData);
+      if (!zeroData.error) zeroBalance = zeroData.result || '0x0';
+    }
 
-    // If burned amount call failed, just use 0 but keep the total supply
-    const burnedAmount = (burnedAmountData.error) ? '0x0' : (burnedAmountData.result || '0x0');
-    
+    // Sum both burn addresses
+    const deadAmount = BigInt(deadBalance);
+    const zeroAmount = BigInt(zeroBalance);
+    const totalBurned = deadAmount + zeroAmount;
+
     return {
       totalSupply: totalSupplyData.result || '0x0',
-      burnedAmount: burnedAmount
+      burnedAmount: '0x' + totalBurned.toString(16)
     };
   } catch (error) {
     console.error('Error fetching token data:', error);

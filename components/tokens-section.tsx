@@ -210,8 +210,83 @@ export default function TokensSection() {
             </div>
           </div>
 
-          {/* RICE Token Card */}
+          {/* RONKESTR Token Card */}
           <div className={`transition-all duration-1000 ease-out delay-600 ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
+                {/* Chart Section */}
+                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+                        <span className="text-white text-lg sm:text-xl">♾️</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">$RONKESTR</h3>
+                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">NFTStrategy Token</p>
+                        <button
+                          onClick={() => copyToClipboard('0x7b858B9086F8DA50B84CFD87C5B315235F80982A', 'RONKESTR-CA')}
+                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 block w-fit ${
+                            copiedToken === 'RONKESTR-CA'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          <span className="sm:hidden">
+                            {copiedToken === 'RONKESTR-CA' ? '✓ Copied!' : formatAddressForMobile('0x7b858B9086F8DA50B84CFD87C5B315235F80982A')}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {copiedToken === 'RONKESTR-CA' ? '✓ Copied!' : '0x7b858B9086F8DA50B84CFD87C5B315235F80982A'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl overflow-hidden shadow-inner border border-orange-100 dark:border-orange-800">
+                    <iframe
+                      src="https://www.geckoterminal.com/ronin/pools/0x87b0acb34aa54cb51451050be73e9e31921154c2?embed=1&info=0&swaps=0&trades=0"
+                      width="100%"
+                      height="100%"
+                      className="border-0 scale-110 origin-center"
+                      title="RONKESTR Token Chart"
+                      allow="fullscreen"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+
+                {/* Info Section */}
+                <div className="lg:col-span-2 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
+                  <div>
+                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Perpetual NFT Machine</h4>
+                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
+                      The NFTStrategy token for the Ronkeverse. Fees pool up, buy NFTs, relist at 1.2x.
+                      When sold, all $RON buys and burns $RONKESTR. This loop runs forever.
+                    </p>
+                  </div>
+                  <div className="mt-4 sm:mt-6 space-y-3">
+                    <a
+                      href="#ronin-strategy"
+                      className="w-full bg-gray-800 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-gray-900 transition-colors duration-200 text-sm sm:text-base text-center block"
+                    >
+                      What is Ronin Strategy?
+                    </a>
+                    <button
+                      onClick={() => handleBuyToken('0x7b858B9086F8DA50B84CFD87C5B315235F80982A')}
+                      className="w-full bg-gradient-to-r from-orange-500 to-amber-600 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:from-orange-600 hover:to-amber-700 transition-all duration-200 text-sm sm:text-base"
+                    >
+                      Buy RONKESTR
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RICE Token Card */}
+          <div className={`transition-all duration-1000 ease-out delay-800 ${
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}>
             <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">

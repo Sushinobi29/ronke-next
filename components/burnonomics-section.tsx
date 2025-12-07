@@ -52,6 +52,12 @@ export default function BurnonomicsSection() {
             decimals: 18
           },
           {
+            symbol: 'RONKESTR',
+            name: 'NFTStrategy Token',
+            contractAddress: '0x404533a09bf281199ce6b0ef60b7eff7123ff8dc',
+            decimals: 18
+          },
+          {
             symbol: 'RICE',
             name: 'Ronke Rice Farmer Token',
             contractAddress: '0x9049ca10dd4cba0248226b4581443201f8f225c6',
