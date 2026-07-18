@@ -102,11 +102,19 @@ export default function RoninStrategySection() {
 
         <div className="mt-10 flex flex-wrap items-center gap-4">
           <a
+            href={`https://app.roninchain.com/swap?outputCurrency=${RONKESTR_ADDRESS}&inputCurrency=RON`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-2xl bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground transition-transform active:scale-[0.98]"
+            style={{ boxShadow: "0 8px 30px rgba(39,185,252,0.32)" }}
+          >
+            Buy $RONKESTR
+          </a>
+          <a
             href="https://roninstrategy.fun"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-2xl bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground transition-transform active:scale-[0.98]"
-            style={{ boxShadow: "0 8px 30px rgba(39,185,252,0.32)" }}
+            className="rv-hover inline-flex items-center gap-1.5 rounded-2xl border border-border bg-card px-6 py-3 text-sm font-semibold"
           >
             Open Ronin Strategy
             <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
