@@ -26,18 +26,9 @@ const STEPS = [
 ];
 
 const FACTS = [
-  {
-    label: "Ronin Strategy",
-    value: "The protocol turns any collection into a perpetual machine. $RONKESTR is the Ronkeverse's.",
-  },
-  {
-    label: "Dev fees",
-    value: "1% of trading volume goes to the platform devs.",
-  },
-  {
-    label: "Deflationary by design",
-    value: "Every cycle ends in a supply burn, never a mint.",
-  },
+  { label: "Dev fees", value: "1%", sub: "of trading volume" },
+  { label: "Trading tax", value: "Dynamic", sub: "adjusts with volume" },
+  { label: "The Yoyo", value: "∞", sub: "accumulate, flip, burn" },
 ];
 
 export default function RoninStrategySection() {
@@ -101,9 +92,10 @@ export default function RoninStrategySection() {
               <div className="text-xs uppercase tracking-wide text-muted-2">
                 {fact.label}
               </div>
-              <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">
+              <div className="mono mt-1 text-[26px] font-bold">
                 {fact.value}
-              </p>
+              </div>
+              <div className="text-sm text-muted-1">{fact.sub}</div>
             </div>
           ))}
         </div>
