@@ -34,25 +34,11 @@ const CHAPTERS = [
     poster: "/film/poster1.jpg",
   },
   {
-    id: "collection",
-    title: "6,969 strong.",
-    text: "Every Ronkeverse NFT is hand-drawn chaos. No two monkes alike, all of them blue.",
+    id: "moon",
+    title: "To the moon.",
+    text: "Base Ronke becomes the ship. Fueled by burns, flown by monkes.",
     video: "/film/chapter2.mp4",
     poster: "/film/poster2.jpg",
-  },
-  {
-    id: "play",
-    title: "The games feed the fire.",
-    text: "Coinflip, Mines, rice farming. Revenue from every wager routes back into the ecosystem.",
-    video: "/film/chapter3.mp4",
-    poster: "/film/poster3.jpg",
-  },
-  {
-    id: "burn",
-    title: "Supply only goes down.",
-    text: "Buybacks burn. RONKESTR burns. What reaches the dead address never comes back.",
-    video: "/film/chapter4.mp4",
-    poster: "/film/poster4.jpg",
     cta: true,
   },
 ] as const;
@@ -60,17 +46,15 @@ const CHAPTERS = [
 const N = CHAPTERS.length;
 
 // Film timeline - must match the Venice-generated continuous cut in
-// /public/film/ronke-film.mp4: act1 idle 0-5.04, travel, grid pan 10.08-16.08,
-// travel, casino 21.13-26.17, travel, bonfire 31.21-36.25. One take, no cuts.
-const FILM = { total: 36.25, src: "/film/ronke-film.mp4" };
+// /public/film/ronke-film.mp4: base Ronke idle 0-5.04, morph into the rocket
+// 5.04-10.08, launch and flight to the moon 10.08-15.13. One take, no cuts.
+const FILM = { total: 15.13, src: "/film/ronke-film.mp4" };
 const FILM_TEXT_SEC = [
-  [0, 0, 3.6, 4.9], // title card: on from the start, gone before the pull-back
-  [10.6, 11.6, 15.0, 16.0],
-  [21.6, 22.6, 25.2, 26.1],
-  [31.7, 32.7, 35.3, 36.25],
+  [0, 0, 3.4, 4.6], // title card: on from the start, gone before the morph
+  [10.8, 11.8, 14.6, 15.13],
 ];
-// Active-chapter switches at the midpoints of the three camera travels.
-const FILM_BOUNDS = [7.56 / 36.25, 18.6 / 36.25, 28.69 / 36.25];
+// Active-chapter switches at the midpoint of the morph.
+const FILM_BOUNDS = [7.56 / 15.13];
 
 const filmWindow = (i: number) => FILM_TEXT_SEC[i].map((t) => t / FILM.total);
 
@@ -301,7 +285,7 @@ function StaticFilm() {
         </div>
       </div>
       <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
-        <div className="grid gap-8 sm:grid-cols-3">
+        <div className="grid max-w-xl gap-8">
           {CHAPTERS.slice(1).map((c) => (
             <figure key={c.id} className="m-0">
               <Image
@@ -457,7 +441,7 @@ function CinemaLive() {
       id="film"
       ref={trackRef}
       className="relative bg-[#020306]"
-      style={{ height: scrub ? "900vh" : `${N * 120}vh` }}
+      style={{ height: scrub ? "450vh" : `${N * 130}vh` }}
       aria-label="Ronkeverse, the film"
     >
       <div className="sticky top-0 h-[100dvh] overflow-hidden border-b border-border">
