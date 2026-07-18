@@ -105,8 +105,8 @@ export default function TokensSection() {
             className="rv-hover flex items-center gap-4 rounded-2xl border border-border bg-card-2 p-5"
           >
             <Image
-              src="/images/5309.png"
-              alt="The base Ronke, Ronkeverse number 5309"
+              src="/images/959.png"
+              alt="The WcDonalds Ronke, Ronkeverse number 959"
               width={44}
               height={44}
               className="rounded-xl"
