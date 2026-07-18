@@ -1,372 +1,143 @@
-'use client';
+"use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import RonkeCursor from "./ronke-cursor";
+import { useState } from "react";
+import { ArrowUpRight } from "lucide-react";
+import ContractChip from "./contract-chip";
+
+// Canonical contract addresses (verified against the ronke-analytics config).
+const TOKENS = [
+  {
+    symbol: "RONKE",
+    name: "Ronke Token",
+    blurb: "The native token of the Blue Monke economy.",
+    address: "0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb",
+    pool: "0x75ae353997242927c701d4d6c2722ebef43fd2d3",
+    icon: "/ronke-logo.webp",
+  },
+  {
+    symbol: "RONKESTR",
+    name: "NFT Strategy Token",
+    blurb: "Trading fees buy NFTs, sales burn $RON. Forever.",
+    address: "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc",
+    pool: "0x87b0acb34aa54cb51451050be73e9e31921154c2",
+    icon: "/ronkeverse.png",
+  },
+] as const;
+
+const NFT_MARKET_URL =
+  "https://marketplace.roninchain.com/collections/ronkeverse";
+
+const swapUrl = (address: string) =>
+  `https://app.roninchain.com/swap?outputCurrency=${address}&inputCurrency=RON`;
 
 export default function TokensSection() {
-  const [isVisible, setIsVisible] = useState(false);
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [isRonkeExcited, setIsRonkeExcited] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.2 }
-    );
-
-    const section = document.getElementById('charts');
-    if (section) {
-      observer.observe(section);
-    }
-
-    return () => {
-      if (section) {
-        observer.unobserve(section);
-      }
-    };
-  }, []);
-
-  const scrollToRRF = () => {
-    const rrfSection = document.getElementById('rrf');
-    if (rrfSection) {
-      rrfSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const copyToClipboard = async (address: string, tokenName: string) => {
-    await navigator.clipboard.writeText(address);
-    setCopiedToken(tokenName);
-    setTimeout(() => setCopiedToken(null), 2000);
-  };
-
-  const handleBuyToken = (tokenAddress: string) => {
-    // Trigger Ronke cursor excitement
-    setIsRonkeExcited(true);
-    
-    // Open Katana swap with the specific token
-    const swapUrl = `https://app.roninchain.com/swap?outputCurrency=${tokenAddress}&inputCurrency=RON`;
-    window.open(swapUrl, '_blank');
-    
-    // Reset excitement after a short delay
-    setTimeout(() => {
-      setIsRonkeExcited(false);
-    }, 2000);
-  };
-
-  const formatAddressForMobile = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
+  const [selected, setSelected] = useState(0);
+  const token = TOKENS[selected];
 
   return (
-    <section id="charts" className="min-h-screen bg-gradient-to-br from-gray-50 to-white dark:from-black dark:via-gray-900 dark:to-black py-12 sm:py-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Section Title */}
-        <div className={`text-center mb-12 sm:mb-16 transition-all duration-1000 ease-out ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
-          <h2 className="text-4xl sm:text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
-            LIVE <span className="text-[#27B9FC] font-thin">CHARTS</span>
-          </h2>
-          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto px-4">
-            Track the pulse of the Ronkeverse ecosystem in real-time
-          </p>
+    <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+      <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        Two tokens, one collection.
+      </h2>
+      <p className="mt-3 max-w-lg text-muted-1">
+        Everything trades on Ronin. Pick a token to see its live chart.
+      </p>
+
+      <div className="mt-10 grid gap-6 lg:grid-cols-[2fr_3fr]">
+        <div className="flex flex-col gap-3">
+          {TOKENS.map((t, i) => (
+            <div
+              key={t.symbol}
+              onClick={() => setSelected(i)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelected(i);
+                }
+              }}
+              className={`rv-hover cursor-pointer rounded-2xl border p-5 text-left transition-colors ${
+                selected === i
+                  ? "border-accent/60 bg-card"
+                  : "border-border bg-card-2"
+              }`}
+              aria-pressed={selected === i}
+            >
+              <div className="flex items-center gap-4">
+                <Image
+                  src={t.icon}
+                  alt=""
+                  width={44}
+                  height={44}
+                  className="rounded-full"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="mono font-bold">${t.symbol}</span>
+                    <span className="truncate text-xs text-muted-2">
+                      {t.name}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-1">{t.blurb}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <ContractChip address={t.address} />
+                <a
+                  href={swapUrl(t.address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:text-accent-soft"
+                >
+                  Buy <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
+                </a>
+              </div>
+            </div>
+          ))}
+
+          <a
+            href={NFT_MARKET_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rv-hover flex items-center gap-4 rounded-2xl border border-border bg-card-2 p-5"
+          >
+            <Image
+              src="/images/1.png"
+              alt="Ronkeverse NFT number 1"
+              width={44}
+              height={44}
+              className="rounded-xl"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold">Ronkeverse NFTs</span>
+                <span className="mono text-xs text-muted-2">6,969 supply</span>
+              </div>
+              <p className="mt-1 text-sm text-muted-1">
+                Hand-drawn monkes on Ronin Market.
+              </p>
+            </div>
+            <ArrowUpRight
+              className="h-5 w-5 shrink-0 text-muted-2"
+              strokeWidth={2}
+            />
+          </a>
         </div>
 
-        {/* Token Cards - Single Column */}
-        <div className="space-y-8 sm:space-y-12">
-          
-          {/* RONKE Token Card */}
-          <div className={`transition-all duration-1000 ease-out delay-200 ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
-                {/* Chart Section */}
-                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                        <Image src="/ronke-logo.webp" alt="Ronke Logo" width={48} height={48} className="sm:w-[60px] sm:h-[60px]" />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">$RONKE</h3>
-                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">The Blue Monkey Token</p>
-                        <button
-                          onClick={() => copyToClipboard('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb', 'RONKE-CA')}
-                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 block w-fit ${
-                            copiedToken === 'RONKE-CA' 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          <span className="sm:hidden">
-                            {copiedToken === 'RONKE-CA' ? '✓ Copied!' : formatAddressForMobile('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb')}
-                          </span>
-                          <span className="hidden sm:inline">
-                            {copiedToken === 'RONKE-CA' ? '✓ Copied!' : '0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl overflow-hidden shadow-inner border border-blue-100 dark:border-blue-800">
-                    <iframe
-                      src="https://www.geckoterminal.com/ronin/pools/0x75ae353997242927c701d4d6c2722ebef43fd2d3?embed=1&info=0&swaps=0&trades=0"
-                      width="100%"
-                      height="100%"
-                      className="border-0 scale-110 origin-center"
-                      title="RONKE Token Chart"
-                      allow="fullscreen"
-                      loading="lazy"
-                    />
-                  </div>
-                </div>
-                
-                {/* Info Section */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">The New World Token</h4>
-                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
-                      Born from a simple MS Paint creation, abandoned by its original developer, but reborn through 
-                      community power. RONKE represents resilience and the unstoppable force of collective belief.
-                    </p>
-                  </div>
-                  <div className="mt-4 sm:mt-6">
-                    <button
-                      onClick={() => handleBuyToken('0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb')}
-                      className="w-full bg-[#27B9FC] text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 text-sm sm:text-base"
-                    >
-                      Buy RONKE
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Ronkeverse NFTs Card */}
-          <div className={`transition-all duration-1000 ease-out delay-400 ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
-                {/* Chart Section */}
-                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Ronkeverse NFTs</h3>
-                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">Premium Collection</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-purple-900/20 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-xl overflow-hidden shadow-inner border border-purple-100 dark:border-purple-800">
-                    <Image
-                      src="/ronkeverse-banner.png"
-                      alt="Ronkeverse Banner"
-                      width={400}
-                      height={320}
-                      className="w-full h-full object-cover"
-                      priority
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                    <div className="absolute bottom-4 left-4 right-4 text-center">
-                      <h4 className="text-white text-base sm:text-lg font-bold mb-1 drop-shadow-lg">
-                        The Rolex of the 21st Century
-                      </h4>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Info Section */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">RONKEVERSE NFTs</h4>
-                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
-                      The Rolex of the 21st Century. Scarce by design. 6969 Blue Citizens of the new world.
-                    </p>
-                  </div>
-                  <div className="mt-4 sm:mt-6">
-                    <a 
-                      href="https://marketplace.roninchain.com/collections/ronkeverse"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-pink-700 transition-all duration-200 text-center block text-sm sm:text-base"
-                    >
-                      Browse Collection
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* RONKESTR Token Card */}
-          <div className={`transition-all duration-1000 ease-out delay-600 ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
-                {/* Chart Section */}
-                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-                        <span className="text-white text-lg sm:text-xl">♾️</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">$RONKESTR</h3>
-                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">NFTStrategy Token</p>
-                        <button
-                          onClick={() => copyToClipboard('0x7b858B9086F8DA50B84CFD87C5B315235F80982A', 'RONKESTR-CA')}
-                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 block w-fit ${
-                            copiedToken === 'RONKESTR-CA'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          <span className="sm:hidden">
-                            {copiedToken === 'RONKESTR-CA' ? '✓ Copied!' : formatAddressForMobile('0x7b858B9086F8DA50B84CFD87C5B315235F80982A')}
-                          </span>
-                          <span className="hidden sm:inline">
-                            {copiedToken === 'RONKESTR-CA' ? '✓ Copied!' : '0x7b858B9086F8DA50B84CFD87C5B315235F80982A'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl overflow-hidden shadow-inner border border-orange-100 dark:border-orange-800">
-                    <iframe
-                      src="https://www.geckoterminal.com/ronin/pools/0x87b0acb34aa54cb51451050be73e9e31921154c2?embed=1&info=0&swaps=0&trades=0"
-                      width="100%"
-                      height="100%"
-                      className="border-0 scale-110 origin-center"
-                      title="RONKESTR Token Chart"
-                      allow="fullscreen"
-                      loading="lazy"
-                    />
-                  </div>
-                </div>
-
-                {/* Info Section */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Perpetual NFT Machine</h4>
-                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
-                      The NFTStrategy token for the Ronkeverse. Fees pool up, buy NFTs, relist at 1.2x.
-                      When sold, all $RON buys and burns $RONKESTR. This loop runs forever.
-                    </p>
-                  </div>
-                  <div className="mt-4 sm:mt-6 space-y-3">
-                    <a
-                      href="#ronin-strategy"
-                      className="w-full bg-gray-800 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-gray-900 transition-colors duration-200 text-sm sm:text-base text-center block"
-                    >
-                      What is Ronin Strategy?
-                    </a>
-                    <button
-                      onClick={() => handleBuyToken('0x7b858B9086F8DA50B84CFD87C5B315235F80982A')}
-                      className="w-full bg-gradient-to-r from-orange-500 to-amber-600 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:from-orange-600 hover:to-amber-700 transition-all duration-200 text-sm sm:text-base"
-                    >
-                      Buy RONKESTR
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* RICE Token Card */}
-          <div className={`transition-all duration-1000 ease-out delay-800 ${
-            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
-                {/* Chart Section */}
-                <div className="lg:col-span-3 p-3 sm:p-4 lg:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 lg:mb-6 space-y-3 sm:space-y-0">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                      <Image src="/rice.webp" alt="Rice Logo" width={48} height={48} className="sm:w-[60px] sm:h-[60px] flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">$RICE</h3>
-                        <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">Ronke Rice Farmer Token</p>
-                        <button
-                          onClick={() => copyToClipboard('0x9049ca10dd4cba0248226b4581443201f8f225c6', 'RICE-CA')}
-                          className={`text-xs font-mono px-2 py-1 rounded transition-all duration-200 mt-1 block w-fit ${
-                            copiedToken === 'RICE-CA' 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          <span className="sm:hidden">
-                            {copiedToken === 'RICE-CA' ? '✓ Copied!' : formatAddressForMobile('0x9049ca10dd4cba0248226b4581443201f8f225c6')}
-                          </span>
-                          <span className="hidden sm:inline">
-                            {copiedToken === 'RICE-CA' ? '✓ Copied!' : '0x9049ca10dd4cba0248226b4581443201f8f225c6'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="relative h-80 sm:h-96 lg:h-80 bg-gradient-to-br from-green-50 to-yellow-50 dark:from-green-900/20 dark:to-yellow-900/20 rounded-xl overflow-hidden shadow-inner border border-green-100 dark:border-green-800">
-                    <iframe
-                      src="https://www.geckoterminal.com/ronin/pools/0x93171ecace2f6b8be8dd09539f55fabe7f805af1?embed=1&info=0&swaps=0&trades=0"
-                      width="100%"
-                      height="100%"
-                      className="border-0 scale-110 origin-center"
-                      title="RICE Token Chart"
-                      allow="fullscreen"
-                      loading="lazy"
-                    />
-                  </div>
-                </div>
-                
-                {/* Info Section */}
-                <div className="lg:col-span-2 bg-gradient-to-br from-green-50 to-yellow-50 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-8 flex flex-col justify-between">
-                  <div>
-                    <h4 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Farming Ecosystem</h4>
-                      <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed mb-4 sm:mb-6">
-                      The agricultural backbone of the Ronkeverse. RICE powers the Ronke Rice Farmer (RRF) ecosystem, 
-                      providing sustainable yield generation through innovative farming mechanics.
-                    </p>
-                  </div>
-                  <div className="mt-4 sm:mt-6 space-y-3">
-                    <button
-                      onClick={scrollToRRF}
-                      className="w-full bg-gray-800 text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-gray-900 transition-colors duration-200 text-sm sm:text-base"
-                    >
-                      What is Ronke Rice Farmer?
-                    </button>
-                    <button
-                      onClick={() => handleBuyToken('0x9049ca10dd4cba0248226b4581443201f8f225c6')}
-                      className="w-full bg-[#27B9FC] text-white py-3 px-4 sm:px-6 rounded-xl font-semibold hover:bg-blue-600 transition-all duration-200 text-sm sm:text-base"
-                    >
-                      Buy RICE
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <div className="rv-card overflow-hidden">
+          <iframe
+            key={token.pool}
+            src={`https://www.geckoterminal.com/ronin/pools/${token.pool}?embed=1&info=0&swaps=0&trades=0`}
+            title={`${token.symbol} live chart`}
+            className="h-[420px] w-full lg:h-full lg:min-h-[520px]"
+            allow="clipboard-write"
+            loading="lazy"
+          />
         </div>
-
-        {/* Bottom CTA */}
-      
-
       </div>
-      
-      {/* Excited Ronke Cursor for buy interactions */}
-      {isRonkeExcited && <RonkeCursor isActive={true} isExcited={true} />}
-    </section>
+    </div>
   );
 }

@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { TraitStats } from "./trait-stats";
 import traitData from "@/nft-statistics.json";
-import { ThemeToggle } from "./theme-toggle";
 
 export default function Header() {
   return (
@@ -30,9 +29,6 @@ export default function Header() {
           height={320}
           className="h-full w-full object-cover opacity-50 blur-md"
         />
-        <div className="absolute right-4 top-4 z-10">
-          <ThemeToggle />
-        </div>
       </div>
       <div className="p-8 bg-background">
         <div className="flex flex-col md:flex-row gap-4 md:gap-0">

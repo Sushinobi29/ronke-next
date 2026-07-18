@@ -1,26 +1,24 @@
 import { Metadata } from "next";
-import HeroBanner from "@/components/hero-banner";
-import NextSection from "@/components/next-section";
+import ScrollCinema from "@/components/scroll-cinema";
 import TokensSection from "@/components/tokens-section";
-import RRFSection from "@/components/rrf-section";
 import RoninStrategySection from "@/components/ronin-strategy-section";
-import CasinoSection from "@/components/casino-section";
-import StakingSection from "@/components/staking-section";
 import BurnonomicsSection from "@/components/burnonomics-section";
+import ScoreSection from "@/components/score-section";
+import PlaySection from "@/components/play-section";
 import SocialLinks from "@/components/social-links";
 
 export const metadata: Metadata = {
   title: "Home | Ronkeverse - Welcome to Ronke the Monke's Blue Monke Empire",
-  description: "Discover the Ronkeverse - home of Ronke the Monke, the legendary Blue Monke on Ronin Network. Explore $RONKE and $RICE tokens, NFT staking, Ronke Casino, and join the ultimate crypto gaming ecosystem where beauty standards are redefined.",
+  description: "Discover the Ronkeverse - home of Ronke the Monke, the legendary Blue Monke on Ronin Network. Explore $RONKE and $RONKESTR, live burn stats, the Ronke Score, Ronke Casino, and the ultimate crypto gaming ecosystem.",
   keywords: [
     "Ronkeverse home",
     "ronke the monke official",
-    "blue monke ronin network", 
+    "blue monke ronin network",
     "ronke on ron homepage",
     "$RONKE token buy",
-    "$RICE staking rewards",
+    "$RONKESTR NFT strategy",
     "ronke casino games",
-    "NFT staking platform",
+    "ronke burn tracker",
     "defi gaming ecosystem"
   ],
   openGraph: {
@@ -66,13 +64,13 @@ export default function Home() {
             "@context": "https://schema.org",
             "@type": "WebPage",
             "name": "Ronkeverse - Home of Ronke the Monke",
-            "description": "Welcome to the Ronkeverse! Discover Ronke the Monke, the legendary Blue Monke on Ronin Network. Explore gaming, staking, and DeFi in our comprehensive ecosystem.",
+            "description": "Welcome to the Ronkeverse! Discover Ronke the Monke, the legendary Blue Monke on Ronin Network. Explore gaming, burns, and DeFi in our comprehensive ecosystem.",
             "url": "https://ronkeverse.com",
             "mainEntity": {
               "@type": "Organization",
               "name": "Ronkeverse",
               "alternateName": ["Ronke the Monke", "Blue Monke on Ronin", "Ronke on Ron"],
-              "description": "The ultimate Blue Monke gaming and DeFi ecosystem on Ronin Network featuring $RONKE token, $RICE rewards, NFT staking, and Ronke Casino.",
+              "description": "The ultimate Blue Monke gaming and DeFi ecosystem on Ronin Network featuring the $RONKE token, the $RONKESTR NFT strategy, and Ronke Casino.",
               "url": "https://ronkeverse.com",
               "logo": "https://ronkeverse.com/ronke-logo.webp",
               "image": "https://ronkeverse.com/ronkebase.png",
@@ -88,7 +86,6 @@ export default function Home() {
               "knowsAbout": [
                 "Blockchain Gaming",
                 "DeFi",
-                "NFT Staking", 
                 "Ronin Network",
                 "Cryptocurrency",
                 "Gaming Tokens"
@@ -100,14 +97,9 @@ export default function Home() {
                   "description": "The native utility token of the Ronkeverse ecosystem"
                 },
                 {
-                  "@type": "Offer", 
-                  "name": "RICE Token",
-                  "description": "Reward token for staking and gaming activities in the Ronkeverse"
-                },
-                {
                   "@type": "Offer",
-                  "name": "NFT Staking",
-                  "description": "Stake your NFTs to earn RICE tokens and participate in the ecosystem"
+                  "name": "RONKESTR Token",
+                  "description": "The NFT strategy token whose trading fees buy Ronkeverse NFTs and burn supply"
                 },
                 {
                   "@type": "Offer",
@@ -131,43 +123,35 @@ export default function Home() {
         }}
       />
 
-      <main className="min-h-screen">
-        {/* Main content with semantic HTML structure for better SEO */}
-        <section aria-label="Hero Banner - Welcome to Ronkeverse">
-          <HeroBanner />
-        </section>
-        
-        <section id="about" aria-label="About Ronkeverse and Ronke the Monke">
-          <NextSection />
-        </section>
-        
-        <section id="charts" aria-label="RONKE and RICE Token Information">
-          <TokensSection />
-        </section>
-        
-        <section id="rrf" aria-label="RRF - Ronke Revenue Framework">
-          <RRFSection />
+      <main id="top" className="min-h-screen">
+        {/* The film is the hero: renders its own <section id="film"> with
+            capability tiers and the RONKEVERSE title as the opening overlay. */}
+        <ScrollCinema />
+
+        <section id="score" aria-label="The Ronke Score and badges">
+          <ScoreSection />
         </section>
 
-        <section id="ronin-strategy" aria-label="RoninStrategy - NFT Perpetual Machine">
+        <section id="charts" aria-label="Tokens and live charts">
+          <TokensSection />
+        </section>
+
+        <section
+          id="ronin-strategy"
+          aria-label="RONKESTR - the NFT perpetual machine"
+        >
           <RoninStrategySection />
         </section>
 
-        <section id="ronke-casino" aria-label="Ronke Casino - Gaming Platform">
-          <CasinoSection />
-        </section>
-        
-        <section id="ronke-staking" aria-label="NFT Staking Platform">
-          <StakingSection />
-        </section>
-        
-        <section id="burnonomics" aria-label="Tokenomics and Burn Mechanics">
+        <section id="burnonomics" aria-label="Live burn statistics">
           <BurnonomicsSection />
         </section>
-        
-        <section aria-label="Social Media Links and Community">
-          <SocialLinks />
+
+        <section id="ronke-casino" aria-label="Games, farming and voting">
+          <PlaySection />
         </section>
+
+        <SocialLinks />
       </main>
     </>
   );

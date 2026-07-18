@@ -1,22 +1,24 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import Navbar from "@/components/navbar";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
   title: "Ronkeverse - Ronke the Monke | Blue Monke on Ronin Network",
-  description: "Welcome to the Ronkeverse! Join Ronke the Monke, the legendary Blue Monke on Ronin Network. Explore $RONKE token, $RICE rewards, NFT staking, and the ultimate gaming experience in the Ronkeverse ecosystem.",
+  description: "Welcome to the Ronkeverse! Join Ronke the Monke, the legendary Blue Monke on Ronin Network. Explore the $RONKE token, the $RONKESTR NFT strategy, live burns, and the ultimate gaming experience in the Ronkeverse ecosystem.",
   keywords: [
     "Ronkeverse",
     "ronke the monke", 
@@ -24,8 +26,7 @@ export const metadata: Metadata = {
     "blue monke",
     "ronin network",
     "RONKE token",
-    "RICE token",
-    "NFT staking",
+    "RONKESTR token",
     "ronke casino",
     "ronke gaming",
     "defi",
@@ -78,11 +79,6 @@ export const metadata: Metadata = {
     description: "Welcome to the Ronkeverse! Join Ronke the Monke, the legendary Blue Monke on Ronin Network. Beauty standards redefined.",
     images: ["/ronkeverse-banner.png"],
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
   verification: {
     google: "your-google-verification-code-here", // Replace with actual verification code
   },
@@ -90,6 +86,12 @@ export const metadata: Metadata = {
     canonical: "https://ronkeverse.com",
   },
   category: "Technology",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#27B9FC",
 };
 
 export default function RootLayout({
@@ -151,12 +153,26 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable}`}
+        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
         suppressHydrationWarning
       >
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          forcedTheme="dark"
+        >
+          {/* Ambient Blue-Monke glow behind the whole page. */}
+          <div
+            aria-hidden
+            className="pointer-events-none fixed left-1/2 top-[-260px] z-0 h-[620px] w-[1100px] max-w-none -translate-x-1/2"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, rgba(39,185,252,0.18), transparent 62%)",
+            }}
+          />
           <Navbar />
-          {children}
+          <div className="relative z-10">{children}</div>
         </ThemeProvider>
       </body>
     </html>

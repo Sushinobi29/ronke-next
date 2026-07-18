@@ -1,287 +1,210 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from "react";
 import { fetchTokenData, formatTokenAmount } from "@/lib/blockchain";
 
-interface TokenData {
+interface TokenBurnData {
   symbol: string;
   name: string;
   totalSupply: number;
   burnedAmount: number;
   burnPercentage: number;
-  contractAddress: string;
+}
+
+// Canonical contract addresses (verified against the ronke-analytics config).
+const TOKENS = [
+  {
+    symbol: "RONKE",
+    name: "Ronke Token",
+    address: "0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb",
+  },
+  {
+    symbol: "RONKESTR",
+    name: "NFT Strategy Token",
+    address: "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc",
+  },
+];
+
+const BURN_SOURCES = [
+  {
+    title: "Casino revenue",
+    text: "A share of every Coinflip and Mines wager funds buybacks that go to the dead address.",
+  },
+  {
+    title: "The RONKESTR machine",
+    text: "Every NFT the strategy flips converts its $RON proceeds into a buy and burn.",
+  },
+];
+
+function formatCompact(num: number): string {
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(2)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return num.toLocaleString();
+}
+
+function BurnCard({ data }: { data: TokenBurnData }) {
+  const pct = Math.min(100, Math.max(0, data.burnPercentage));
+
+  return (
+    <div className="rv-card rv-hover p-6 sm:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="mono text-xl font-bold">${data.symbol}</div>
+          <div className="text-sm text-muted-2">{data.name}</div>
+        </div>
+        <div className="text-right">
+          <div className="mono text-4xl font-bold text-burn">
+            {pct.toFixed(2)}%
+          </div>
+          <div className="text-xs uppercase tracking-wide text-muted-2">
+            Burned
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm">
+          <span className="mono text-burn">
+            Burned: {formatCompact(data.burnedAmount)} {data.symbol}
+          </span>
+          <span className="mono text-muted-2">
+            Total supply: {formatCompact(data.totalSupply)} {data.symbol}
+          </span>
+        </div>
+        <div
+          className="rv-meter rv-meter--burn"
+          role="progressbar"
+          aria-valuenow={Math.round(pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${data.symbol} supply burned`}
+        >
+          <span style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-3">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted-2">
+            Circulating
+          </div>
+          <div className="mono mt-1 text-[22px] font-bold">
+            {formatCompact(data.totalSupply - data.burnedAmount)}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted-2">
+            Burned forever
+          </div>
+          <div className="mono mt-1 text-[22px] font-bold text-burn">
+            {formatCompact(data.burnedAmount)}
+          </div>
+        </div>
+        <div className="col-span-2 sm:col-span-1">
+          <div className="text-xs uppercase tracking-wide text-muted-2">
+            Deflation
+          </div>
+          <div className="mono mt-1 text-[22px] font-bold text-burn-2">
+            {pct.toFixed(2)}%
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BurnCardSkeleton() {
+  return (
+    <div className="rv-card animate-pulse p-6 sm:p-8">
+      <div className="flex justify-between">
+        <div className="space-y-2">
+          <div className="h-6 w-28 rounded bg-border-soft" />
+          <div className="h-4 w-36 rounded bg-border-soft" />
+        </div>
+        <div className="h-10 w-24 rounded bg-border-soft" />
+      </div>
+      <div className="mt-8 h-2.5 rounded-full bg-border-soft" />
+      <div className="mt-6 grid grid-cols-3 gap-6">
+        <div className="h-12 rounded bg-border-soft" />
+        <div className="h-12 rounded bg-border-soft" />
+        <div className="h-12 rounded bg-border-soft" />
+      </div>
+    </div>
+  );
 }
 
 export default function BurnonomicsSection() {
-  const [isVisible, setIsVisible] = useState(false);
-  const [tokenData, setTokenData] = useState<TokenData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [tokenData, setTokenData] = useState<TokenBurnData[] | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.2 }
-    );
+    let cancelled = false;
 
-    const section = document.getElementById('burnonomics');
-    if (section) {
-      observer.observe(section);
-    }
-
-    return () => {
-      if (section) {
-        observer.unobserve(section);
-      }
-    };
-  }, []);
-
-  // Fetch blockchain data
-  useEffect(() => {
-    const fetchAllTokenData = async () => {
-      setIsLoading(true);
+    (async () => {
       try {
-        const tokens = [
-          {
-            symbol: 'RONKE',
-            name: 'Ronke Token',
-            contractAddress: '0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb',
-            decimals: 18
-          },
-          {
-            symbol: 'RONKESTR',
-            name: 'NFTStrategy Token',
-            contractAddress: '0x404533a09bf281199ce6b0ef60b7eff7123ff8dc',
-            decimals: 18
-          },
-          {
-            symbol: 'RICE',
-            name: 'Ronke Rice Farmer Token',
-            contractAddress: '0x9049ca10dd4cba0248226b4581443201f8f225c6',
-            decimals: 18
-          }
-        ];
-
-        const tokenDataPromises = tokens.map(async (token) => {
-          try {
-            const blockchainData = await fetchTokenData(token.contractAddress);
-            console.log(`${token.symbol} blockchain data:`, blockchainData);
-            
-            const totalSupply = formatTokenAmount(blockchainData.totalSupply, token.decimals);
-            const burnedAmount = formatTokenAmount(blockchainData.burnedAmount, token.decimals);
-            const burnPercentage = totalSupply > 0 ? (burnedAmount / totalSupply) * 100 : 0;
-
-            console.log(`${token.symbol} processed:`, {
+        const results = await Promise.all(
+          TOKENS.map(async (token) => {
+            const data = await fetchTokenData(token.address);
+            const totalSupply = formatTokenAmount(data.totalSupply);
+            const burnedAmount = formatTokenAmount(data.burnedAmount);
+            return {
+              symbol: token.symbol,
+              name: token.name,
               totalSupply,
               burnedAmount,
-              burnPercentage
-            });
-
-            return {
-              symbol: token.symbol,
-              name: token.name,
-              totalSupply: Math.round(totalSupply),
-              burnedAmount: Math.round(burnedAmount),
-              burnPercentage: Math.round(burnPercentage * 100) / 100, // Round to 2 decimal places
-              contractAddress: token.contractAddress
+              burnPercentage:
+                totalSupply > 0 ? (burnedAmount / totalSupply) * 100 : 0,
             };
-          } catch (error) {
-            console.error(`Error fetching data for ${token.symbol}:`, error);
-            // If blockchain call fails, still return structure but with 0 values so we can see what failed
-            return {
-              symbol: token.symbol,
-              name: token.name,
-              totalSupply: 0,
-              burnedAmount: 0,
-              burnPercentage: 0,
-              contractAddress: token.contractAddress
-            };
-          }
-        });
-
-        const results = await Promise.all(tokenDataPromises);
-        setTokenData(results);
-      } catch (error) {
-        console.error('Error fetching token data:', error);
-        // If everything fails, show empty data so we can debug
-        setTokenData([]);
-      } finally {
-        setIsLoading(false);
+          })
+        );
+        if (!cancelled) setTokenData(results);
+      } catch {
+        if (!cancelled) setFailed(true);
       }
-    };
+    })();
 
-    fetchAllTokenData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000000) {
-      return (num / 1000000000).toFixed(1) + 'B';
-    }
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
-  };
-
   return (
-    <section id="burnonomics" className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 dark:from-black dark:via-gray-900 dark:to-black py-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Section Title */}
-        <div className={`text-center mb-16 transition-all duration-1000 ease-out ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
-          <h2 className="text-5xl md:text-7xl font-extralight text-gray-900 dark:text-gray-100 mb-4">
-            BURN<span className="text-red-600 font-thin">ONOMICS</span>
-          </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            Deflationary tokenomics through <span className="text-red-600 font-medium">casino buybacks</span>, 
-            <span className="text-red-600 font-medium"> RRF burns</span>, and 
-            <span className="text-red-600 font-medium"> community incentives</span> - 
-            increasing scarcity across the Ronkeverse ecosystem.
-          </p>
-        </div>
+    <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
+      <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        Burnonomics, live from the chain.
+      </h2>
+      <p className="mt-3 max-w-xl text-muted-1">
+        Read straight from the Ronin RPC: what sits in the dead address is gone
+        for good.
+      </p>
 
-        {/* Explanation Section */}
-        <div className={`mb-16 transition-all duration-1000 ease-out delay-300 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 lg:p-12">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              
-              <div className="text-center">
-                <div className="text-4xl mb-4">🎰</div>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Casino Revenue Burns</h3>
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  A percentage of casino profits are automatically used to buy back and burn tokens, 
-                  directly reducing circulating supply with every game played.
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="text-4xl mb-4">🌾</div>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">RRF Farming Burns</h3>
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                  Ronke Rice Farmer operations include systematic token burns as part of the 
-                  yield farming mechanics, creating deflationary pressure.
-                </p>
-              </div>
-
-            
-
-            </div>
+      <div className="mt-10 space-y-4">
+        {failed ? (
+          <div className="rv-card p-8 text-center text-muted-1">
+            Burn data temporarily unavailable. The chain is still burning.
           </div>
-        </div>
-
-        {/* Token Burn Progress */}
-        <div className={`space-y-8 transition-all duration-1000 ease-out delay-500 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
-          
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
-              <p className="text-gray-600 dark:text-gray-300 mt-4">Loading blockchain data...</p>
-            </div>
-          ) : (
-            tokenData.map((token, index) => (
-              <div key={token.symbol} className={`transition-all duration-1000 ease-out delay-${700 + index * 200}`}>
-                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden hover:shadow-3xl transition-shadow duration-500">
-                  <div className="p-8 lg:p-12">
-                    
-                    {/* Token Header */}
-                    <div className="flex items-center justify-between mb-8">
-                      <div>
-                                        <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100">${token.symbol}</h3>
-                <p className="text-gray-600 dark:text-gray-300">{token.name}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-red-600">{token.burnPercentage}%</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-300">Burned</div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mb-6">
-                      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mb-2">
-                        <span>Burned: {formatNumber(token.burnedAmount)} {token.symbol}</span>
-                        <span>Total Supply: {formatNumber(token.totalSupply)} {token.symbol}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-2000 ease-out"
-                          style={{ 
-                            width: isVisible ? `${token.burnPercentage}%` : '0%',
-                            transitionDelay: `${800 + index * 200}ms`
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                                                  <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">Circulating Supply</div>
-                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                          {formatNumber(token.totalSupply - token.burnedAmount)} {token.symbol}
-                        </div>
-                      </div>
-                      
-                                              <div className="bg-red-50 dark:bg-gray-700 rounded-xl p-4">
-                                                  <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">Burned Forever</div>
-                        <div className="text-lg font-bold text-red-600">
-                          {formatNumber(token.burnedAmount)} {token.symbol}
-                        </div>
-                      </div>
-                      
-                                              <div className="bg-orange-50 dark:bg-gray-700 rounded-xl p-4">
-                                                  <div className="text-sm text-gray-500 dark:text-gray-300 mb-1">Deflation Rate</div>
-                        <div className="text-lg font-bold text-orange-600">
-                          {token.burnPercentage}% Burned
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-
-        </div>
-
-        {/* Call to Action */}
-        <div className={`text-center mt-16 transition-all duration-1000 ease-out delay-1000 ${
-          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-        }`}>
-          <p className="text-lg text-gray-600 dark:text-gray-300 mb-8">
-            Every transaction in the Ronkeverse contributes to the deflationary pressure
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <a 
-              href="https://games.ronkeverse.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-8 py-4 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors duration-200 font-semibold text-lg shadow-lg"
-            >
-              🎰 Play & Burn
-            </a>
-            <a 
-              href="https://ronkericefarmer.com/"
-              className="px-8 py-4 border-2 border-red-600 text-red-600 rounded-full hover:bg-red-600 hover:text-white transition-all duration-200 font-semibold text-lg"
-            >
-              🌾 Farm & Burn
-            </a>
-          </div>
-        </div>
-
+        ) : tokenData === null ? (
+          <>
+            <BurnCardSkeleton />
+            <BurnCardSkeleton />
+            <BurnCardSkeleton />
+          </>
+        ) : (
+          tokenData.map((data) => <BurnCard key={data.symbol} data={data} />)
+        )}
       </div>
-    </section>
+
+      <div className="mt-12 grid gap-x-10 gap-y-8 border-t border-border-soft pt-10 md:grid-cols-2">
+        {BURN_SOURCES.map((source) => (
+          <div key={source.title}>
+            <div className="font-semibold text-burn-2">{source.title}</div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-1">
+              {source.text}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
-} 
+}
