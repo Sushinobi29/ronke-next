@@ -18,7 +18,7 @@ const TOKENS = [
   {
     symbol: "RONKESTR",
     name: "NFT Strategy Token",
-    blurb: "Trading fees buy NFTs, sales burn $RON. Forever.",
+    blurb: "Trading fees buy floor NFTs, flips burn the supply.",
     address: "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc",
     pool: "0x87b0acb34aa54cb51451050be73e9e31921154c2",
     icon: "/ronkeverse.png",

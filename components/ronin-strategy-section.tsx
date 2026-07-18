@@ -9,26 +9,35 @@ const RONKESTR_ADDRESS = "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc";
 const STEPS = [
   {
     title: "Trade",
-    text: "Every $RONKESTR swap pays a fee into the machine.",
+    text: "Every $RONKESTR swap pays a dynamic tax that adjusts with market conditions and volume.",
   },
   {
     title: "Buy the floor",
-    text: "Pooled fees buy Ronkeverse NFTs off the market.",
+    text: "Collected fees automatically buy Ronkeverse NFTs off the floor.",
   },
   {
-    title: "Relist at 1.2x",
-    text: "Every NFT the machine owns goes straight back on sale, higher.",
+    title: "Sell for profit",
+    text: "The machine lists its NFTs and flips them at a profit, on its own.",
   },
   {
-    title: "Burn",
-    text: "When one sells, the $RON proceeds buy and burn. Then it starts again.",
+    title: "Buy and burn",
+    text: "Profits buy back $RONKESTR and burn it. Supply shrinks, loop restarts.",
   },
 ];
 
-const FEE_SPLIT = [
-  { label: "NFT buy pool", value: "8%" },
-  { label: "Treasury", value: "1%" },
-  { label: "Buyback and burn", value: "1%" },
+const FACTS = [
+  {
+    label: "The Yoyo",
+    value: "Accumulate, flip, burn. Decentralized and forever.",
+  },
+  {
+    label: "Creator royalties",
+    value: "1% of trading volume goes straight to the collection's creator.",
+  },
+  {
+    label: "Deflationary by design",
+    value: "Every cycle ends in a supply burn, never a mint.",
+  },
 ];
 
 export default function RoninStrategySection() {
@@ -44,8 +53,9 @@ export default function RoninStrategySection() {
               machine.
             </h2>
             <p className="mt-3 max-w-xl text-muted-1">
-              The first Ronin Strategy token: a flywheel that turns trading fees
-              into NFT bids and burns, with no end state.
+              The Ronin Strategy machine for Ronkeverse: it buys and lists
+              floor NFTs for a profit off its own trading fees, then burns its
+              supply with the proceeds.
             </p>
           </div>
           <ContractChip address={RONKESTR_ADDRESS} />
@@ -86,12 +96,14 @@ export default function RoninStrategySection() {
         )}
 
         <div className="mt-10 grid gap-x-10 gap-y-6 sm:grid-cols-3 sm:border-t sm:border-border-soft sm:pt-8">
-          {FEE_SPLIT.map((fee) => (
-            <div key={fee.label}>
+          {FACTS.map((fact) => (
+            <div key={fact.label}>
               <div className="text-xs uppercase tracking-wide text-muted-2">
-                {fee.label}
+                {fact.label}
               </div>
-              <div className="mono mt-1 text-[26px] font-bold">{fee.value}</div>
+              <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">
+                {fact.value}
+              </p>
             </div>
           ))}
         </div>
