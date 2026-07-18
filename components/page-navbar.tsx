@@ -31,7 +31,7 @@ export default function PageNavbar() {
                 height={36}
                 className="rounded-full"
               />
-              <span className="text-sm font-semibold tracking-[0.14em]">
+              <span className="hidden text-sm font-semibold tracking-[0.14em] sm:inline">
                 RONKE<span className="text-accent">VERSE</span>
               </span>
             </Link>
