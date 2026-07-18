@@ -27,12 +27,12 @@ const STEPS = [
 
 const FACTS = [
   {
-    label: "The Yoyo",
-    value: "Accumulate, flip, burn. Decentralized and forever.",
+    label: "Ronin Strategy",
+    value: "The protocol turns any collection into a perpetual machine. $RONKESTR is the Ronkeverse's.",
   },
   {
-    label: "Creator royalties",
-    value: "1% of trading volume goes straight to the collection's creator.",
+    label: "Dev fees",
+    value: "1% of trading volume goes to the platform devs.",
   },
   {
     label: "Deflationary by design",
@@ -53,9 +53,9 @@ export default function RoninStrategySection() {
               machine.
             </h2>
             <p className="mt-3 max-w-xl text-muted-1">
-              The Ronin Strategy machine for Ronkeverse: it buys and lists
-              floor NFTs for a profit off its own trading fees, then burns its
-              supply with the proceeds.
+              The Ronkeverse implementation of Ronin Strategy: a machine that
+              buys and lists floor Ronkeverse NFTs for profit off $RONKESTR
+              trading fees, then burns $RONKESTR with the proceeds.
             </p>
           </div>
           <ContractChip address={RONKESTR_ADDRESS} />

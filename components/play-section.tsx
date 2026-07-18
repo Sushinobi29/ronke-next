@@ -128,6 +128,35 @@ export default function PlaySection() {
             </span>
           </div>
         </a>
+
+        <div className="rv-card overflow-hidden md:col-span-2">
+          <div className="grid md:grid-cols-2">
+            <div className="order-2 flex flex-col justify-center p-8 md:order-1">
+              <span className="mono inline-block w-fit rounded-full border border-diamond/40 bg-card-2/80 px-3 py-1 text-xs font-bold text-diamond">
+                Coming soon
+              </span>
+              <div className="mt-3 text-xl font-semibold">Age of Ronke</div>
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-1">
+                Your own castle in a real-time multiplayer world. Upgrade it,
+                defend it live when raiders come, and when you log off the AI
+                holds the walls for you.
+              </p>
+            </div>
+            <div className="relative order-1 min-h-56 overflow-hidden bg-[#0a0d16] md:order-2">
+              <video
+                src="/age-of-ronke.mp4"
+                poster="/age-of-ronke-poster.jpg"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                aria-label="Age of Ronke gameplay preview"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
