@@ -129,7 +129,12 @@ export default function PlaySection() {
           </div>
         </a>
 
-        <div className="rv-card overflow-hidden md:col-span-2">
+        <a
+          href="https://0x-pewpew.com/lenta/#f9home"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rv-card rv-hover group overflow-hidden md:col-span-2"
+        >
           <div className="grid md:grid-cols-2">
             <div className="order-2 flex flex-col justify-center p-8 md:order-1">
               <span className="mono inline-block w-fit rounded-full border border-diamond/40 bg-card-2/80 px-3 py-1 text-xs font-bold text-diamond">
@@ -141,6 +146,10 @@ export default function PlaySection() {
                 defend it live when raiders come, and when you log off the AI
                 holds the walls for you.
               </p>
+              <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-accent">
+                Play the preview
+                <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
+              </span>
             </div>
             <div className="relative order-1 min-h-56 overflow-hidden bg-[#0a0d16] md:order-2">
               <video
@@ -156,7 +165,7 @@ export default function PlaySection() {
               />
             </div>
           </div>
-        </div>
+        </a>
       </motion.div>
     </div>
   );

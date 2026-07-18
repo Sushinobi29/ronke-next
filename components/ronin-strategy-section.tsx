@@ -9,7 +9,7 @@ const RONKESTR_ADDRESS = "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc";
 const STEPS = [
   {
     title: "Trade",
-    text: "Every $RONKESTR swap pays a dynamic tax that adjusts with market conditions and volume.",
+    text: "Every $RONKESTR swap pays a flat 10% fee into the machine.",
   },
   {
     title: "Buy the floor",
@@ -25,10 +25,11 @@ const STEPS = [
   },
 ];
 
+// Of the flat 10% trading fee:
 const FACTS = [
-  { label: "Dev fees", value: "1%", sub: "of trading volume" },
-  { label: "Trading tax", value: "Dynamic", sub: "adjusts with volume" },
-  { label: "The Yoyo", value: "∞", sub: "accumulate, flip, burn" },
+  { label: "NFT buy pool", value: "8%", sub: "buys Ronkeverse NFTs" },
+  { label: "$RONKE buyback", value: "1%", sub: "bought and burned" },
+  { label: "Dev fees", value: "1%", sub: "to the platform devs" },
 ];
 
 export default function RoninStrategySection() {

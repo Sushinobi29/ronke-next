@@ -32,7 +32,7 @@ const BURN_SOURCES = [
   },
   {
     title: "The RONKESTR machine",
-    text: "Every NFT the strategy flips at a profit funds a buyback that burns $RONKESTR supply.",
+    text: "1% of every $RONKESTR swap buys and burns $RONKE, and profitable NFT flips burn $RONKESTR.",
   },
 ];
 
