@@ -105,11 +105,11 @@ export default function TokensSection() {
             className="rv-hover flex items-center gap-4 rounded-2xl border border-border bg-card-2 p-5"
           >
             <Image
-              src="/ronkebase.png"
-              alt="Ronke the Monke"
+              src="/images/5309.png"
+              alt="The base Ronke, Ronkeverse number 5309"
               width={44}
               height={44}
-              className="rounded-xl object-contain"
+              className="rounded-xl"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">

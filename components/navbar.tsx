@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { SCORE_TABS } from "./score-embed-tabs";
 
 const NAV_ITEMS = [
   { id: "film", label: "FILM" },
@@ -87,19 +89,52 @@ export default function Navbar() {
             </a>
 
             <div className="hidden items-center gap-6 lg:flex">
-              {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollToSection(item.id)}
-                  className={`text-[13px] font-medium tracking-wide transition-colors ${
-                    activeSection === item.id
-                      ? "text-accent"
-                      : "text-muted-1 hover:text-foreground"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {NAV_ITEMS.map((item) =>
+                item.id === "score" ? (
+                  <div key={item.id} className="group relative">
+                    <button
+                      onClick={() => scrollToSection(item.id)}
+                      className={`inline-flex items-center gap-1 py-5 text-[13px] font-medium tracking-wide transition-colors ${
+                        activeSection === item.id
+                          ? "text-accent"
+                          : "text-muted-1 hover:text-foreground"
+                      }`}
+                    >
+                      {item.label}
+                      <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                    <div className="invisible absolute left-1/2 top-full z-50 w-44 -translate-x-1/2 pt-1 opacity-0 transition-all duration-150 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+                      <div className="rv-card overflow-hidden py-2">
+                        {SCORE_TABS.map((tab) => (
+                          <a
+                            key={tab.id}
+                            href={
+                              tab.id === "score"
+                                ? "/score"
+                                : `/score?tab=${tab.id}`
+                            }
+                            className="block px-4 py-2 text-[13px] font-medium tracking-wide text-muted-1 transition-colors hover:bg-card-2 hover:text-foreground"
+                          >
+                            {tab.label}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    key={item.id}
+                    onClick={() => scrollToSection(item.id)}
+                    className={`text-[13px] font-medium tracking-wide transition-colors ${
+                      activeSection === item.id
+                        ? "text-accent"
+                        : "text-muted-1 hover:text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                )
+              )}
               <div className="h-5 w-px bg-border" />
               {EXTERNAL_ITEMS.map((item) => (
                 <a
@@ -154,17 +189,36 @@ export default function Navbar() {
           >
             <div className="space-y-1 pt-2">
               {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollToSection(item.id)}
-                  className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium ${
-                    activeSection === item.id
-                      ? "bg-accent/10 text-accent"
-                      : "text-muted-1 hover:bg-card hover:text-foreground"
-                  }`}
-                >
-                  {item.label}
-                </button>
+                <div key={item.id}>
+                  <button
+                    onClick={() => scrollToSection(item.id)}
+                    className={`block w-full rounded-md px-3 py-2 text-left text-sm font-medium ${
+                      activeSection === item.id
+                        ? "bg-accent/10 text-accent"
+                        : "text-muted-1 hover:bg-card hover:text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                  {item.id === "score" && (
+                    <div className="ml-3 border-l border-border-soft pl-3">
+                      {SCORE_TABS.map((tab) => (
+                        <a
+                          key={tab.id}
+                          href={
+                            tab.id === "score"
+                              ? "/score"
+                              : `/score?tab=${tab.id}`
+                          }
+                          className="block rounded-md px-3 py-1.5 text-[13px] font-medium text-muted-2 hover:bg-card hover:text-foreground"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          {tab.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
               <div className="my-2 border-t border-border" />
               {EXTERNAL_ITEMS.map((item) => (

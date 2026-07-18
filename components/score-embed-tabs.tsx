@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const ANALYTICS_URL = "https://ronke-analytics.vercel.app";
 
@@ -11,7 +12,7 @@ const ANALYTICS_URL = "https://ronke-analytics.vercel.app";
 // asset toggles) stays visible and useful.
 const NAV_CROP = 59;
 
-const TABS = [
+export const SCORE_TABS = [
   { id: "score", label: "SCORE", path: "/#ronke-score" },
   { id: "analytics", label: "ANALYTICS", path: "/overview" },
   { id: "leaderboard", label: "LEADERBOARD", path: "/leaderboard" },
@@ -19,13 +20,36 @@ const TABS = [
   { id: "resources", label: "RESOURCES", path: "/resources" },
 ] as const;
 
+export type ScoreTabId = (typeof SCORE_TABS)[number]["id"];
+
+export function isScoreTabId(value: string | null): value is ScoreTabId {
+  return SCORE_TABS.some((t) => t.id === value);
+}
+
 export default function ScoreEmbedTabs() {
-  const [active, setActive] = useState<(typeof TABS)[number]["id"]>("score");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requested = searchParams.get("tab");
+  const [active, setActive] = useState<ScoreTabId>(
+    isScoreTabId(requested) ? requested : "score"
+  );
   const [loaded, setLoaded] = useState(false);
-  const tab = TABS.find((t) => t.id === active)!;
+  const tab = SCORE_TABS.find((t) => t.id === active)!;
+
+  const selectTab = (id: ScoreTabId) => {
+    if (id === active) return;
+    setLoaded(false);
+    setActive(id);
+    router.replace(id === "score" ? "/score" : `/score?tab=${id}`, {
+      scroll: false,
+    });
+  };
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col" style={{ marginTop: "4rem" }}>
+    <div
+      className="flex h-[calc(100dvh-4rem)] flex-col"
+      style={{ marginTop: "4rem" }}
+    >
       <div
         className="border-b border-border"
         style={{
@@ -38,14 +62,10 @@ export default function ScoreEmbedTabs() {
           className="rv-scroll mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 sm:px-6"
           aria-label="Analytics sections"
         >
-          {TABS.map((t) => (
+          {SCORE_TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => {
-                if (t.id === active) return;
-                setLoaded(false);
-                setActive(t.id);
-              }}
+              onClick={() => selectTab(t.id)}
               className={`whitespace-nowrap border-b-2 py-3 text-[13px] font-medium tracking-wide transition-colors ${
                 active === t.id
                   ? "border-accent text-accent"

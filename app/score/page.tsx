@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import PageNavbar from "@/components/page-navbar";
 import ScoreEmbedTabs from "@/components/score-embed-tabs";
 
@@ -22,7 +23,9 @@ export default function ScorePage() {
   return (
     <main className="h-[100dvh] overflow-hidden">
       <PageNavbar />
-      <ScoreEmbedTabs />
+      <Suspense>
+        <ScoreEmbedTabs />
+      </Suspense>
     </main>
   );
 }
