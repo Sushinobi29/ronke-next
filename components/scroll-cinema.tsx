@@ -22,6 +22,8 @@ import { motion, useScroll, useTransform, useReducedMotion } from "motion/react"
 
 const BUY_URL =
   "https://app.roninchain.com/swap?outputCurrency=0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb&inputCurrency=RON";
+const BUY_RONKESTR_URL =
+  "https://app.roninchain.com/swap?outputCurrency=0x404533a09bf281199ce6b0ef60b7eff7123ff8dc&inputCurrency=RON";
 const COLLECTION_URL = "https://marketplace.roninchain.com/collections/ronkeverse";
 
 const CHAPTERS = [
@@ -140,6 +142,14 @@ function TitleCard({
           style={{ boxShadow: "0 8px 30px rgba(39,185,252,0.32)" }}
         >
           Buy $RONKE
+        </a>
+        <a
+          href={BUY_RONKESTR_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rv-hover rounded-2xl border border-border bg-card/80 px-7 py-3.5 text-sm font-semibold text-foreground"
+        >
+          Buy $RONKESTR
         </a>
         <a
           href={COLLECTION_URL}
@@ -272,6 +282,14 @@ function StaticFilm() {
               style={{ boxShadow: "0 8px 30px rgba(39,185,252,0.32)" }}
             >
               Buy $RONKE
+            </a>
+            <a
+              href={BUY_RONKESTR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rv-hover rounded-2xl border border-border bg-card/80 px-7 py-3.5 text-sm font-semibold text-foreground"
+            >
+              Buy $RONKESTR
             </a>
             <a
               href={COLLECTION_URL}
