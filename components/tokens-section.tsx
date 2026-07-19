@@ -13,7 +13,7 @@ const TOKENS = [
     blurb: "The native token of the Blue Monke economy.",
     address: "0xf988F63Bf26c3Ed3fBf39922149E3E7B1e5c27Cb",
     pool: "0x75ae353997242927c701d4d6c2722ebef43fd2d3",
-    icon: "/ronke-logo.webp",
+    icon: "/tokens/ronke.png",
   },
   {
     symbol: "RONKESTR",
@@ -21,7 +21,7 @@ const TOKENS = [
     blurb: "Trading fees buy floor NFTs, flips burn the supply.",
     address: "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc",
     pool: "0x87b0acb34aa54cb51451050be73e9e31921154c2",
-    icon: "/ronkeverse.png",
+    icon: "/tokens/ronkestr.png",
   },
 ] as const;
 
@@ -71,7 +71,8 @@ export default function TokensSection() {
                   alt=""
                   width={44}
                   height={44}
-                  className="rounded-full"
+                  quality={95}
+                  className="rounded-full object-cover"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
@@ -109,6 +110,7 @@ export default function TokensSection() {
               alt="The WcDonalds Ronke, Ronkeverse number 959"
               width={44}
               height={44}
+              quality={95}
               className="rounded-xl"
             />
             <div className="min-w-0 flex-1">

@@ -9,7 +9,6 @@ import { SCORE_TABS, isScoreTabId } from "./score-embed-tabs";
 
 const NAV_ITEMS = [
   { href: "/", label: "HOME" },
-  { href: "/gallery", label: "GALLERY" },
   { href: "/passport", label: "PASSPORT" },
 ];
 

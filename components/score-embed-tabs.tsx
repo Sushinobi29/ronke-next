@@ -16,6 +16,7 @@ export const SCORE_TABS = [
   { id: "score", label: "SCORE", path: "/#ronke-score" },
   { id: "analytics", label: "ANALYTICS", path: "/overview" },
   { id: "leaderboard", label: "LEADERBOARD", path: "/leaderboard" },
+  { id: "rarity", label: "RARITY", path: "/rarity" },
   { id: "resources", label: "RESOURCES", path: "/resources" },
 ] as const;
 

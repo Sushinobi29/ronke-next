@@ -15,10 +15,7 @@ const NAV_ITEMS = [
   { id: "ronke-casino", label: "PLAY" },
 ];
 
-const EXTERNAL_ITEMS = [
-  { href: "/gallery", label: "GALLERY" },
-  { href: "/passport", label: "PASSPORT" },
-];
+const EXTERNAL_ITEMS = [{ href: "/passport", label: "PASSPORT" }];
 
 export default function Navbar() {
   const pathname = usePathname();
