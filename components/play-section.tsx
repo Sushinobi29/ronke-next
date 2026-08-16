@@ -138,7 +138,7 @@ export default function PlaySection() {
           <div className="grid md:grid-cols-2">
             <div className="order-2 flex flex-col justify-center p-8 md:order-1">
               <span className="mono inline-block w-fit rounded-full border border-diamond/40 bg-card-2/80 px-3 py-1 text-xs font-bold text-diamond">
-                Coming soon
+                Early beta
               </span>
               <div className="mt-3 text-xl font-semibold">Age of Ronke</div>
               <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-1">
@@ -147,7 +147,7 @@ export default function PlaySection() {
                 holds the walls for you.
               </p>
               <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-accent">
-                Play the preview
+                Play the beta
                 <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
               </span>
             </div>

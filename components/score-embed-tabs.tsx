@@ -18,6 +18,7 @@ export const SCORE_TABS = [
   { id: "leaderboard", label: "LEADERBOARD", path: "/leaderboard" },
   { id: "rarity", label: "RARITY", path: "/rarity" },
   { id: "resources", label: "RESOURCES", path: "/resources" },
+  { id: "developers", label: "DEVELOPERS", path: "/developers" },
 ] as const;
 
 export type ScoreTabId = (typeof SCORE_TABS)[number]["id"];
