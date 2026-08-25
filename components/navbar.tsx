@@ -74,10 +74,10 @@ export default function Navbar() {
               aria-label="Ronkeverse home"
             >
               <Image
-                src="/ronkeverse-wordmark.webp"
+                src="/ronkenav.webp"
                 alt="RONKEVERSE"
-                width={1200}
-                height={195}
+                width={222}
+                height={256}
                 className="h-10 w-auto"
               />
             </a>
