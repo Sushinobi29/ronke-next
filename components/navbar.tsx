@@ -76,8 +76,8 @@ export default function Navbar() {
               <Image
                 src="/ronke-logo.webp"
                 alt=""
-                width={36}
-                height={36}
+                width={46}
+                height={46}
                 className="rounded-full"
               />
               <Image
@@ -85,7 +85,7 @@ export default function Navbar() {
                 alt="RONKEVERSE"
                 width={1200}
                 height={490}
-                className="h-7 w-auto"
+                className="h-9 w-auto"
               />
             </a>
 

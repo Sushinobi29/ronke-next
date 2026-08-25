@@ -70,8 +70,8 @@ export default function PageNavbar() {
               <Image
                 src="/ronke-logo.webp"
                 alt=""
-                width={36}
-                height={36}
+                width={46}
+                height={46}
                 className="rounded-full"
               />
               <Image
@@ -79,7 +79,7 @@ export default function PageNavbar() {
                 alt="RONKEVERSE"
                 width={1200}
                 height={490}
-                className="hidden h-7 w-auto sm:block"
+                className="hidden h-9 w-auto sm:block"
               />
             </Link>
 
