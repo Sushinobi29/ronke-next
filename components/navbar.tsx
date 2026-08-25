@@ -62,7 +62,7 @@ export default function Navbar() {
           background: "rgba(7,8,12,0.72)",
         }}
       >
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="px-4 sm:px-6">
           <div className="flex h-16 items-center justify-between">
             <a
               href="#top"
@@ -77,8 +77,8 @@ export default function Navbar() {
                 src="/ronkeverse-wordmark.webp"
                 alt="RONKEVERSE"
                 width={1200}
-                height={490}
-                className="h-9 w-auto"
+                height={195}
+                className="h-10 w-auto"
               />
             </a>
 

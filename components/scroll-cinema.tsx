@@ -131,9 +131,9 @@ function TitleCard({
           src="/ronkeverse-wordmark.webp"
           alt=""
           width={1200}
-          height={490}
+          height={195}
           priority
-          className="h-auto w-[min(88vw,540px)]"
+          className="h-auto w-[min(90vw,620px)]"
         />
       </h1>
       <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/85">
@@ -278,9 +278,9 @@ function StaticFilm() {
               src="/ronkeverse-wordmark.webp"
               alt=""
               width={1200}
-              height={490}
+              height={195}
               priority
-              className="h-auto w-[min(88vw,540px)]"
+              className="h-auto w-[min(90vw,620px)]"
             />
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/85">

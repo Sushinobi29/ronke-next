@@ -60,8 +60,8 @@ export default function SocialLinks() {
               src="/ronkeverse-wordmark.webp"
               alt="RONKEVERSE"
               width={1200}
-              height={490}
-              className="h-8 w-auto"
+              height={195}
+              className="h-7 w-auto"
             />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-1">
               The Blue Monke community lives everywhere. Come say ronke.
