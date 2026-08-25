@@ -74,13 +74,6 @@ export default function Navbar() {
               aria-label="Ronkeverse home"
             >
               <Image
-                src="/ronke-logo.webp"
-                alt=""
-                width={46}
-                height={46}
-                className="rounded-full"
-              />
-              <Image
                 src="/ronkeverse-wordmark.webp"
                 alt="RONKEVERSE"
                 width={1200}

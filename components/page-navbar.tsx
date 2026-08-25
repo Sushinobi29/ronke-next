@@ -68,18 +68,11 @@ export default function PageNavbar() {
           <div className="flex h-16 items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
               <Image
-                src="/ronke-logo.webp"
-                alt=""
-                width={46}
-                height={46}
-                className="rounded-full"
-              />
-              <Image
                 src="/ronkeverse-wordmark.webp"
                 alt="RONKEVERSE"
                 width={1200}
                 height={490}
-                className="hidden h-9 w-auto sm:block"
+                className="h-9 w-auto"
               />
             </Link>
 
