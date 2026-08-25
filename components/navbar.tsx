@@ -80,9 +80,13 @@ export default function Navbar() {
                 height={36}
                 className="rounded-full"
               />
-              <span className="text-sm font-semibold tracking-[0.14em]">
-                RONKE<span className="text-accent">VERSE</span>
-              </span>
+              <Image
+                src="/ronkeverse-wordmark.webp"
+                alt="RONKEVERSE"
+                width={1200}
+                height={490}
+                className="h-7 w-auto"
+              />
             </a>
 
             <div className="hidden items-center gap-6 lg:flex">

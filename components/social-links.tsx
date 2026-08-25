@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { truncateAddress } from "./contract-chip";
 
 const SOCIALS = [
@@ -55,9 +56,13 @@ export default function SocialLinks() {
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-10 md:flex-row">
           <div>
-            <div className="text-sm font-semibold tracking-[0.14em]">
-              RONKE<span className="text-accent">VERSE</span>
-            </div>
+            <Image
+              src="/ronkeverse-wordmark.webp"
+              alt="RONKEVERSE"
+              width={1200}
+              height={490}
+              className="h-8 w-auto"
+            />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-1">
               The Blue Monke community lives everywhere. Come say ronke.
             </p>

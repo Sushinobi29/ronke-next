@@ -74,9 +74,13 @@ export default function PageNavbar() {
                 height={36}
                 className="rounded-full"
               />
-              <span className="hidden text-sm font-semibold tracking-[0.14em] sm:inline">
-                RONKE<span className="text-accent">VERSE</span>
-              </span>
+              <Image
+                src="/ronkeverse-wordmark.webp"
+                alt="RONKEVERSE"
+                width={1200}
+                height={490}
+                className="hidden h-7 w-auto sm:block"
+              />
             </Link>
 
             <div className="flex items-center gap-6">

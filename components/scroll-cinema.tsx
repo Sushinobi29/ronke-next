@@ -125,9 +125,16 @@ function TitleCard({
       className="absolute inset-0 flex flex-col justify-center px-6 sm:px-12 lg:px-20"
       style={{ opacity, visibility, y }}
     >
-      <h1 className="text-6xl font-semibold leading-none tracking-tight sm:text-7xl lg:text-8xl">
-        RONKE
-        <span className="rv-gradient-text">VERSE</span>
+      <h1>
+        <span className="sr-only">RONKEVERSE</span>
+        <Image
+          src="/ronkeverse-wordmark.webp"
+          alt=""
+          width={1200}
+          height={490}
+          priority
+          className="h-auto w-[min(88vw,540px)]"
+        />
       </h1>
       <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/85">
         The Blue Monke empire on Ronin. Two tokens, 6,969 NFTs, and a supply
@@ -265,9 +272,16 @@ function StaticFilm() {
         />
         <Scrim />
         <div className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-24 sm:px-6">
-          <h1 className="text-6xl font-semibold leading-none tracking-tight sm:text-7xl lg:text-8xl">
-            RONKE
-            <span className="rv-gradient-text">VERSE</span>
+          <h1>
+            <span className="sr-only">RONKEVERSE</span>
+            <Image
+              src="/ronkeverse-wordmark.webp"
+              alt=""
+              width={1200}
+              height={490}
+              priority
+              className="h-auto w-[min(88vw,540px)]"
+            />
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/85">
             The Blue Monke empire on Ronin. Two tokens, 6,969 NFTs, and a

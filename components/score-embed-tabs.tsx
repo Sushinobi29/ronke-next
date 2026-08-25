@@ -12,8 +12,17 @@ const ANALYTICS_URL = "https://ronke-analytics.vercel.app";
 // asset toggles) stays visible and useful.
 const NAV_CROP = 59;
 
+// Tabs embed the analytics dashboard by default (path + navbar crop); a tab
+// may point at a different origin via `url` and override `crop` (the score
+// card checker is a standalone tool with no navbar to hide).
 export const SCORE_TABS = [
   { id: "score", label: "SCORE", path: "/#ronke-score" },
+  {
+    id: "card",
+    label: "SCORE CARD",
+    url: "https://ronke-score.vercel.app/",
+    crop: 0,
+  },
   { id: "analytics", label: "ANALYTICS", path: "/overview" },
   { id: "leaderboard", label: "LEADERBOARD", path: "/leaderboard" },
   { id: "rarity", label: "RARITY", path: "/rarity" },
@@ -89,16 +98,16 @@ export default function ScoreEmbedTabs() {
         )}
         <iframe
           key={tab.id}
-          src={`${ANALYTICS_URL}${tab.path}`}
-          title={`Ronke Analytics - ${tab.label.toLowerCase()}`}
+          src={"url" in tab ? tab.url : `${ANALYTICS_URL}${tab.path}`}
+          title={`Ronke Score - ${tab.label.toLowerCase()}`}
           onLoad={() => setLoaded(true)}
           allow="clipboard-write"
           className={`absolute inset-x-0 w-full border-0 transition-opacity duration-300 ${
             loaded ? "opacity-100" : "opacity-0"
           }`}
           style={{
-            top: -NAV_CROP,
-            height: `calc(100% + ${NAV_CROP}px)`,
+            top: -("crop" in tab ? tab.crop : NAV_CROP),
+            height: `calc(100% + ${"crop" in tab ? tab.crop : NAV_CROP}px)`,
           }}
         />
       </div>
