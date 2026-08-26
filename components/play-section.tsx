@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
@@ -38,6 +39,36 @@ export default function PlaySection() {
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       >
+        <Link
+          href="/quests"
+          className="rv-card rv-hover group relative overflow-hidden border-accent/30 md:col-span-2"
+        >
+          <div
+            aria-hidden
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(680px 220px at 8% 0%, rgba(39,185,252,0.16), transparent 68%)",
+            }}
+          />
+          <div className="relative flex flex-wrap items-center justify-between gap-6 p-8">
+            <div>
+              <span className="mono inline-block rounded-full border border-accent/40 bg-card-2/80 px-3 py-1 text-xs font-bold text-accent">
+                New
+              </span>
+              <div className="mt-3 text-xl font-semibold">Ronke Quests</div>
+              <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-1">
+                Twelve quests across the casino, the vote, Age of Ronke and your own wallet — all
+                scored live from Ronin. Paste an address and see where you stand.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent">
+              Open the board
+              <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
+            </span>
+          </div>
+        </Link>
+
         <a
           href={CARDS.casino.href}
           target="_blank"
