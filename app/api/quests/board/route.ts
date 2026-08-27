@@ -1,65 +1,56 @@
 import { NextResponse } from "next/server";
-import { readMinesWindow } from "@/lib/quests/read";
-import { dayIndex, dayStart, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
+import { getToday } from "@/lib/quests/today";
+import { dayIndex, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The public half of the board: today's five quests and what the tables have
- * seen since midnight. Read from Ronin on a cold cache and held for a minute,
- * so one scan serves every visitor.
+ * Today's five quests and what the tables have seen since midnight. The chain
+ * half is shared with every other visitor, so this costs one incremental read
+ * a minute however many people are on the page.
  */
-const TTL_MS = 60_000;
-let cache: { at: number; day: number; body: unknown } | null = null;
-let inflight: Promise<unknown> | null = null;
-
-async function build(day: number) {
-  const rounds = await readMinesWindow(dayStart());
-  const players = new Set(rounds.map((r) => r.player.toLowerCase()));
-
-  return {
-    day,
-    season: seasonAt(),
-    quests: questsForDay(day).map(({ id, title, task, game, points, target, verify, cost }) => ({
-      id,
-      title,
-      task,
-      game,
-      points,
-      target,
-      verify,
-      cost,
-    })),
-    roundsToday: rounds.length,
-    playersToday: players.size,
-    stakedToday: rounds
-      .filter((r) => r.table === "RON")
-      .reduce((sum, r) => sum + r.bet, 0),
-    feed: rounds.slice(0, 8),
-    resetsIn: secondsUntilReset(),
-    updatedAt: Date.now(),
-  };
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   const day = dayIndex();
-  if (cache && cache.day === day && Date.now() - cache.at < TTL_MS) {
-    return NextResponse.json(cache.body);
-  }
+  const force = new URL(request.url).searchParams.get("fresh") === "1";
 
   try {
-    inflight = inflight ?? build(day);
-    const body = await inflight;
-    cache = { at: Date.now(), day, body };
-    return NextResponse.json(body);
+    const today = await getToday(force);
+
+    if (today.error && today.at === 0) {
+      return NextResponse.json({ error: `Ronin did not answer: ${today.error}` }, { status: 502 });
+    }
+
+    const players = new Set(today.rounds.map((r) => r.player.toLowerCase()));
+
+    return NextResponse.json({
+      day,
+      season: seasonAt(),
+      quests: questsForDay(day).map(
+        ({ id, title, task, game, points, target, verify, cost, unit }) => ({
+          id,
+          title,
+          task,
+          game,
+          points,
+          target,
+          verify,
+          cost,
+          unit,
+        })
+      ),
+      roundsToday: today.rounds.length,
+      playersToday: players.size,
+      feed: today.rounds.slice(0, 8),
+      readAt: today.at,
+      stale: today.error ?? null,
+      resetsIn: secondsUntilReset(),
+      updatedAt: Date.now(),
+    });
   } catch (error) {
-    if (cache?.day === day) return NextResponse.json(cache.body);
     return NextResponse.json(
       { error: `Could not reach Ronin: ${error instanceof Error ? error.message : error}` },
       { status: 502 }
     );
-  } finally {
-    inflight = null;
   }
 }

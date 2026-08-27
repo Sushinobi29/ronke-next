@@ -29,6 +29,7 @@ interface BoardQuest {
   target: number;
   verify?: "chain" | "honour";
   cost: CostTier;
+  unit?: string;
 }
 
 interface Round {
@@ -108,6 +109,8 @@ export default function QuestsApp() {
   const [scored, setScored] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
+  const [readAt, setReadAt] = useState<number | null>(null);
+  const [stale, setStale] = useState<string | null>(null);
   // Null until mounted: a clock rendered on the server is already stale by the
   // time the client hydrates, which React counts as a mismatch.
   const [now, setNow] = useState<number | null>(null);
@@ -122,9 +125,9 @@ export default function QuestsApp() {
 
   /* board -------------------------------------------------------------- */
 
-  const loadBoard = useCallback(async () => {
+  const loadBoard = useCallback(async (fresh = false) => {
     try {
-      const res = await fetch("/api/quests/board");
+      const res = await fetch(`/api/quests/board${fresh ? "?fresh=1" : ""}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Ronin did not answer");
       setBoard(json);
@@ -172,25 +175,40 @@ export default function QuestsApp() {
 
   /* wallet ------------------------------------------------------------- */
 
-  const view = useCallback(async (raw: string) => {
+  const view = useCallback(async (raw: string, fresh = false) => {
     const address = raw.trim();
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) return;
 
     setChecking(true);
     setWalletError(null);
     try {
-      const res = await fetch(`/api/quests/wallet?address=${address}`);
+      const res = await fetch(
+        `/api/quests/wallet?address=${address}${fresh ? "&fresh=1" : ""}`
+      );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Ronin did not answer");
       setScore(json.score);
       setScored(json.address);
+      setReadAt(json.readAt ?? Date.now());
+      setStale(json.stale ?? null);
     } catch (error) {
-      setScore(null);
       setWalletError(error instanceof Error ? error.message : "Ronin did not answer");
     } finally {
       setChecking(false);
     }
   }, []);
+
+  /** The button, and the safety net for anyone who never presses it. */
+  const refresh = useCallback(() => {
+    loadBoard(true);
+    if (wallet.address) view(wallet.address, true);
+  }, [loadBoard, view, wallet.address]);
+
+  useEffect(() => {
+    if (!wallet.address) return;
+    const timer = setInterval(() => view(wallet.address!), 45_000);
+    return () => clearInterval(timer);
+  }, [wallet.address, view]);
 
   useEffect(() => {
     const connected = wallet.address?.toLowerCase() ?? null;
@@ -280,7 +298,18 @@ export default function QuestsApp() {
       {effective && (
         <div className="rv-card mt-4 flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
-            <div className="mono text-[10px] uppercase tracking-[0.14em] text-muted-3">Today</div>
+            <button
+              onClick={refresh}
+              disabled={checking}
+              className="mono group inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-3 transition-colors hover:text-accent disabled:opacity-60"
+              title="Re-read the chain"
+            >
+              Today
+              <RefreshCw
+                className={`h-3 w-3 ${checking ? "animate-spin text-accent" : ""}`}
+                strokeWidth={2.5}
+              />
+            </button>
             <div className="mt-1 text-2xl font-bold tracking-tight">
               <span
                 className={effective.done === QUESTS_PER_DAY ? "text-gold" : "text-foreground"}
@@ -307,6 +336,15 @@ export default function QuestsApp() {
                 }}
               />
             </div>
+            <p className={`mono mt-2 text-[10px] ${stale ? "text-paper" : "text-muted-3"}`}>
+              {checking
+                ? "reading the chain…"
+                : stale
+                  ? "Ronin is busy — showing the last good read. Tap Today to retry."
+                  : readAt && now !== null
+                    ? `read ${ago(Math.floor(readAt / 1000), now)} ago · updates on its own, or tap Today`
+                    : "updates on its own, or tap Today"}
+            </p>
           </div>
         </div>
       )}
@@ -435,7 +473,7 @@ export default function QuestsApp() {
             Ronin did not answer: <span className="mono text-burn">{boardError}</span>
           </p>
           <button
-            onClick={loadBoard}
+            onClick={() => loadBoard(true)}
             className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm font-medium transition-colors hover:border-accent hover:text-accent"
           >
             <RefreshCw className="h-3.5 w-3.5" />

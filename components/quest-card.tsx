@@ -72,6 +72,7 @@ export default function QuestCard({
             </div>
             <span className="mono text-[11px] text-muted-2">
               {quest.value} / {quest.target}
+              {quest.unit ? ` ${quest.unit}` : ""}
             </span>
           </div>
         )}

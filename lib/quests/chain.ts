@@ -134,7 +134,7 @@ export async function getLogsRange(
   topic: string,
   fromBlock: number,
   toBlock: number,
-  concurrency = 12
+  concurrency = 4
 ): Promise<Log[]> {
   const WINDOW = 200;
   const windows: [number, number][] = [];
@@ -147,7 +147,7 @@ export async function getLogsRange(
     const batch = windows.slice(i, i + concurrency).map(([from, to]) =>
       rpc<Log[]>("eth_getLogs", [
         { address, topics: [topic], fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16) },
-      ]).catch(() => [] as Log[])
+      ])
     );
     for (const logs of await Promise.all(batch)) out.push(...logs);
   }
@@ -181,6 +181,10 @@ function encodeAggregate3(calls: Call[]): string {
   });
 
   return SELECTORS.aggregate3 + head + length + offsets.join("") + tuples.join("");
+}
+
+async function decodeAggregate3Call(chunk: Call[], block: string) {
+  return decodeAggregate3(await ethCall(MULTICALL3, encodeAggregate3(chunk), block));
 }
 
 /** Decodes `(bool success, bytes returnData)[]` into hex strings or null. */
@@ -223,14 +227,11 @@ export async function multicall(
   const chunks: Call[][] = [];
   for (let i = 0; i < calls.length; i += chunkSize) chunks.push(calls.slice(i, i + chunkSize));
 
+  // A reverting view comes back as a null entry (allowFailure is set on every
+  // call). A failed *request* is different in kind — rate limits and outages
+  // must surface as errors, or an unreachable node reads as "nothing happened".
   const results = await Promise.all(
-    chunks.map(async (chunk) => {
-      try {
-        return decodeAggregate3(await ethCall(MULTICALL3, encodeAggregate3(chunk), block));
-      } catch {
-        return chunk.map(() => null);
-      }
-    })
+    chunks.map((chunk) => decodeAggregate3Call(chunk, block))
   );
 
   return results.flat();

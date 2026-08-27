@@ -127,6 +127,10 @@ export interface QuestDef {
   /** Roughly what it costs to do — drives the points, and shown on the card so
    *  the weighting is legible rather than arbitrary. */
   cost: CostTier;
+  /** What the progress meter counts, for quests asking for more than one.
+   *  Without it "1 / 2" leaves the player guessing whether it means rounds,
+   *  tables or tokens. */
+  unit?: string;
   /** "chain" is proved by Ronin. "honour" is the player's own word — used only
    *  for the social slot, and flagged as such on the card. */
   verify?: "chain" | "honour";
@@ -151,7 +155,7 @@ export const POOL: QuestDef[] = [
   {
     id: "hold.line",
     title: "Diamond hands",
-    task: "Still hold every monke you woke up with",
+    task: "Do not sell a single monke today",
     game: "ronkeverse",
     tier: "core",
     group: "hold",
@@ -163,7 +167,7 @@ export const POOL: QuestDef[] = [
   {
     id: "vote.cast",
     title: "Have your say",
-    task: "Back an option in the live vote",
+    task: "Cast a vote",
     game: "vote",
     tier: "core",
     group: "vote",
@@ -189,7 +193,7 @@ export const POOL: QuestDef[] = [
   {
     id: "flip.one",
     title: "Call it in the air",
-    task: "Play one coinflip",
+    task: "Flip a coin",
     game: "casino",
     tier: "core",
     group: "flips",
@@ -200,8 +204,8 @@ export const POOL: QuestDef[] = [
   },
   {
     id: "mines.one",
-    title: "Step on the field",
-    task: "Open one Mines round",
+    title: "Into the minefield",
+    task: "Play a round of Mines",
     game: "casino",
     tier: "core",
     group: "mines-rounds",
@@ -224,8 +228,8 @@ export const POOL: QuestDef[] = [
   },
   {
     id: "mines.cashout",
-    title: "Out clean",
-    task: "Cash out of a Mines round",
+    title: "Get out clean",
+    task: "Cash out of Mines before you hit one",
     game: "casino",
     tier: "core",
     group: "cash-out",
@@ -249,36 +253,39 @@ export const POOL: QuestDef[] = [
   {
     id: "flip.three",
     title: "Best of three",
-    task: "Play three coinflips",
+    task: "Flip three coins",
     game: "casino",
     tier: "core",
     group: "flips",
     cost: "tokens",
     target: 3,
+    unit: "flips",
     points: 250,
     progress: (s) => s.flips,
   },
   {
     id: "mines.three",
     title: "Clear the field",
-    task: "Open three Mines rounds",
+    task: "Play three rounds of Mines",
     game: "casino",
     tier: "core",
     group: "mines-rounds",
     cost: "tokens",
     target: 3,
+    unit: "rounds",
     points: 250,
     progress: (s) => s.minesRounds,
   },
   {
     id: "mines.tables",
     title: "Table hopper",
-    task: "Play two different Mines tables",
+    task: "Play Mines with two different tokens",
     game: "casino",
     tier: "core",
     group: "tables",
     cost: "tokens",
     target: 2,
+    unit: "tokens",
     points: 275,
     progress: (s) => s.minesTables,
   },
@@ -286,8 +293,8 @@ export const POOL: QuestDef[] = [
   // ---- costs RON: a real, unrefundable outlay ----
   {
     id: "aor.highstakes",
-    title: "Sixty-nine",
-    task: "Play the 69 round of Ronke Blocks",
+    title: "Nice",
+    task: "Play Ronke Blocks at the 69 stake",
     game: "age-of-ronke",
     tier: "bonus",
     group: "aor-blocks",
@@ -299,7 +306,7 @@ export const POOL: QuestDef[] = [
   {
     id: "token.ronke",
     title: "Stack the blue",
-    task: "Add $RONKE to your bag",
+    task: "Buy some $RONKE",
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
@@ -311,19 +318,20 @@ export const POOL: QuestDef[] = [
   {
     id: "mines.stake",
     title: "On the line",
-    task: "Stake 10 RON at the Mines tables",
+    task: "Bet 10 RON on Mines",
     game: "casino",
     tier: "bonus",
     group: "stake",
     cost: "ron",
     target: 10,
+    unit: "RON",
     points: 350,
     progress: (s) => Math.floor(s.minesStakedRon),
   },
   {
     id: "token.ronkestr",
     title: "Feed the machine",
-    task: "Add $RONKESTR to your bag",
+    task: "Buy some $RONKESTR",
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
@@ -335,7 +343,7 @@ export const POOL: QuestDef[] = [
   {
     id: "gacha.spin",
     title: "Pull the lever",
-    task: "Spin the Fortune Spin machine",
+    task: "Spin the Fortune machine",
     game: "gacha",
     tier: "bonus",
     group: "spin",
@@ -347,7 +355,7 @@ export const POOL: QuestDef[] = [
   {
     id: "barracks.take",
     title: "Take a barracks",
-    task: "Win a barracks in game or from the spin machine",
+    task: "Get a barracks — win one or spin for it",
     game: "age-of-ronke",
     tier: "bonus",
     group: "barracks",
@@ -359,7 +367,7 @@ export const POOL: QuestDef[] = [
   {
     id: "vote.found",
     title: "Found a citizen",
-    task: "Stand up a citizen on Ronke Vote",
+    task: "Found a citizen on Ronke Vote",
     game: "vote",
     tier: "bonus",
     group: "citizen",
@@ -373,7 +381,7 @@ export const POOL: QuestDef[] = [
   {
     id: "trophy.claim",
     title: "Claim a trophy",
-    task: "Add a PewPew trophy to the shelf",
+    task: "Win a PewPew trophy",
     game: "age-of-ronke",
     tier: "bonus",
     group: "trophy",
@@ -385,7 +393,7 @@ export const POOL: QuestDef[] = [
   {
     id: "monke.adopt",
     title: "Adopt a monke",
-    task: "Bring home a Ronkeverse monke",
+    task: "Buy a Ronkeverse monke",
     game: "ronkeverse",
     tier: "bonus",
     group: "monke",

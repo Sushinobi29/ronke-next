@@ -13,7 +13,6 @@
  */
 
 import {
-  AGE_OF_RONKE,
   CASINO,
   COLLECTIONS,
   FORTUNE_SPIN,
@@ -25,9 +24,7 @@ import {
 } from "./contracts";
 import {
   blockAtTimestamp,
-  blockNumber,
   callData,
-  getLogsRange,
   ethCall,
   fromWei,
   getBalance,
@@ -276,80 +273,11 @@ export async function readDaily(
   };
 }
 
-/**
- * Who spun the Fortune Spin machine today, and how often. The settle event
- * carries the spinner in topic2, so one topic-filtered scan of the day covers
- * everyone — it is cached and shared, not run per visitor.
- */
-export async function readSpinsToday(dayStartBlock: number): Promise<Map<string, number>> {
-  const spins = new Map<string, number>();
-  try {
-    const head = Number(toBigInt((await blockNumber()).replace(/^0x/, "")));
-    const logs = await getLogsRange(
-      FORTUNE_SPIN.pack,
-      FORTUNE_SPIN.settleTopic,
-      dayStartBlock,
-      head
-    );
-    for (const log of logs) {
-      const spinner = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
-      if (!spinner || /^0x0+$/.test(spinner)) continue;
-      spins.set(spinner, (spins.get(spinner) ?? 0) + 1);
-    }
-  } catch {
-    // A failed scan means the gacha quest simply shows no progress today.
-  }
-  return spins;
-}
-
 /** What one wallet did at Age of Ronke today. */
 export interface AorPlay {
   plays: number;
   labels: Set<string>;
   ronkeSpent: number;
-}
-
-/**
- * Age of Ronke plays today, by wallet. The play event carries the player in
- * topic1 and the game's own name as a string in its data, so one scan tells us
- * who played what — which is what lets each mini-game have its own quest.
- */
-export async function readAorToday(dayStartBlock: number): Promise<Map<string, AorPlay>> {
-  const byWallet = new Map<string, AorPlay>();
-  try {
-    const head = Number(toBigInt((await blockNumber()).replace(/^0x/, "")));
-    const logs = await getLogsRange(
-      AGE_OF_RONKE.play,
-      AGE_OF_RONKE.playTopic,
-      dayStartBlock,
-      head
-    );
-
-    for (const log of logs) {
-      const player = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
-      if (!player || /^0x0+$/.test(player)) continue;
-
-      const w = words(log.data);
-      if (w.length < 6) continue;
-      // data: [n, feeRonke, ?, offset, length, label…]
-      let label = "";
-      try {
-        const length = toNumber(w[4]);
-        label = Buffer.from(w[5].slice(0, length * 2), "hex").toString("utf8");
-      } catch {
-        continue;
-      }
-
-      const entry = byWallet.get(player) ?? { plays: 0, labels: new Set<string>(), ronkeSpent: 0 };
-      entry.plays += 1;
-      entry.labels.add(label);
-      entry.ronkeSpent += fromWei(toBigInt(w[1]));
-      byWallet.set(player, entry);
-    }
-  } catch {
-    // A failed scan means the Age of Ronke quests simply show no progress.
-  }
-  return byWallet;
 }
 
 /** The block a given wall-clock second maps to. Cached per key. */
