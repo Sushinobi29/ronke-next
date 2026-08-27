@@ -14,6 +14,28 @@
 export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
 
+/**
+ * Ronke Vote runs in seasons — a week or two a month — and the rest of the
+ * time the site closes voting. There is no on-chain signal for it: the
+ * contract still accepts a vote when the front-end says closed, so the gate
+ * has to live here.
+ *
+ * Add a window when a voting season is announced and the vote quests rejoin
+ * the pool for exactly those days. Leave it empty and they never appear.
+ * Dates are inclusive-from, exclusive-to, in UTC.
+ */
+export const VOTE_SEASONS: { from: string; to: string }[] = [
+  // { from: "2026-09-01", to: "2026-09-15" },
+];
+
+/** Whether a vote season covers a given day index. */
+export function voteOpenOn(day: number): boolean {
+  const at = day * DAY_SECONDS;
+  return VOTE_SEASONS.some(
+    ({ from, to }) => at >= Date.parse(`${from}T00:00:00Z`) / 1000 && at < Date.parse(`${to}T00:00:00Z`) / 1000
+  );
+}
+
 export type QuestGame = "casino" | "gacha" | "vote" | "ronkeverse" | "age-of-ronke" | "social";
 
 /**
@@ -87,6 +109,8 @@ export interface DailyStats {
   aorHighStakes: number;
   /** Held every monke they woke up with, and woke up with at least one. */
   heldTheLine: boolean;
+  /** The same, for barracks. */
+  heldBarracks: boolean;
 }
 
 export const EMPTY_DAILY: DailyStats = {
@@ -110,6 +134,7 @@ export const EMPTY_DAILY: DailyStats = {
   aorPinball: 0,
   aorHighStakes: 0,
   heldTheLine: false,
+  heldBarracks: false,
 };
 
 export interface QuestDef {
@@ -163,6 +188,18 @@ export const POOL: QuestDef[] = [
     target: 1,
     points: 75,
     progress: (s) => (s.heldTheLine ? 1 : 0),
+  },
+  {
+    id: "hold.barracks",
+    title: "Hold the line",
+    task: "Do not sell a single barracks today",
+    game: "age-of-ronke",
+    tier: "core",
+    group: "hold-barracks",
+    cost: "free",
+    target: 1,
+    points: 75,
+    progress: (s) => (s.heldBarracks ? 1 : 0),
   },
   {
     id: "vote.cast",
@@ -465,9 +502,12 @@ export function questsForDay(day: number = dayIndex()): QuestDef[] {
   const next = rng(day * 2654435761);
   const taken = new Set<string>();
 
-  const free = POOL.filter((q) => q.cost === "free");
-  const cheap = POOL.filter((q) => q.tier === "core" && q.cost !== "free");
-  const paid = POOL.filter((q) => q.tier === "bonus");
+  // Vote quests only exist on days a voting season covers.
+  const live = voteOpenOn(day) ? POOL : POOL.filter((q) => q.game !== "vote");
+
+  const free = live.filter((q) => q.cost === "free");
+  const cheap = live.filter((q) => q.tier === "core" && q.cost !== "free");
+  const paid = live.filter((q) => q.tier === "bonus");
 
   const chosen = [
     ...pick(free, 1, next, taken),

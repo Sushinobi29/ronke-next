@@ -270,6 +270,7 @@ export async function readDaily(
     aorPinball: labels.filter((l) => l === "pinball").length,
     aorHighStakes: labels.filter((l) => l === "blocks_69").length,
     heldTheLine: monkesAtOpen > 0 && monkesNow >= monkesAtOpen,
+    heldBarracks: openedAt(4) > 0 && word(now, 4) >= openedAt(4),
   };
 }
 
