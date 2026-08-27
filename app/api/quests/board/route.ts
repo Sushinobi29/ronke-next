@@ -21,7 +21,7 @@ async function build(day: number) {
   return {
     day,
     season: seasonAt(),
-    quests: questsForDay(day).map(({ id, title, task, game, points, target, verify }) => ({
+    quests: questsForDay(day).map(({ id, title, task, game, points, target, verify, cost }) => ({
       id,
       title,
       task,
@@ -29,6 +29,7 @@ async function build(day: number) {
       points,
       target,
       verify,
+      cost,
     })),
     roundsToday: rounds.length,
     playersToday: players.size,

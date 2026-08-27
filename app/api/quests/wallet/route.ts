@@ -3,6 +3,7 @@ import {
   blockAtSecond,
   isAddress,
   readDaily,
+  readAorToday,
   readMinesWindow,
   readSpinsToday,
 } from "@/lib/quests/read";
@@ -17,9 +18,10 @@ export const dynamic = "force-dynamic";
 const TTL_MS = 60_000;
 type Rounds = Awaited<ReturnType<typeof readMinesWindow>>;
 type Spins = Awaited<ReturnType<typeof readSpinsToday>>;
+type Aor = Awaited<ReturnType<typeof readAorToday>>;
 
-let cache: { at: number; day: number; rounds: Rounds; spins: Spins } | null = null;
-let inflight: Promise<{ rounds: Rounds; spins: Spins }> | null = null;
+let cache: { at: number; day: number; rounds: Rounds; spins: Spins; aor: Aor } | null = null;
+let inflight: Promise<{ rounds: Rounds; spins: Spins; aor: Aor }> | null = null;
 
 /**
  * The table history and the day's spins are the same for everyone, so they are
@@ -31,11 +33,12 @@ async function sharedToday(day: number, since: number, startBlock: number) {
   inflight =
     inflight ??
     (async () => {
-      const [rounds, spins] = await Promise.all([
+      const [rounds, spins, aor] = await Promise.all([
         readMinesWindow(since),
         readSpinsToday(startBlock),
+        readAorToday(startBlock),
       ]);
-      return { rounds, spins };
+      return { rounds, spins, aor };
     })();
 
   try {
@@ -58,8 +61,8 @@ export async function GET(request: NextRequest) {
     const day = dayIndex();
     const since = dayStart();
     const startBlock = await blockAtSecond(since);
-    const { rounds, spins } = await sharedToday(day, since, startBlock);
-    const stats = await readDaily(address.trim(), rounds, startBlock, spins);
+    const { rounds, spins, aor } = await sharedToday(day, since, startBlock);
+    const stats = await readDaily(address.trim(), rounds, startBlock, spins, aor);
 
     return NextResponse.json({
       address: address.trim().toLowerCase(),

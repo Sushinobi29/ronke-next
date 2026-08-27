@@ -13,6 +13,7 @@
  */
 
 import {
+  AGE_OF_RONKE,
   CASINO,
   COLLECTIONS,
   FORTUNE_SPIN,
@@ -202,7 +203,8 @@ export async function readDaily(
   address: string,
   roundsToday: MinesRound[],
   dayStartBlock: number,
-  spinsToday: Map<string, number> = new Map()
+  spinsToday: Map<string, number> = new Map(),
+  aorToday: Map<string, AorPlay> = new Map()
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
@@ -233,6 +235,10 @@ export async function readDaily(
 
   const gained = (index: number, at = 0) => Math.max(0, word(now, index, at) - openedAt(index, at));
 
+  const aor = aorToday.get(address.toLowerCase());
+  const labels = [...(aor?.labels ?? [])];
+  const paidLabels = labels.filter((l) => l !== "freeplay");
+
   const mine = roundsToday.filter((r) => r.player.toLowerCase() === address.toLowerCase());
   const monkesNow = word(now, 3);
   const monkesAtOpen = openedAt(3);
@@ -261,6 +267,11 @@ export async function readDaily(
     ronkeGained: tokenGain(6),
     ronkestrGained: tokenGain(7),
     spins: spinsToday.get(address.toLowerCase()) ?? 0,
+    aorPlays: aor?.plays ?? 0,
+    aorPaidPlays: paidLabels.length,
+    aorBlocks: labels.filter((l) => l.startsWith("blocks")).length,
+    aorPinball: labels.filter((l) => l === "pinball").length,
+    aorHighStakes: labels.filter((l) => l === "blocks_69").length,
     heldTheLine: monkesAtOpen > 0 && monkesNow >= monkesAtOpen,
   };
 }
@@ -289,6 +300,56 @@ export async function readSpinsToday(dayStartBlock: number): Promise<Map<string,
     // A failed scan means the gacha quest simply shows no progress today.
   }
   return spins;
+}
+
+/** What one wallet did at Age of Ronke today. */
+export interface AorPlay {
+  plays: number;
+  labels: Set<string>;
+  ronkeSpent: number;
+}
+
+/**
+ * Age of Ronke plays today, by wallet. The play event carries the player in
+ * topic1 and the game's own name as a string in its data, so one scan tells us
+ * who played what — which is what lets each mini-game have its own quest.
+ */
+export async function readAorToday(dayStartBlock: number): Promise<Map<string, AorPlay>> {
+  const byWallet = new Map<string, AorPlay>();
+  try {
+    const head = Number(toBigInt((await blockNumber()).replace(/^0x/, "")));
+    const logs = await getLogsRange(
+      AGE_OF_RONKE.play,
+      AGE_OF_RONKE.playTopic,
+      dayStartBlock,
+      head
+    );
+
+    for (const log of logs) {
+      const player = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
+      if (!player || /^0x0+$/.test(player)) continue;
+
+      const w = words(log.data);
+      if (w.length < 6) continue;
+      // data: [n, feeRonke, ?, offset, length, label…]
+      let label = "";
+      try {
+        const length = toNumber(w[4]);
+        label = Buffer.from(w[5].slice(0, length * 2), "hex").toString("utf8");
+      } catch {
+        continue;
+      }
+
+      const entry = byWallet.get(player) ?? { plays: 0, labels: new Set<string>(), ronkeSpent: 0 };
+      entry.plays += 1;
+      entry.labels.add(label);
+      entry.ronkeSpent += fromWei(toBigInt(w[1]));
+      byWallet.set(player, entry);
+    }
+  } catch {
+    // A failed scan means the Age of Ronke quests simply show no progress.
+  }
+  return byWallet;
 }
 
 /** The block a given wall-clock second maps to. Cached per key. */

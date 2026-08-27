@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ArrowUpRight, Check } from "lucide-react";
-import type { ScoredQuest } from "@/lib/quests/daily";
+import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
 
 /**
  * One of the day's five. Built as a wide row rather than a grid tile: five
@@ -44,8 +44,12 @@ export default function QuestCard({
       </span>
 
       <div className="min-w-0 flex-1">
-        <div className="mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-3">
-          {quest.gameLabel}
+        <div className="mono flex flex-wrap items-center gap-x-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-3">
+          <span>{quest.gameLabel}</span>
+          <span aria-hidden>·</span>
+          <span className={quest.cost === "free" ? "text-diamond" : quest.cost === "big" ? "text-gold" : ""}>
+            {COST_LABELS[quest.cost]}
+          </span>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5">
           <span className="truncate font-semibold">{quest.title}</span>

@@ -8,6 +8,7 @@ import WalletConnect from "@/components/wallet-connect";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
 import {
   ALL_DONE_BONUS,
+  type CostTier,
   GAME_ART,
   GAME_LABELS,
   GAME_LINKS,
@@ -27,6 +28,7 @@ interface BoardQuest {
   points: number;
   target: number;
   verify?: "chain" | "honour";
+  cost: CostTier;
 }
 
 interface Round {

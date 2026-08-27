@@ -16,8 +16,21 @@ export const QUESTS_PER_DAY = 5;
 
 export type QuestGame = "casino" | "gacha" | "vote" | "ronkeverse" | "age-of-ronke" | "social";
 
+/**
+ * What a quest actually costs to do. Points follow this, so a quest that asks
+ * for a monke off the floor is never worth the same as posting on X.
+ */
+export type CostTier = "free" | "tokens" | "ron" | "big";
+
+export const COST_LABELS: Record<CostTier, string> = {
+  free: "Free",
+  tokens: "A few tokens",
+  ron: "Costs RON",
+  big: "Big ticket",
+};
+
 /** Clearing all five in a day pays this on top. */
-export const ALL_DONE_BONUS = 250;
+export const ALL_DONE_BONUS = 400;
 
 export const GAME_LABELS: Record<QuestGame, string> = {
   casino: "Ronke Casino",
@@ -66,6 +79,12 @@ export interface DailyStats {
   ronkestrGained: number;
   /** Pulls on the Fortune Spin machine today. */
   spins: number;
+  /** Age of Ronke — the play contract names the game, so each has its own quest. */
+  aorPlays: number;
+  aorPaidPlays: number;
+  aorBlocks: number;
+  aorPinball: number;
+  aorHighStakes: number;
   /** Held every monke they woke up with, and woke up with at least one. */
   heldTheLine: boolean;
 }
@@ -85,6 +104,11 @@ export const EMPTY_DAILY: DailyStats = {
   ronkeGained: 0,
   ronkestrGained: 0,
   spins: 0,
+  aorPlays: 0,
+  aorPaidPlays: 0,
+  aorBlocks: 0,
+  aorPinball: 0,
+  aorHighStakes: 0,
   heldTheLine: false,
 };
 
@@ -100,6 +124,9 @@ export interface QuestDef {
   group: string;
   target: number;
   points: number;
+  /** Roughly what it costs to do — drives the points, and shown on the card so
+   *  the weighting is legible rather than arbitrary. */
+  cost: CostTier;
   /** "chain" is proved by Ronin. "honour" is the player's own word — used only
    *  for the social slot, and flagged as such on the card. */
   verify?: "chain" | "honour";
@@ -107,94 +134,19 @@ export interface QuestDef {
 }
 
 export const POOL: QuestDef[] = [
-  // ---- core: reachable with what most wallets already have ----
+  // ---- free: costs nothing but showing up ----
   {
-    id: "flip.one",
-    title: "Call it in the air",
-    task: "Play one coinflip",
-    game: "casino",
+    id: "social.shout",
+    title: "Spread the word",
+    task: "Post about the Ronkeverse on X",
+    game: "social",
     tier: "core",
-    group: "flips",
+    group: "social",
+    cost: "free",
     target: 1,
-    points: 100,
-    progress: (s) => s.flips,
-  },
-  {
-    id: "flip.three",
-    title: "Best of three",
-    task: "Play three coinflips",
-    game: "casino",
-    tier: "core",
-    group: "flips",
-    target: 3,
-    points: 150,
-    progress: (s) => s.flips,
-  },
-  {
-    id: "flip.win",
-    title: "Called it right",
-    task: "Win a coinflip",
-    game: "casino",
-    tier: "core",
-    group: "flip-wins",
-    target: 1,
-    points: 150,
-    progress: (s) => s.flipWins,
-  },
-  {
-    id: "mines.one",
-    title: "Step on the field",
-    task: "Open one Mines round",
-    game: "casino",
-    tier: "core",
-    group: "mines-rounds",
-    target: 1,
-    points: 100,
-    progress: (s) => s.minesRounds,
-  },
-  {
-    id: "mines.three",
-    title: "Clear the field",
-    task: "Open three Mines rounds",
-    game: "casino",
-    tier: "core",
-    group: "mines-rounds",
-    target: 3,
-    points: 150,
-    progress: (s) => s.minesRounds,
-  },
-  {
-    id: "mines.cashout",
-    title: "Out clean",
-    task: "Cash out of a Mines round",
-    game: "casino",
-    tier: "core",
-    group: "cash-out",
-    target: 1,
-    points: 150,
-    progress: (s) => s.minesCashouts,
-  },
-  {
-    id: "mines.tables",
-    title: "Table hopper",
-    task: "Play two different Mines tables",
-    game: "casino",
-    tier: "core",
-    group: "tables",
-    target: 2,
-    points: 200,
-    progress: (s) => s.minesTables,
-  },
-  {
-    id: "vote.cast",
-    title: "Have your say",
-    task: "Back an option in the live vote",
-    game: "vote",
-    tier: "core",
-    group: "vote",
-    target: 1,
-    points: 100,
-    progress: (s) => s.votes,
+    points: 50,
+    verify: "honour",
+    progress: () => 0,
   },
   {
     id: "hold.line",
@@ -203,77 +155,146 @@ export const POOL: QuestDef[] = [
     game: "ronkeverse",
     tier: "core",
     group: "hold",
+    cost: "free",
     target: 1,
-    points: 100,
+    points: 75,
     progress: (s) => (s.heldTheLine ? 1 : 0),
   },
-
-  // ---- bonus: a real commitment, worth real points ----
   {
-    id: "mines.stake",
-    title: "On the line",
-    task: "Stake 10 RON at the Mines tables",
-    game: "casino",
-    tier: "bonus",
-    group: "stake",
-    target: 10,
-    points: 200,
-    progress: (s) => Math.floor(s.minesStakedRon),
-  },
-  {
-    id: "vote.found",
-    title: "Found a citizen",
-    task: "Stand up a citizen on Ronke Vote",
+    id: "vote.cast",
+    title: "Have your say",
+    task: "Back an option in the live vote",
     game: "vote",
-    tier: "bonus",
-    group: "citizen",
+    tier: "core",
+    group: "vote",
+    cost: "free",
     target: 1,
-    points: 250,
-    progress: (s) => s.citizens,
+    points: 100,
+    progress: (s) => s.votes,
   },
+
+  // ---- a few tokens: Genka's games and a single round at the casino ----
   {
-    id: "monke.adopt",
-    title: "Adopt a monke",
-    task: "Bring home a Ronkeverse monke",
-    game: "ronkeverse",
-    tier: "bonus",
-    group: "monke",
-    target: 1,
-    points: 250,
-    progress: (s) => s.monkes,
-  },
-  {
-    id: "barracks.take",
-    title: "Take a barracks",
-    task: "Win a barracks in game or from the spin machine",
+    id: "aor.pinball",
+    title: "Tilt the table",
+    task: "Play a round of Ronke Pinball",
     game: "age-of-ronke",
-    tier: "bonus",
-    group: "barracks",
+    tier: "core",
+    group: "aor-pinball",
+    cost: "tokens",
+    target: 1,
+    points: 150,
+    progress: (s) => s.aorPinball,
+  },
+  {
+    id: "flip.one",
+    title: "Call it in the air",
+    task: "Play one coinflip",
+    game: "casino",
+    tier: "core",
+    group: "flips",
+    cost: "tokens",
+    target: 1,
+    points: 150,
+    progress: (s) => s.flips,
+  },
+  {
+    id: "mines.one",
+    title: "Step on the field",
+    task: "Open one Mines round",
+    game: "casino",
+    tier: "core",
+    group: "mines-rounds",
+    cost: "tokens",
+    target: 1,
+    points: 150,
+    progress: (s) => s.minesRounds,
+  },
+  {
+    id: "aor.blocks",
+    title: "Stack the blocks",
+    task: "Play a round of Ronke Blocks",
+    game: "age-of-ronke",
+    tier: "core",
+    group: "aor-blocks",
+    cost: "tokens",
     target: 1,
     points: 200,
-    progress: (s) => s.barracks,
+    progress: (s) => s.aorBlocks,
   },
   {
-    id: "trophy.claim",
-    title: "Claim a trophy",
-    task: "Add a PewPew trophy to the shelf",
+    id: "mines.cashout",
+    title: "Out clean",
+    task: "Cash out of a Mines round",
+    game: "casino",
+    tier: "core",
+    group: "cash-out",
+    cost: "tokens",
+    target: 1,
+    points: 200,
+    progress: (s) => s.minesCashouts,
+  },
+  {
+    id: "flip.win",
+    title: "Called it right",
+    task: "Win a coinflip",
+    game: "casino",
+    tier: "core",
+    group: "flip-wins",
+    cost: "tokens",
+    target: 1,
+    points: 225,
+    progress: (s) => s.flipWins,
+  },
+  {
+    id: "flip.three",
+    title: "Best of three",
+    task: "Play three coinflips",
+    game: "casino",
+    tier: "core",
+    group: "flips",
+    cost: "tokens",
+    target: 3,
+    points: 250,
+    progress: (s) => s.flips,
+  },
+  {
+    id: "mines.three",
+    title: "Clear the field",
+    task: "Open three Mines rounds",
+    game: "casino",
+    tier: "core",
+    group: "mines-rounds",
+    cost: "tokens",
+    target: 3,
+    points: 250,
+    progress: (s) => s.minesRounds,
+  },
+  {
+    id: "mines.tables",
+    title: "Table hopper",
+    task: "Play two different Mines tables",
+    game: "casino",
+    tier: "core",
+    group: "tables",
+    cost: "tokens",
+    target: 2,
+    points: 275,
+    progress: (s) => s.minesTables,
+  },
+
+  // ---- costs RON: a real, unrefundable outlay ----
+  {
+    id: "aor.highstakes",
+    title: "Sixty-nine",
+    task: "Play the 69 round of Ronke Blocks",
     game: "age-of-ronke",
     tier: "bonus",
-    group: "trophy",
+    group: "aor-blocks",
+    cost: "ron",
     target: 1,
-    points: 250,
-    progress: (s) => s.trophies,
-  },
-  {
-    id: "gacha.spin",
-    title: "Pull the lever",
-    task: "Spin the Fortune Spin machine",
-    game: "gacha",
-    tier: "bonus",
-    group: "spin",
-    target: 1,
-    points: 250,
-    progress: (s) => s.spins,
+    points: 300,
+    progress: (s) => s.aorHighStakes,
   },
   {
     id: "token.ronke",
@@ -282,9 +303,22 @@ export const POOL: QuestDef[] = [
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
+    cost: "ron",
     target: 1,
-    points: 200,
+    points: 300,
     progress: (s) => (s.ronkeGained >= 1 ? 1 : 0),
+  },
+  {
+    id: "mines.stake",
+    title: "On the line",
+    task: "Stake 10 RON at the Mines tables",
+    game: "casino",
+    tier: "bonus",
+    group: "stake",
+    cost: "ron",
+    target: 10,
+    points: 350,
+    progress: (s) => Math.floor(s.minesStakedRon),
   },
   {
     id: "token.ronkestr",
@@ -293,21 +327,72 @@ export const POOL: QuestDef[] = [
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
+    cost: "ron",
     target: 1,
-    points: 200,
+    points: 350,
     progress: (s) => (s.ronkestrGained >= 1 ? 1 : 0),
   },
   {
-    id: "social.shout",
-    title: "Spread the word",
-    task: "Post about the Ronkeverse on X",
-    game: "social",
-    tier: "core",
-    group: "social",
+    id: "gacha.spin",
+    title: "Pull the lever",
+    task: "Spin the Fortune Spin machine",
+    game: "gacha",
+    tier: "bonus",
+    group: "spin",
+    cost: "ron",
     target: 1,
-    points: 100,
-    verify: "honour",
-    progress: () => 0,
+    points: 400,
+    progress: (s) => s.spins,
+  },
+  {
+    id: "barracks.take",
+    title: "Take a barracks",
+    task: "Win a barracks in game or from the spin machine",
+    game: "age-of-ronke",
+    tier: "bonus",
+    group: "barracks",
+    cost: "ron",
+    target: 1,
+    points: 400,
+    progress: (s) => s.barracks,
+  },
+  {
+    id: "vote.found",
+    title: "Found a citizen",
+    task: "Stand up a citizen on Ronke Vote",
+    game: "vote",
+    tier: "bonus",
+    group: "citizen",
+    cost: "ron",
+    target: 1,
+    points: 450,
+    progress: (s) => s.citizens,
+  },
+
+  // ---- big ticket: the ones that move real money ----
+  {
+    id: "trophy.claim",
+    title: "Claim a trophy",
+    task: "Add a PewPew trophy to the shelf",
+    game: "age-of-ronke",
+    tier: "bonus",
+    group: "trophy",
+    cost: "big",
+    target: 1,
+    points: 500,
+    progress: (s) => s.trophies,
+  },
+  {
+    id: "monke.adopt",
+    title: "Adopt a monke",
+    task: "Bring home a Ronkeverse monke",
+    game: "ronkeverse",
+    tier: "bonus",
+    group: "monke",
+    cost: "big",
+    target: 1,
+    points: 600,
+    progress: (s) => s.monkes,
   },
 ];
 
@@ -360,15 +445,33 @@ export function secondsUntilReset(unix: number = Math.floor(Date.now() / 1000)):
   return dayStart(unix) + DAY_SECONDS - unix;
 }
 
-/** The five quests for a given day. Same five for everyone, everywhere. */
+/**
+ * The five quests for a given day. Same five for everyone, everywhere.
+ *
+ * The shape is fixed even though the picks are not: one free quest, two that
+ * cost a few tokens, two that cost real money. The free slot is the important
+ * one — without it a run of expensive draws would lock an empty wallet out of
+ * the board entirely.
+ */
 export function questsForDay(day: number = dayIndex()): QuestDef[] {
   const next = rng(day * 2654435761);
   const taken = new Set<string>();
-  const core = POOL.filter((q) => q.tier === "core");
-  const bonus = POOL.filter((q) => q.tier === "bonus");
-  const chosen = [...pick(core, 3, next, taken), ...pick(bonus, 2, next, taken)];
-  // Keep a stable on-screen order regardless of draw order.
-  return chosen.sort((a, b) => POOL.indexOf(a) - POOL.indexOf(b));
+
+  const free = POOL.filter((q) => q.cost === "free");
+  const cheap = POOL.filter((q) => q.tier === "core" && q.cost !== "free");
+  const paid = POOL.filter((q) => q.tier === "bonus");
+
+  const chosen = [
+    ...pick(free, 1, next, taken),
+    ...pick(cheap, 2, next, taken),
+    ...pick(paid, 2, next, taken),
+  ];
+
+  // Cheapest first, so the board reads as a ramp rather than a wall.
+  const order: CostTier[] = ["free", "tokens", "ron", "big"];
+  return chosen.sort(
+    (a, b) => order.indexOf(a.cost) - order.indexOf(b.cost) || a.points - b.points
+  );
 }
 
 export interface ScoredQuest extends QuestDef {
