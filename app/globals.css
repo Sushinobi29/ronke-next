@@ -24,6 +24,8 @@
   --muted-2: #6f7a8c;
   --muted-3: #5a6376;
   --diamond: #5ee6a8; /* green - diamond hands / positive */
+  --gold: #ffc23d; /* quest reward - taken from the Ronke Quest wordmark */
+  --gold-2: #f0a020;
   --regular: #5ccbff;
   --paper: #f0885a;
   --burn: #ff4d5e; /* red - burned forever / destroyed supply */
@@ -76,6 +78,8 @@
   --color-muted-2: var(--muted-2);
   --color-muted-3: var(--muted-3);
   --color-diamond: var(--diamond);
+  --color-gold: var(--gold);
+  --color-gold-2: var(--gold-2);
   --color-regular: var(--regular);
   --color-paper: var(--paper);
   --color-burn: var(--burn);

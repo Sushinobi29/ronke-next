@@ -1,50 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAddress, readMinesWindow, readWallet, seasonStartBlock } from "@/lib/quests/read";
-import { scoreWallet } from "@/lib/quests/scoring";
-import { seasonAt } from "@/lib/quests/season";
+import {
+  blockAtSecond,
+  isAddress,
+  readDaily,
+  readMinesWindow,
+  readSpinsToday,
+} from "@/lib/quests/read";
+import { dayIndex, dayStart, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Per-wallet season state. Nothing is stored: the address is scored from chain
- * reads on every request, so there is no account to create and nothing to sign.
+ * One wallet's day. Nothing is stored — the address is scored from chain reads
+ * on every request, so there is no account to create and nothing to sign.
  */
 const TTL_MS = 60_000;
-let roundsCache: { at: number; season: number; rounds: Awaited<ReturnType<typeof readMinesWindow>> } | null =
-  null;
+type Rounds = Awaited<ReturnType<typeof readMinesWindow>>;
+type Spins = Awaited<ReturnType<typeof readSpinsToday>>;
 
-async function seasonRounds(seasonNumber: number, since: number) {
-  if (roundsCache && roundsCache.season === seasonNumber && Date.now() - roundsCache.at < TTL_MS) {
-    return roundsCache.rounds;
+let cache: { at: number; day: number; rounds: Rounds; spins: Spins } | null = null;
+let inflight: Promise<{ rounds: Rounds; spins: Spins }> | null = null;
+
+/**
+ * The table history and the day's spins are the same for everyone, so they are
+ * read once a minute and shared rather than re-scanned per visitor.
+ */
+async function sharedToday(day: number, since: number, startBlock: number) {
+  if (cache && cache.day === day && Date.now() - cache.at < TTL_MS) return cache;
+
+  inflight =
+    inflight ??
+    (async () => {
+      const [rounds, spins] = await Promise.all([
+        readMinesWindow(since),
+        readSpinsToday(startBlock),
+      ]);
+      return { rounds, spins };
+    })();
+
+  try {
+    const fresh = await inflight;
+    cache = { at: Date.now(), day, ...fresh };
+    return cache;
+  } finally {
+    inflight = null;
   }
-  const rounds = await readMinesWindow(since);
-  roundsCache = { at: Date.now(), season: seasonNumber, rounds };
-  return rounds;
 }
 
 export async function GET(request: NextRequest) {
   const address = request.nextUrl.searchParams.get("address");
 
   if (!isAddress(address)) {
-    return NextResponse.json(
-      { error: "That does not look like a Ronin address. Paste the 0x… form, or a ronin: address." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "That is not a Ronin address." }, { status: 400 });
   }
 
   try {
-    const season = seasonAt();
-    const [rounds, startBlock] = await Promise.all([
-      seasonRounds(season.number, season.startsAt),
-      seasonStartBlock(season),
-    ]);
-    const stats = await readWallet(address.trim(), rounds, startBlock);
+    const day = dayIndex();
+    const since = dayStart();
+    const startBlock = await blockAtSecond(since);
+    const { rounds, spins } = await sharedToday(day, since, startBlock);
+    const stats = await readDaily(address.trim(), rounds, startBlock, spins);
 
     return NextResponse.json({
       address: address.trim().toLowerCase(),
-      season,
       stats,
-      score: scoreWallet(stats),
+      score: scoreDay(stats, day),
+      resetsIn: secondsUntilReset(),
     });
   } catch (error) {
     return NextResponse.json(

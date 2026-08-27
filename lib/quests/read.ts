@@ -24,7 +24,9 @@ import {
 } from "./contracts";
 import {
   blockAtTimestamp,
+  blockNumber,
   callData,
+  getLogsRange,
   ethCall,
   fromWei,
   getBalance,
@@ -36,7 +38,7 @@ import {
   toNumber,
   words,
 } from "./chain";
-import { EMPTY_STATS, type WalletStats } from "./scoring";
+import { EMPTY_DAILY, type DailyStats } from "./daily";
 import { seasonAt, type Season } from "./season";
 
 /** Rounds read per table per page, and the most pages we will walk back. */
@@ -183,31 +185,32 @@ export async function readSeason(rounds: MinesRound[], startBlock: number): Prom
   };
 }
 
-/** The block the current season opened at. Cached — it only moves once a season. */
-let startBlockCache: { season: number; block: number } | null = null;
-
-export async function seasonStartBlock(season: Season): Promise<number> {
-  if (startBlockCache?.season === season.number) return startBlockCache.block;
-  const block = await blockAtTimestamp(season.startsAt);
-  startBlockCache = { season: season.number, block };
-  return block;
+/** The block the current season opened at. */
+export function seasonStartBlock(season: Season): Promise<number> {
+  return blockAtSecond(season.startsAt);
 }
 
-/* ------------------------------------------------------------------ wallet */
+/* ------------------------------------------------------------------- daily */
 
-export async function readWallet(
+/**
+ * One wallet's day. Two multicalls: every running total as it stands now, and
+ * the same totals at the block the day opened. The difference is what they did
+ * today — which is the whole trick that lets a daily board exist with no
+ * database behind it.
+ */
+export async function readDaily(
   address: string,
-  rounds: MinesRound[],
-  startBlock: number
-): Promise<WalletStats> {
+  roundsToday: MinesRound[],
+  dayStartBlock: number,
+  spinsToday: Map<string, number> = new Map()
+): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
 
-  const nowCalls = [
+  const calls = [
     { target: CASINO.coinflip, data: callData(SELECTORS.playHistory, who) },
-    { target: VOTE.current, data: callData(SELECTORS.activeCitizenCount, who) },
-    { target: VOTE.current, data: callData(SELECTORS.maxCitizensFor, who) },
     { target: VOTE.current, data: callData(SELECTORS.getPlayerVotes, who) },
+    { target: VOTE.current, data: callData(SELECTORS.activeCitizenCount, who) },
     balanceOf(COLLECTIONS.ronkeverse),
     balanceOf(COLLECTIONS.barracks),
     balanceOf(COLLECTIONS.trophies),
@@ -215,67 +218,88 @@ export async function readWallet(
     balanceOf(TOKENS.RONKESTR),
   ];
 
-  // The same running totals, read at the block the season opened.
-  const thenCalls = [
-    { target: CASINO.coinflip, data: callData(SELECTORS.playHistory, who) },
-    { target: VOTE.current, data: callData(SELECTORS.activeCitizenCount, who) },
-    balanceOf(COLLECTIONS.ronkeverse),
-    balanceOf(COLLECTIONS.barracks),
-    balanceOf(COLLECTIONS.trophies),
-  ];
-
   const [now, then] = await Promise.all([
-    multicall(nowCalls),
-    multicall(thenCalls, 200, "0x" + startBlock.toString(16)).catch(() => thenCalls.map(() => null)),
+    multicall(calls),
+    multicall(calls, 200, "0x" + dayStartBlock.toString(16)).catch(() => calls.map(() => null)),
   ]);
 
-  const num = (source: (string | null)[], index: number, word = 0) =>
-    toNumber(words(source[index] ?? "0x")[word]);
+  const word = (source: (string | null)[], index: number, at = 0) =>
+    toNumber(words(source[index] ?? "0x")[at]);
 
-  const history = words(now[0] ?? "0x");
-  const playerVotes = words(now[3] ?? "0x");
-  // getPlayerVotes returns (total, uint256[4] perOption) — the fixed-size array
-  // is inlined, so the four options follow the total directly.
-  const votedOptions = playerVotes.slice(1, 5).filter((w) => toBigInt(w) > BigInt(0)).length;
+  // A historical read the node cannot serve is treated as "the day opened at
+  // your current total" — that shows zero progress rather than inventing any.
+  const openedAt = (index: number, at = 0) =>
+    then[index] ? toNumber(words(then[index]!)[at]) : word(now, index, at);
 
-  const monkes = num(now, 4);
-  const barracks = num(now, 5);
-  const trophies = num(now, 6);
+  const gained = (index: number, at = 0) => Math.max(0, word(now, index, at) - openedAt(index, at));
 
-  // A missing historical read means the node could not serve that block; fall
-  // back to treating the season as opening at the current total, which shows
-  // zero progress rather than inventing any.
-  const hadFlips = then[0] ? toNumber(words(then[0])[0]) : toNumber(history[0]);
-  const hadWins = then[0] ? toNumber(words(then[0])[1]) : toNumber(history[1]);
-  const hadCitizens = then[1] ? num(then, 1) : num(now, 1);
-  const hadMonkes = then[2] ? num(then, 2) : monkes;
-  const hadBarracks = then[3] ? num(then, 3) : barracks;
-  const hadTrophies = then[4] ? num(then, 4) : trophies;
+  const mine = roundsToday.filter((r) => r.player.toLowerCase() === address.toLowerCase());
+  const monkesNow = word(now, 3);
+  const monkesAtOpen = openedAt(3);
 
-  const mine = rounds.filter((r) => r.player.toLowerCase() === address.toLowerCase());
-  const positive = (value: number) => Math.max(0, value);
+  // Token balances are 18-decimal, so compare in whole tokens — dust from a
+  // reflection or a rounding tail should not tick a quest over.
+  const tokenGain = (index: number) => {
+    const before = then[index] ? toBigInt(words(then[index]!)[0]) : toBigInt(words(now[index] ?? "0x")[0]);
+    const after = toBigInt(words(now[index] ?? "0x")[0]);
+    return after > before ? fromWei(after - before) : 0;
+  };
 
   return {
-    ...EMPTY_STATS,
-    coinflipPlays: positive(toNumber(history[0]) - hadFlips),
-    coinflipWins: positive(toNumber(history[1]) - hadWins),
+    ...EMPTY_DAILY,
+    flips: gained(0, 0),
+    flipWins: gained(0, 1),
     minesRounds: mine.length,
     minesCashouts: mine.filter((r) => r.status === MINES_STATUS.CASHED_OUT).length,
-    minesWagerRon: mine.filter((r) => r.table === "RON").reduce((sum, r) => sum + r.bet, 0),
-    citizensFounded: positive(num(now, 1) - hadCitizens),
-    citizens: num(now, 1),
-    maxCitizens: num(now, 2),
-    votedOptions,
-    monkesGained: positive(monkes - hadMonkes),
-    barracksGained: positive(barracks - hadBarracks),
-    trophiesGained: positive(trophies - hadTrophies),
-    monkesHeldThrough: Math.min(monkes, hadMonkes),
-    monkes,
-    barracks,
-    trophies,
-    hasRonke: toBigInt(words(now[7] ?? "0x")[0]) > BigInt(0),
-    hasRonkestr: toBigInt(words(now[8] ?? "0x")[0]) > BigInt(0),
+    minesTables: new Set(mine.map((r) => r.table)).size,
+    minesStakedRon: mine.filter((r) => r.table === "RON").reduce((sum, r) => sum + r.bet, 0),
+    votes: gained(1, 0),
+    citizens: gained(2),
+    monkes: Math.max(0, monkesNow - monkesAtOpen),
+    barracks: gained(4),
+    trophies: gained(5),
+    ronkeGained: tokenGain(6),
+    ronkestrGained: tokenGain(7),
+    spins: spinsToday.get(address.toLowerCase()) ?? 0,
+    heldTheLine: monkesAtOpen > 0 && monkesNow >= monkesAtOpen,
   };
+}
+
+/**
+ * Who spun the Fortune Spin machine today, and how often. The settle event
+ * carries the spinner in topic2, so one topic-filtered scan of the day covers
+ * everyone — it is cached and shared, not run per visitor.
+ */
+export async function readSpinsToday(dayStartBlock: number): Promise<Map<string, number>> {
+  const spins = new Map<string, number>();
+  try {
+    const head = Number(toBigInt((await blockNumber()).replace(/^0x/, "")));
+    const logs = await getLogsRange(
+      FORTUNE_SPIN.pack,
+      FORTUNE_SPIN.settleTopic,
+      dayStartBlock,
+      head
+    );
+    for (const log of logs) {
+      const spinner = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
+      if (!spinner || /^0x0+$/.test(spinner)) continue;
+      spins.set(spinner, (spins.get(spinner) ?? 0) + 1);
+    }
+  } catch {
+    // A failed scan means the gacha quest simply shows no progress today.
+  }
+  return spins;
+}
+
+/** The block a given wall-clock second maps to. Cached per key. */
+const blockCache = new Map<number, number>();
+
+export async function blockAtSecond(second: number): Promise<number> {
+  const hit = blockCache.get(second);
+  if (hit !== undefined) return hit;
+  const block = await blockAtTimestamp(second);
+  blockCache.set(second, block);
+  return block;
 }
 
 /* -------------------------------------------------------------- live board */

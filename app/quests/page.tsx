@@ -4,14 +4,15 @@ import PageNavbar from "@/components/page-navbar";
 import QuestsApp from "@/components/quests-app";
 
 export const metadata: Metadata = {
-  title: "Ronke Quests | Ronkeverse - a PoD season of on-chain quests",
+  title: "Ronke Quest | Ronkeverse - five new quests every day",
   description:
-    "Thirteen quests, one PoD season, a live countdown. Coinflips and mines rounds at Ronke Casino, citizens and ballots on Ronke Vote, monkes, barracks and trophies - all scored inside the season and read straight off Ronin. No sign-up, no signature, no transaction.",
+    "Five quests a day, the same five for everyone, drawn fresh at midnight. Flip a coin, clear a Mines field, spin the Fortune machine, back a vote, adopt a monke - progress read live off Ronin. Clear all five for a bonus. No sign-up, no signature, no transaction.",
   keywords: [
     "ronke quests",
     "ronkeverse quests",
     "ronke points",
-    "pod season ronkeverse",
+    "daily quests ronin",
+    "ronke fortune spin",
     "ronin quest leaderboard",
     "ronke casino mines leaderboard",
     "ronke vote citizens",
@@ -19,9 +20,9 @@ export const metadata: Metadata = {
     "fortune spin ronin",
   ],
   openGraph: {
-    title: "Ronke Quests - a PoD season of on-chain quests",
+    title: "Ronke Quest - five new quests every day",
     description:
-      "Thirteen quests, one season, one countdown. Every quest read straight off a Ronin contract. Paste a wallet and climb the live tables before the clock runs out.",
+      "A fresh set of five at midnight, the same five for everyone. Play them anywhere in the Ronkeverse; the chain does the rest. Clear all five for a bonus.",
     url: "https://ronkeverse.com/quests",
     siteName: "Ronkeverse",
     images: [
@@ -36,9 +37,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ronke Quests - a PoD season of on-chain quests",
+    title: "Ronke Quest - five new quests every day",
     description:
-      "One season, one countdown, thirteen quests. Coinflips, mines, citizens, monkes, barracks, trophies. 🐵",
+      "Five quests. New set every midnight. Flips, mines, spins, votes, monkes. Clear all five for a bonus. 🐵",
     images: ["https://ronkeverse.com/ronkeverse-banner.png"],
   },
   alternates: {

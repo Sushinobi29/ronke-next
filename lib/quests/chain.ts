@@ -116,6 +116,44 @@ export function getBalance(address: string): Promise<string> {
   return rpc<string>("eth_getBalance", [address, "latest"]);
 }
 
+export interface Log {
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+  transactionHash: string;
+}
+
+/**
+ * The public Ronin node caps eth_getLogs at 200 blocks a request, so anything
+ * wider has to be walked. Windows run a dozen at a time; a window that fails
+ * yields nothing rather than taking the whole scan down with it.
+ */
+export async function getLogsRange(
+  address: string,
+  topic: string,
+  fromBlock: number,
+  toBlock: number,
+  concurrency = 12
+): Promise<Log[]> {
+  const WINDOW = 200;
+  const windows: [number, number][] = [];
+  for (let start = fromBlock; start <= toBlock; start += WINDOW) {
+    windows.push([start, Math.min(start + WINDOW - 1, toBlock)]);
+  }
+
+  const out: Log[] = [];
+  for (let i = 0; i < windows.length; i += concurrency) {
+    const batch = windows.slice(i, i + concurrency).map(([from, to]) =>
+      rpc<Log[]>("eth_getLogs", [
+        { address, topics: [topic], fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16) },
+      ]).catch(() => [] as Log[])
+    );
+    for (const logs of await Promise.all(batch)) out.push(...logs);
+  }
+  return out;
+}
+
 /* -------------------------------------------------------------- multicall */
 
 /**

@@ -1,47 +1,59 @@
 import { NextResponse } from "next/server";
-import { buildBoard, readMinesWindow, readSeason, seasonStartBlock } from "@/lib/quests/read";
+import { readMinesWindow } from "@/lib/quests/read";
+import { dayIndex, dayStart, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The public half of the quest board: the live season, its table ranking and
- * the activity feed. Read from Ronin on a cold cache and then held for a
- * minute — one scan serves every visitor, so the node sees about one read per
- * minute however many people are on the page.
+ * The public half of the board: today's five quests and what the tables have
+ * seen since midnight. Read from Ronin on a cold cache and held for a minute,
+ * so one scan serves every visitor.
  */
 const TTL_MS = 60_000;
-let cache: { at: number; body: unknown } | null = null;
+let cache: { at: number; day: number; body: unknown } | null = null;
 let inflight: Promise<unknown> | null = null;
 
-async function build() {
-  const season = seasonAt();
-  const startBlock = await seasonStartBlock(season);
-  const rounds = await readMinesWindow(season.startsAt);
-  const snapshot = await readSeason(rounds, startBlock);
+async function build(day: number) {
+  const rounds = await readMinesWindow(dayStart());
+  const players = new Set(rounds.map((r) => r.player.toLowerCase()));
 
   return {
-    season: snapshot,
-    board: buildBoard(rounds),
-    feed: rounds.slice(0, 12),
-    roundsScanned: rounds.length,
+    day,
+    season: seasonAt(),
+    quests: questsForDay(day).map(({ id, title, task, game, points, target, verify }) => ({
+      id,
+      title,
+      task,
+      game,
+      points,
+      target,
+      verify,
+    })),
+    roundsToday: rounds.length,
+    playersToday: players.size,
+    stakedToday: rounds
+      .filter((r) => r.table === "RON")
+      .reduce((sum, r) => sum + r.bet, 0),
+    feed: rounds.slice(0, 8),
+    resetsIn: secondsUntilReset(),
     updatedAt: Date.now(),
   };
 }
 
 export async function GET() {
-  if (cache && Date.now() - cache.at < TTL_MS) {
+  const day = dayIndex();
+  if (cache && cache.day === day && Date.now() - cache.at < TTL_MS) {
     return NextResponse.json(cache.body);
   }
 
   try {
-    // Collapse simultaneous cold-cache requests into a single chain read.
-    inflight = inflight ?? build();
+    inflight = inflight ?? build(day);
     const body = await inflight;
-    cache = { at: Date.now(), body };
+    cache = { at: Date.now(), day, body };
     return NextResponse.json(body);
   } catch (error) {
-    if (cache) return NextResponse.json(cache.body);
+    if (cache?.day === day) return NextResponse.json(cache.body);
     return NextResponse.json(
       { error: `Could not reach Ronin: ${error instanceof Error ? error.message : error}` },
       { status: 502 }
