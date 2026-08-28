@@ -11,13 +11,13 @@ import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
  */
 export default function QuestCard({
   quest,
-  unreadable,
+  catchingUp,
   onMarkDone,
 }: {
   quest: ScoredQuest;
-  /** Its data source could not be read this pass — say so rather than
-   *  showing zero, which reads as "you have not done it". */
-  unreadable?: boolean;
+  /** 0-1 when this quest's log history is still being walked back. Say so
+   *  rather than showing zero, which reads as "you have not done it". */
+  catchingUp?: number;
   onMarkDone?: () => void;
 }) {
   const pct = Math.min(100, (quest.value / quest.target) * 100);
@@ -63,9 +63,9 @@ export default function QuestCard({
           />
         </div>
         <p className="mt-0.5 truncate text-[13px] text-muted-1">{quest.task}</p>
-        {unreadable && !quest.done && (
+        {catchingUp !== undefined && !quest.done && (
           <p className="mono mt-1 text-[10px] uppercase tracking-[0.12em] text-paper">
-            can&apos;t read this one right now
+            reading today&apos;s history · {Math.round(catchingUp * 100)}%
           </p>
         )}
         {honour && (

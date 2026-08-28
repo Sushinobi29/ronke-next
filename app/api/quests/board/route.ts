@@ -45,6 +45,7 @@ export async function GET(request: Request) {
       readAt: today.at,
       stale: today.error ?? null,
       logsMissing: today.logsMissing,
+      logCoverage: today.logCoverage,
       resetsIn: secondsUntilReset(),
       updatedAt: Date.now(),
     });

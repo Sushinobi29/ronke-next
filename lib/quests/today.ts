@@ -34,6 +34,18 @@ import { dayIndex, dayStart } from "./daily";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
+/**
+ * Windows of 200 blocks to scan per pass, per contract.
+ *
+ * The public node enforces a sustained quota, not just a burst cap: a single
+ * full-day scan is ~150 windows per contract and reliably exhausts it, after
+ * which even eth_blockNumber is refused. So the day is covered a slice at a
+ * time — newest first, walking back toward midnight over successive passes —
+ * and the spin / Age of Ronke quests fill in within a few minutes instead of
+ * failing outright.
+ */
+const MAX_WINDOWS = 12;
+const WINDOW = 200;
 /** How long the in-process forward scan stands. */
 const TTL_MS = 30_000;
 /** A forced refresh still will not re-read anything younger than this. */
@@ -48,12 +60,16 @@ export interface TodayState {
   aor: Map<string, AorPlay>;
   /** The spin and Age of Ronke quests could not be read this pass. */
   logsMissing: boolean;
+  /** 0-1: how much of the day's logs are accounted for. Climbs as slices land. */
+  logCoverage: number;
   error: string | null;
 }
 
 /** The seed crosses a cache boundary, so it has to be plain JSON. */
 interface Seed {
   atBlock: number;
+  /** Oldest block whose logs are accounted for. Walks back toward midnight. */
+  coveredFrom: number;
   startBlock: number;
   rounds: MinesRound[];
   spins: [string, number][];
@@ -107,6 +123,15 @@ async function scan(from: number, to: number) {
   return { spinLogs, aorLogs };
 }
 
+/** How much of the day's log range is behind us, 0 to 1. */
+function coverage(startBlock: number, coveredFrom: number, head: number): number {
+  const span = Math.max(1, head - startBlock);
+  return Math.min(1, Math.max(0, (head - coveredFrom + 1) / span));
+}
+
+/** The widest range worth asking for in one pass. */
+const sliceFrom = (to: number, floor: number) => Math.max(floor, to - MAX_WINDOWS * WINDOW + 1);
+
 /* -------------------------------------------------------------------- seed */
 
 async function buildSeed(day: number): Promise<Seed> {
@@ -120,19 +145,27 @@ async function buildSeed(day: number): Promise<Seed> {
   // Log scanning is the expensive half and the first thing a stingy node
   // refuses. Losing it costs four quests; losing the whole board costs
   // eighteen, so it is allowed to fail on its own.
+  // Newest slice first: whatever a player just did is the part they will look
+  // for, and the rest of the day fills in behind it.
+  const sliceStart = sliceFrom(atBlock, startBlock);
   let logsMissing = false;
   try {
-    const { spinLogs, aorLogs } = await scan(startBlock, atBlock);
+    const { spinLogs, aorLogs } = await scan(sliceStart, atBlock);
     collect(spinLogs, aorLogs, spins, aor);
   } catch {
     logsMissing = true;
   }
 
+  const coveredFrom = logsMissing ? atBlock + 1 : sliceStart;
+
   return {
-    atBlock: logsMissing ? startBlock : atBlock,
+    atBlock,
+    coveredFrom,
     startBlock,
     rounds,
-    logsMissing,
+    // Still missing while any of the day sits behind the covered window — the
+    // remaining slices land over the next few passes.
+    logsMissing: coveredFrom > startBlock,
     spins: [...spins.entries()],
     aor: [...aor.entries()].map(([k, v]) => [
       k,
@@ -152,6 +185,7 @@ function cachedSeed(day: number): Promise<Seed> {
 
 interface Internal extends TodayState {
   logBlock: number;
+  coveredFrom: number;
   minesCursor: Map<string, number>;
 }
 
@@ -179,8 +213,10 @@ function hydrate(day: number, seed: Seed): Internal {
     spins,
     aor,
     logsMissing: seed.logsMissing,
+    logCoverage: coverage(seed.startBlock, seed.coveredFrom, seed.atBlock),
     error: null,
     logBlock: seed.atBlock,
+    coveredFrom: seed.coveredFrom,
     minesCursor,
   };
 }
@@ -247,10 +283,23 @@ async function stepForward(current: Internal) {
   }
 
   try {
+    // Forward to head first — new activity matters more than old.
     const { spinLogs, aorLogs } = await scan(current.logBlock + 1, head);
     collect(spinLogs, aorLogs, current.spins, current.aor);
     current.logBlock = head;
-    current.logsMissing = false;
+    if (current.coveredFrom > head) current.coveredFrom = head + 1;
+
+    // Then reclaim a slice of the day still behind us.
+    if (current.coveredFrom > current.startBlock) {
+      const to = current.coveredFrom - 1;
+      const from = sliceFrom(to, current.startBlock);
+      const older = await scan(from, to);
+      collect(older.spinLogs, older.aorLogs, current.spins, current.aor);
+      current.coveredFrom = from;
+    }
+
+    current.logsMissing = current.coveredFrom > current.startBlock;
+    current.logCoverage = coverage(current.startBlock, current.coveredFrom, head);
   } catch {
     current.logsMissing = true;
   }
@@ -300,6 +349,7 @@ export async function getToday(force = false): Promise<TodayState> {
       spins: new Map(),
       aor: new Map(),
       logsMissing: true,
+      logCoverage: 0,
       error: error instanceof Error ? error.message : String(error),
     };
   } finally {

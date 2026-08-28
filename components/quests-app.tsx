@@ -112,6 +112,7 @@ export default function QuestsApp() {
   const [readAt, setReadAt] = useState<number | null>(null);
   const [stale, setStale] = useState<string | null>(null);
   const [logsMissing, setLogsMissing] = useState(false);
+  const [logCoverage, setLogCoverage] = useState(1);
   // Null until mounted: a clock rendered on the server is already stale by the
   // time the client hydrates, which React counts as a mismatch.
   const [now, setNow] = useState<number | null>(null);
@@ -193,6 +194,7 @@ export default function QuestsApp() {
       setReadAt(json.readAt ?? Date.now());
       setStale(json.stale ?? null);
       setLogsMissing(!!json.logsMissing);
+      setLogCoverage(typeof json.logCoverage === "number" ? json.logCoverage : 1);
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "Ronin did not answer");
     } finally {
@@ -370,8 +372,10 @@ export default function QuestsApp() {
             <QuestCard
               key={quest.id}
               quest={quest}
-              unreadable={
+              catchingUp={
                 logsMissing && (quest.game === "gacha" || quest.game === "age-of-ronke")
+                  ? logCoverage
+                  : undefined
               }
               onMarkDone={() => markHonour(quest.id)}
             />
