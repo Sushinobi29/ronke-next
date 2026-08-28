@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       score: scoreDay(stats, dayIndex()),
       readAt: today.at,
       stale: today.error ?? null,
+      logsMissing: today.logsMissing,
       resetsIn: secondsUntilReset(),
     });
   } catch (error) {

@@ -61,17 +61,57 @@ export function fromWei(value: bigint, decimals = 18): number {
 
 /* -------------------------------------------------------------------- rpc */
 
-async function rpc<T>(method: string, params: unknown[], signal?: AbortSignal): Promise<T> {
+/**
+ * The public Ronin node serves roughly 30 requests a second and starts
+ * refusing at about 38. Everything here goes through one throttle so a wide
+ * scan cannot burst past that and rate-limit the whole board — measured, not
+ * guessed: bursts of 25 were clean, bursts of 50 were not.
+ */
+const MAX_PER_SECOND = 14;
+const MIN_GAP_MS = 1000 / MAX_PER_SECOND;
+
+let nextSlot = 0;
+
+function slot(): Promise<void> {
+  const now = Date.now();
+  const at = Math.max(now, nextSlot);
+  nextSlot = at + MIN_GAP_MS;
+  const wait = at - now;
+  return wait > 0 ? new Promise((resolve) => setTimeout(resolve, wait)) : Promise.resolve();
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function rpc<T>(method: string, params: unknown[], attempt = 0): Promise<T> {
+  await slot();
+
   const res = await fetch(RONIN_RPC, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     cache: "no-store",
-    signal,
   });
+
+  // A 429 is worth waiting out rather than failing the board — back off and
+  // try again, giving the throttle room to drain.
+  if (res.status === 429 || res.status === 503) {
+    if (attempt < 3) {
+      await sleep(400 * 2 ** attempt);
+      return rpc<T>(method, params, attempt + 1);
+    }
+    throw new Error(`Ronin RPC ${res.status}`);
+  }
   if (!res.ok) throw new Error(`Ronin RPC ${res.status}`);
+
   const json = await res.json();
-  if (json.error) throw new Error(`Ronin RPC: ${json.error.message}`);
+  if (json.error) {
+    const message = String(json.error.message ?? "");
+    if (/rate limit/i.test(message) && attempt < 3) {
+      await sleep(400 * 2 ** attempt);
+      return rpc<T>(method, params, attempt + 1);
+    }
+    throw new Error(`Ronin RPC: ${message}`);
+  }
   return json.result as T;
 }
 

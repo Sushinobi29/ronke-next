@@ -44,6 +44,7 @@ export async function GET(request: Request) {
       feed: today.rounds.slice(0, 8),
       readAt: today.at,
       stale: today.error ?? null,
+      logsMissing: today.logsMissing,
       resetsIn: secondsUntilReset(),
       updatedAt: Date.now(),
     });

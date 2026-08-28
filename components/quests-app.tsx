@@ -111,6 +111,7 @@ export default function QuestsApp() {
   const [walletError, setWalletError] = useState<string | null>(null);
   const [readAt, setReadAt] = useState<number | null>(null);
   const [stale, setStale] = useState<string | null>(null);
+  const [logsMissing, setLogsMissing] = useState(false);
   // Null until mounted: a clock rendered on the server is already stale by the
   // time the client hydrates, which React counts as a mismatch.
   const [now, setNow] = useState<number | null>(null);
@@ -191,6 +192,7 @@ export default function QuestsApp() {
       setScored(json.address);
       setReadAt(json.readAt ?? Date.now());
       setStale(json.stale ?? null);
+      setLogsMissing(!!json.logsMissing);
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "Ronin did not answer");
     } finally {
@@ -365,7 +367,14 @@ export default function QuestsApp() {
 
         <div className="mt-3 flex flex-col gap-3">
           {cards.map((quest) => (
-            <QuestCard key={quest.id} quest={quest} onMarkDone={() => markHonour(quest.id)} />
+            <QuestCard
+              key={quest.id}
+              quest={quest}
+              unreadable={
+                logsMissing && (quest.game === "gacha" || quest.game === "age-of-ronke")
+              }
+              onMarkDone={() => markHonour(quest.id)}
+            />
           ))}
           {cards.length === 0 &&
             !boardError &&
