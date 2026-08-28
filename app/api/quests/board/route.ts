@@ -27,19 +27,21 @@ export async function GET(request: Request) {
       day,
       season: seasonAt(),
       quests: questsForDay(day).map(
-        ({ id, title, task, game, points, target, verify, cost, unit, link }) => ({
+        ({ id, title, task, game, points, target, verify, cost, unit, link, dynamicTarget }) => ({
           id,
           title,
           task,
           game,
           points,
-          target,
+          // A visitor who has not connected still sees the real threshold.
+          target: dynamicTarget?.({ floorRon: today.floorRon }) ?? target,
           verify,
           cost,
           unit,
           link,
         })
       ),
+      floorRon: today.floorRon,
       roundsToday: today.rounds.length,
       playersToday: players.size,
       feed: today.rounds.slice(0, 8),

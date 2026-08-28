@@ -16,8 +16,16 @@ import { TOKENS } from "./contracts";
 export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
 
-/** What a buy has to be worth to count. Keeps a one-RON tap off the board. */
+/** What a token buy has to be worth to count. Keeps a one-RON tap off the board. */
 export const MIN_BUY_RON = 10;
+/**
+ * A monke has to cost near what a monke costs. Expressed against the live
+ * floor rather than a fixed number, because the floor moves and a hard-coded
+ * threshold would either wave through self-trades or block real buys.
+ */
+export const MIN_BUY_FLOOR_SHARE = 0.8;
+/** What the Fortune machine charges for the pull worth doing. */
+export const MIN_SPIN_RON = 69;
 
 /**
  * Ronke Vote runs in seasons — a week or two a month — and the rest of the
@@ -122,8 +130,11 @@ export interface DailyStats {
    *  a RON minimum does not. */
   ronkeRon: number;
   ronkestrRon: number;
-  /** Pulls on the Fortune Spin machine today. */
+  /** Pulls on the Fortune Spin machine today, and what they cost. */
   spins: number;
+  spinRon: number;
+  /** RON paid for Ronkeverse monkes today, from the marketplace's own record. */
+  monkeRon: number;
   /** Age of Ronke — the play contract names the game, so each has its own quest. */
   aorPlays: number;
   aorPaidPlays: number;
@@ -151,6 +162,8 @@ export const EMPTY_DAILY: DailyStats = {
   ronkeRon: 0,
   ronkestrRon: 0,
   spins: 0,
+  spinRon: 0,
+  monkeRon: 0,
   aorPlays: 0,
   aorPaidPlays: 0,
   aorBlocks: 0,
@@ -175,6 +188,9 @@ export interface QuestDef {
   /** Roughly what it costs to do — drives the points, and shown on the card so
    *  the weighting is legible rather than arbitrary. */
   cost: CostTier;
+  /** Some thresholds move with the market — the monke floor does. Returning
+   *  undefined keeps the static target. */
+  dynamicTarget?: (context: QuestContext) => number | undefined;
   /** Overrides the game's default link when the quest needs a specific door. */
   link?: string;
   /** What the progress meter counts, for quests asking for more than one.
@@ -417,14 +433,15 @@ export const POOL: QuestDef[] = [
   {
     id: "gacha.spin",
     title: "Pull the lever",
-    task: "Spin the Fortune machine",
+    task: `Spend ${MIN_SPIN_RON} RON on the Fortune machine`,
     game: "gacha",
     tier: "bonus",
     group: "spin",
     cost: "ron",
-    target: 1,
+    target: MIN_SPIN_RON,
+    unit: "RON",
     points: 400,
-    progress: (s) => s.spins,
+    progress: (s) => Math.floor(s.spinRon),
   },
   {
     id: "barracks.take",
@@ -467,14 +484,17 @@ export const POOL: QuestDef[] = [
   {
     id: "monke.adopt",
     title: "Adopt a monke",
-    task: "Buy a Ronkeverse monke",
+    task: "Buy a Ronkeverse monke at or near the floor",
     game: "ronkeverse",
     tier: "bonus",
     group: "monke",
     cost: "big",
-    target: 1,
+    target: 320,
+    unit: "RON",
+    dynamicTarget: ({ floorRon }) =>
+      floorRon ? Math.max(1, Math.round(floorRon * MIN_BUY_FLOOR_SHARE)) : undefined,
     points: 600,
-    progress: (s) => s.monkes,
+    progress: (s) => Math.floor(s.monkeRon),
   },
 ];
 
@@ -559,6 +579,11 @@ export function questsForDay(day: number = dayIndex()): QuestDef[] {
   );
 }
 
+/** What the day's scoring needs from outside the wallet itself. */
+export interface QuestContext {
+  floorRon?: number;
+}
+
 export interface ScoredQuest extends QuestDef {
   value: number;
   done: boolean;
@@ -580,13 +605,19 @@ export interface DailyScore {
   maxPoints: number;
 }
 
-export function scoreDay(stats: DailyStats, day: number = dayIndex()): DailyScore {
+export function scoreDay(
+  stats: DailyStats,
+  day: number = dayIndex(),
+  context: QuestContext = {}
+): DailyScore {
   const quests = questsForDay(day).map((quest) => {
-    const value = Math.min(quest.progress(stats), quest.target);
+    const target = quest.dynamicTarget?.(context) ?? quest.target;
+    const value = Math.min(quest.progress(stats), target);
     return {
       ...quest,
+      target,
       value,
-      done: value >= quest.target,
+      done: value >= target,
       href: quest.link ?? GAME_LINKS[quest.game],
       art: GAME_ART[quest.game],
       gameLabel: GAME_LABELS[quest.game],

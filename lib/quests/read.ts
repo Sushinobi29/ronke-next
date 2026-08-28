@@ -202,7 +202,9 @@ export async function readDaily(
   roundsToday: MinesRound[],
   dayStartBlock: number,
   spinsToday: Map<string, number> = new Map(),
-  aorToday: Map<string, AorPlay> = new Map()
+  aorToday: Map<string, AorPlay> = new Map(),
+  spinRonToday: Map<string, number> = new Map(),
+  salesToday: { buyer: string; ron: number }[] = []
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
@@ -280,6 +282,10 @@ export async function readDaily(
     ronkeRon: tokenGain(6) * ronPerToken(8, POOLS.ronke.wronIsToken0),
     ronkestrRon: tokenGain(7) * ronPerToken(9, POOLS.ronkestr.wronIsToken0),
     spins: spinsToday.get(address.toLowerCase()) ?? 0,
+    spinRon: spinRonToday.get(address.toLowerCase()) ?? 0,
+    monkeRon: salesToday
+      .filter((sale) => sale.buyer === address.toLowerCase())
+      .reduce((most, sale) => Math.max(most, sale.ron), 0),
     aorPlays: aor?.plays ?? 0,
     aorPaidPlays: paidLabels.length,
     aorBlocks: labels.filter((l) => l.startsWith("blocks")).length,

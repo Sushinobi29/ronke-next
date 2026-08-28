@@ -30,6 +30,7 @@ import {
 } from "./chain";
 import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, SELECTORS } from "./contracts";
 import { blockAtSecond, readMinesWindow, type AorPlay, type MinesRound } from "./read";
+import { fetchFloorRon, fetchSales, type Sale } from "./market";
 import { dayIndex, dayStart } from "./daily";
 
 /** How long a cached seed stands before one instance refreshes it. */
@@ -57,7 +58,12 @@ export interface TodayState {
   startBlock: number;
   rounds: MinesRound[];
   spins: Map<string, number>;
+  /** RON spent spinning today, by wallet — the settle event carries the total. */
+  spinRon: Map<string, number>;
   aor: Map<string, AorPlay>;
+  /** Marketplace side, read over GraphQL rather than the node. */
+  floorRon: number;
+  sales: Sale[];
   /** The spin and Age of Ronke quests could not be read this pass. */
   logsMissing: boolean;
   /** 0-1: how much of the day's logs are accounted for. Climbs as slices land. */
@@ -73,6 +79,7 @@ interface Seed {
   startBlock: number;
   rounds: MinesRound[];
   spins: [string, number][];
+  spinRon: [string, number][];
   aor: [string, { plays: number; labels: string[]; ronkeSpent: number }][];
   /** True when the log scan failed and the spin / Age of Ronke quests are
    *  therefore unread. The rest of the board is still good. */
@@ -85,12 +92,16 @@ function collect(
   spinLogs: { topics: string[] }[],
   aorLogs: { topics: string[]; data: string }[],
   spins: Map<string, number>,
+  spinRon: Map<string, number>,
   aor: Map<string, AorPlay>
 ) {
   for (const log of spinLogs) {
     const spinner = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
     if (!spinner || /^0x0+$/.test(spinner)) continue;
     spins.set(spinner, (spins.get(spinner) ?? 0) + 1);
+    // topic3 is the total RON the spin was paid for.
+    const paid = fromWei(toBigInt(log.topics[3]?.replace(/^0x/, "") ?? ""));
+    spinRon.set(spinner, (spinRon.get(spinner) ?? 0) + paid);
   }
 
   for (const log of aorLogs) {
@@ -140,6 +151,7 @@ async function buildSeed(day: number): Promise<Seed> {
 
   const rounds = await readMinesWindow(day * 86_400);
   const spins = new Map<string, number>();
+  const spinRon = new Map<string, number>();
   const aor = new Map<string, AorPlay>();
 
   // Log scanning is the expensive half and the first thing a stingy node
@@ -151,7 +163,7 @@ async function buildSeed(day: number): Promise<Seed> {
   let logsMissing = false;
   try {
     const { spinLogs, aorLogs } = await scan(sliceStart, atBlock);
-    collect(spinLogs, aorLogs, spins, aor);
+    collect(spinLogs, aorLogs, spins, spinRon, aor);
   } catch {
     logsMissing = true;
   }
@@ -167,6 +179,7 @@ async function buildSeed(day: number): Promise<Seed> {
     // remaining slices land over the next few passes.
     logsMissing: coveredFrom > startBlock,
     spins: [...spins.entries()],
+    spinRon: [...spinRon.entries()],
     aor: [...aor.entries()].map(([k, v]) => [
       k,
       { plays: v.plays, labels: [...v.labels], ronkeSpent: v.ronkeSpent },
@@ -193,6 +206,7 @@ let state: Internal | null = null;
 
 function hydrate(day: number, seed: Seed): Internal {
   const spins = new Map(seed.spins);
+  const spinRon = new Map(seed.spinRon);
   const aor = new Map<string, AorPlay>(
     seed.aor.map(([k, v]) => [k, { plays: v.plays, labels: new Set(v.labels), ronkeSpent: v.ronkeSpent }])
   );
@@ -211,7 +225,10 @@ function hydrate(day: number, seed: Seed): Internal {
     startBlock: seed.startBlock,
     rounds: seed.rounds,
     spins,
+    spinRon,
     aor,
+    floorRon: 0,
+    sales: [],
     logsMissing: seed.logsMissing,
     logCoverage: coverage(seed.startBlock, seed.coveredFrom, seed.atBlock),
     error: null,
@@ -270,6 +287,23 @@ async function newRounds(current: Internal): Promise<MinesRound[]> {
   return fresh;
 }
 
+/**
+ * Floor and sales come from the marketplace, not the node, so they are
+ * refreshed on their own and a failure there costs only the monke quest.
+ */
+async function refreshMarket(current: Internal) {
+  try {
+    const [floorRon, sales] = await Promise.all([
+      fetchFloorRon(),
+      fetchSales(current.day * 86_400),
+    ]);
+    current.floorRon = floorRon;
+    current.sales = sales;
+  } catch {
+    // Leave the last good copy in place.
+  }
+}
+
 async function stepForward(current: Internal) {
   const head = Number(toBigInt((await blockNumber()).replace(/^0x/, "")));
 
@@ -285,7 +319,7 @@ async function stepForward(current: Internal) {
   try {
     // Forward to head first — new activity matters more than old.
     const { spinLogs, aorLogs } = await scan(current.logBlock + 1, head);
-    collect(spinLogs, aorLogs, current.spins, current.aor);
+    collect(spinLogs, aorLogs, current.spins, current.spinRon, current.aor);
     current.logBlock = head;
     if (current.coveredFrom > head) current.coveredFrom = head + 1;
 
@@ -294,7 +328,7 @@ async function stepForward(current: Internal) {
       const to = current.coveredFrom - 1;
       const from = sliceFrom(to, current.startBlock);
       const older = await scan(from, to);
-      collect(older.spinLogs, older.aorLogs, current.spins, current.aor);
+      collect(older.spinLogs, older.aorLogs, current.spins, current.spinRon, current.aor);
       current.coveredFrom = from;
     }
 
@@ -327,9 +361,11 @@ export async function getToday(force = false): Promise<TodayState> {
     (async () => {
       if (!state) {
         state = hydrate(day, await cachedSeed(day));
+        await refreshMarket(state);
         return;
       }
       await stepForward(state);
+      await refreshMarket(state);
     })().catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       // Never advance a cursor on failure — the next attempt re-reads the same
@@ -348,6 +384,9 @@ export async function getToday(force = false): Promise<TodayState> {
       rounds: [],
       spins: new Map(),
       aor: new Map(),
+      spinRon: new Map(),
+      floorRon: 0,
+      sales: [],
       logsMissing: true,
       logCoverage: 0,
       error: error instanceof Error ? error.message : String(error),

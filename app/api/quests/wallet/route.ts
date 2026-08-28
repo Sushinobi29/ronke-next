@@ -26,12 +26,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Ronin did not answer: ${today.error}` }, { status: 502 });
     }
 
-    const stats = await readDaily(address.trim(), today.rounds, today.startBlock, today.spins, today.aor);
+    const stats = await readDaily(
+      address.trim(),
+      today.rounds,
+      today.startBlock,
+      today.spins,
+      today.aor,
+      today.spinRon,
+      today.sales
+    );
 
     return NextResponse.json({
       address: address.trim().toLowerCase(),
       stats,
-      score: scoreDay(stats, dayIndex()),
+      score: scoreDay(stats, dayIndex(), { floorRon: today.floorRon }),
+      floorRon: today.floorRon,
       readAt: today.at,
       stale: today.error ?? null,
       logsMissing: today.logsMissing,
