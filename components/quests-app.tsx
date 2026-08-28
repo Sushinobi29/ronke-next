@@ -30,6 +30,7 @@ interface BoardQuest {
   verify?: "chain" | "honour";
   cost: CostTier;
   unit?: string;
+  link?: string;
 }
 
 interface Round {
@@ -93,7 +94,7 @@ const asPreview = (q: BoardQuest): ScoredQuest => ({
   progress: () => 0,
   value: 0,
   done: false,
-  href: GAME_LINKS[q.game],
+  href: q.link ?? GAME_LINKS[q.game],
   art: GAME_ART[q.game],
   gameLabel: GAME_LABELS[q.game],
 });

@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       day,
       season: seasonAt(),
       quests: questsForDay(day).map(
-        ({ id, title, task, game, points, target, verify, cost, unit }) => ({
+        ({ id, title, task, game, points, target, verify, cost, unit, link }) => ({
           id,
           title,
           task,
@@ -37,6 +37,7 @@ export async function GET(request: Request) {
           verify,
           cost,
           unit,
+          link,
         })
       ),
       roundsToday: today.rounds.length,

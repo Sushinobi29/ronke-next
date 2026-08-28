@@ -11,6 +11,8 @@
  * the board, and the bonus slots are where the real commitments live.
  */
 
+import { TOKENS } from "./contracts";
+
 export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
 
@@ -73,6 +75,22 @@ export const GAME_LINKS: Record<QuestGame, string> = {
   "age-of-ronke": "https://0x-pewpew.com/lenta/#f9home",
   social: "https://x.com/RonkeOnRon",
 };
+
+/**
+ * Where a quest sends you when the game's front door is not the right door.
+ * Katana's swap for a token buy, the Mines table rather than the casino
+ * lobby — a quest that lands you a click away from what it asked for reads as
+ * broken even when the scoring is right.
+ */
+const swapFor = (token: string) =>
+  `https://app.roninchain.com/swap?outputCurrency=${token}&inputCurrency=RON`;
+
+export const LINKS = {
+  coinflip: "https://games.ronkeverse.com",
+  mines: "https://games.ronkeverse.com/mines",
+  buyRonke: swapFor(TOKENS.RONKE),
+  buyRonkestr: swapFor(TOKENS.RONKESTR),
+} as const;
 
 export const GAME_ART: Record<QuestGame, string> = {
   casino: "/ronkemines.png",
@@ -152,6 +170,8 @@ export interface QuestDef {
   /** Roughly what it costs to do — drives the points, and shown on the card so
    *  the weighting is legible rather than arbitrary. */
   cost: CostTier;
+  /** Overrides the game's default link when the quest needs a specific door. */
+  link?: string;
   /** What the progress meter counts, for quests asking for more than one.
    *  Without it "1 / 2" leaves the player guessing whether it means rounds,
    *  tables or tokens. */
@@ -235,6 +255,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "flips",
     cost: "tokens",
+    link: LINKS.coinflip,
     target: 1,
     points: 150,
     progress: (s) => s.flips,
@@ -247,6 +268,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "mines-rounds",
     cost: "tokens",
+    link: LINKS.mines,
     target: 1,
     points: 150,
     progress: (s) => s.minesRounds,
@@ -271,6 +293,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "cash-out",
     cost: "tokens",
+    link: LINKS.mines,
     target: 1,
     points: 200,
     progress: (s) => s.minesCashouts,
@@ -283,6 +306,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "flip-wins",
     cost: "tokens",
+    link: LINKS.coinflip,
     target: 1,
     points: 225,
     progress: (s) => s.flipWins,
@@ -295,6 +319,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "flips",
     cost: "tokens",
+    link: LINKS.coinflip,
     target: 3,
     unit: "flips",
     points: 250,
@@ -308,6 +333,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "mines-rounds",
     cost: "tokens",
+    link: LINKS.mines,
     target: 3,
     unit: "rounds",
     points: 250,
@@ -321,6 +347,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "tables",
     cost: "tokens",
+    link: LINKS.mines,
     target: 2,
     unit: "tokens",
     points: 275,
@@ -348,6 +375,7 @@ export const POOL: QuestDef[] = [
     tier: "bonus",
     group: "tokens",
     cost: "ron",
+    link: LINKS.buyRonke,
     target: 1,
     points: 300,
     progress: (s) => (s.ronkeGained >= 1 ? 1 : 0),
@@ -360,6 +388,7 @@ export const POOL: QuestDef[] = [
     tier: "bonus",
     group: "stake",
     cost: "ron",
+    link: LINKS.mines,
     target: 10,
     unit: "RON",
     points: 350,
@@ -373,6 +402,7 @@ export const POOL: QuestDef[] = [
     tier: "bonus",
     group: "tokens",
     cost: "ron",
+    link: LINKS.buyRonkestr,
     target: 1,
     points: 350,
     progress: (s) => (s.ronkestrGained >= 1 ? 1 : 0),
@@ -550,7 +580,7 @@ export function scoreDay(stats: DailyStats, day: number = dayIndex()): DailyScor
       ...quest,
       value,
       done: value >= quest.target,
-      href: GAME_LINKS[quest.game],
+      href: quest.link ?? GAME_LINKS[quest.game],
       art: GAME_ART[quest.game],
       gameLabel: GAME_LABELS[quest.game],
     };
