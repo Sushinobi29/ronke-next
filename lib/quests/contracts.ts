@@ -44,6 +44,25 @@ export const MINES_TABLES = [
   { key: "RONKESTR", label: "RONKESTR", address: "0xb60f456ade104656829344d9a8e7e319d197a1ff", decimals: 18 },
 ] as const;
 
+/**
+ * Katana pairs, used to price what a wallet acquired in RON. Reading reserves
+ * is one call per pool and needs no log scanning, which is what makes a
+ * spend-based quest affordable on the public node.
+ *
+ * The token ordering is NOT the same in both pools — hard-coded per pool
+ * rather than inferred, because getting it backwards silently inverts a price.
+ */
+export const POOLS = {
+  ronke: {
+    address: "0x75ae353997242927c701d4d6c2722ebef43fd2d3",
+    wronIsToken0: true,
+  },
+  ronkestr: {
+    address: "0x87b0acb34aa54cb51451050be73e9e31921154c2",
+    wronIsToken0: false,
+  },
+} as const;
+
 /** Ronke Vote — v3 is the live contract; the older generations still hold RON. */
 export const VOTE = {
   current: "0xccdddadf9308c697889b473cce83dd9dbf56e0d4",
@@ -93,6 +112,8 @@ export const SELECTORS = {
   activeCitizenCount: "0x6c793b0f",
   maxCitizensFor: "0xe4d73089",
   citizenEndowment: "0xbc86afbb",
+  // Katana pair
+  getReserves: "0x0902f1ac", // -> (reserve0, reserve1, blockTimestampLast)
   // Multicall3
   aggregate3: "0x82ad56cb",
 } as const;

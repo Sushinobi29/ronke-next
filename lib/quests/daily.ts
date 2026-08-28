@@ -16,6 +16,9 @@ import { TOKENS } from "./contracts";
 export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
 
+/** What a buy has to be worth to count. Keeps a one-RON tap off the board. */
+export const MIN_BUY_RON = 10;
+
 /**
  * Ronke Vote runs in seasons — a week or two a month — and the rest of the
  * time the site closes voting. There is no on-chain signal for it: the
@@ -114,9 +117,11 @@ export interface DailyStats {
   monkes: number;
   barracks: number;
   trophies: number;
-  /** Whole tokens added to the bag today. */
-  ronkeGained: number;
-  ronkestrGained: number;
+  /** What today's token gains are worth in RON, priced off the Katana pools.
+   *  Denominating in RON is the point: a token minimum drifts as price moves,
+   *  a RON minimum does not. */
+  ronkeRon: number;
+  ronkestrRon: number;
   /** Pulls on the Fortune Spin machine today. */
   spins: number;
   /** Age of Ronke — the play contract names the game, so each has its own quest. */
@@ -143,8 +148,8 @@ export const EMPTY_DAILY: DailyStats = {
   monkes: 0,
   barracks: 0,
   trophies: 0,
-  ronkeGained: 0,
-  ronkestrGained: 0,
+  ronkeRon: 0,
+  ronkestrRon: 0,
   spins: 0,
   aorPlays: 0,
   aorPaidPlays: 0,
@@ -370,15 +375,16 @@ export const POOL: QuestDef[] = [
   {
     id: "token.ronke",
     title: "Stack the blue",
-    task: "Buy some $RONKE",
+    task: `Buy at least ${MIN_BUY_RON} RON of $RONKE`,
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
     cost: "ron",
     link: LINKS.buyRonke,
-    target: 1,
+    target: MIN_BUY_RON,
+    unit: "RON",
     points: 300,
-    progress: (s) => (s.ronkeGained >= 1 ? 1 : 0),
+    progress: (s) => Math.floor(s.ronkeRon),
   },
   {
     id: "mines.stake",
@@ -397,15 +403,16 @@ export const POOL: QuestDef[] = [
   {
     id: "token.ronkestr",
     title: "Feed the machine",
-    task: "Buy some $RONKESTR",
+    task: `Buy at least ${MIN_BUY_RON} RON of $RONKESTR`,
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
     cost: "ron",
     link: LINKS.buyRonkestr,
-    target: 1,
+    target: MIN_BUY_RON,
+    unit: "RON",
     points: 350,
-    progress: (s) => (s.ronkestrGained >= 1 ? 1 : 0),
+    progress: (s) => Math.floor(s.ronkestrRon),
   },
   {
     id: "gacha.spin",
