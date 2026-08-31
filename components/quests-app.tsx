@@ -35,16 +35,6 @@ interface BoardQuest {
   note?: string;
 }
 
-interface Round {
-  table: string;
-  id: number;
-  at: number;
-  player: string;
-  bet: number;
-  status: number;
-  payout: number;
-}
-
 interface LeaderEntry {
   address: string;
   points: number;
@@ -69,7 +59,6 @@ interface BoardPayload {
   roundsToday: number;
   playersToday: number;
   stakedToday: number;
-  feed: Round[];
   resetsIn: number;
 }
 
@@ -91,12 +80,6 @@ const clock = (total: number) => {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
 };
-
-function compact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `${(n / 1_000).toFixed(0)}K`;
-  return Math.round(n).toLocaleString();
-}
 
 function ago(seconds: number, now: number): string {
   const d = Math.max(0, now - seconds);
@@ -582,50 +565,6 @@ export default function QuestsApp() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* ------------------------------------------------- today's tables */}
-      <div className="rv-card mt-4 overflow-hidden">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold tracking-wide">Today at the tables</h2>
-          <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
-            {board
-              ? `${board.playersToday} playing · ${board.roundsToday} rounds`
-              : "loading"}
-          </span>
-        </div>
-
-        <ul className="divide-y divide-border-soft">
-          {board?.feed.map((round) => (
-            <li
-              key={`${round.table}-${round.id}`}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5 text-sm"
-            >
-              <span className="mono w-9 shrink-0 text-[11px] text-muted-3">
-                {now === null ? "·" : ago(round.at, now)}
-              </span>
-              <span className="mono text-accent">{short(round.player)}</span>
-              <span className="text-muted-2">
-                <span className="mono text-foreground">{compact(round.bet)}</span> {round.table}
-              </span>
-              <span
-                className={`mono ml-auto text-[12px] ${
-                  round.status === 1 ? "text-gold" : round.status === 2 ? "text-burn" : "text-muted-3"
-                }`}
-              >
-                {round.status === 1 ? `+${compact(round.payout)}` : round.status === 2 ? "boom" : "in play"}
-              </span>
-            </li>
-          ))}
-          {board && board.feed.length === 0 && (
-            <li className="px-5 py-10 text-center text-sm text-muted-2">
-              Nothing yet today. The tables are open — go be first.
-            </li>
-          )}
-          {!board && !boardError && (
-            <li className="mono px-5 py-10 text-center text-xs text-muted-3">Reading Ronin…</li>
-          )}
-        </ul>
       </div>
 
       {boardError && (

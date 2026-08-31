@@ -59,7 +59,6 @@ export async function GET(request: Request) {
       seasonPersisted: hasStore(),
       roundsToday: today.rounds.length,
       playersToday: players.size,
-      feed: today.rounds.slice(0, 8),
       readAt: today.at,
       stale: today.error ?? null,
       logsMissing: today.logsMissing,
