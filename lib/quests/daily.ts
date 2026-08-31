@@ -16,6 +16,14 @@ import { TOKENS } from "./contracts";
 export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
 
+/**
+ * Points track what a quest costs, on a square root so they separate clearly
+ * without letting money buy the board: roughly 50 + 55*sqrt(RON), rounded to
+ * 25, with a premium where skill, luck or scarcity is involved. Three RON of
+ * coinflips and a hundred RON of $RONKESTR were within 40% of each other
+ * before; the gap is now nearer four times, for thirty-seven times the outlay.
+ */
+
 /** What a token buy has to be worth to count. Keeps a one-RON tap off the board. */
 export const MIN_BUY_RON = 100;
 /**
@@ -246,7 +254,7 @@ export const POOL: QuestDef[] = [
     group: "vote",
     cost: "free",
     target: 1,
-    points: 100,
+    points: 75,
     progress: (s) => s.votes,
   },
 
@@ -261,7 +269,7 @@ export const POOL: QuestDef[] = [
     cost: "tokens",
     needsLogs: true,
     target: 1,
-    points: 150,
+    points: 75,
     progress: (s) => s.aorPinball,
   },
   {
@@ -274,7 +282,7 @@ export const POOL: QuestDef[] = [
     cost: "tokens",
     link: LINKS.coinflip,
     target: 1,
-    points: 150,
+    points: 100,
     progress: (s) => s.flips,
   },
   {
@@ -287,7 +295,7 @@ export const POOL: QuestDef[] = [
     cost: "tokens",
     link: LINKS.mines,
     target: 1,
-    points: 150,
+    points: 100,
     progress: (s) => s.minesRounds,
   },
   {
@@ -300,7 +308,7 @@ export const POOL: QuestDef[] = [
     cost: "tokens",
     needsLogs: true,
     target: 1,
-    points: 200,
+    points: 100,
     progress: (s) => s.aorBlocks,
   },
   {
@@ -313,7 +321,7 @@ export const POOL: QuestDef[] = [
     cost: "tokens",
     link: LINKS.mines,
     target: 1,
-    points: 200,
+    points: 150,
     progress: (s) => s.minesCashouts,
   },
   {
@@ -326,7 +334,7 @@ export const POOL: QuestDef[] = [
     cost: "tokens",
     link: LINKS.coinflip,
     target: 1,
-    points: 225,
+    points: 150,
     progress: (s) => s.flipWins,
   },
   {
@@ -340,7 +348,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.coinflip,
     target: 3,
     unit: "flips",
-    points: 250,
+    points: 175,
     progress: (s) => s.flips,
   },
   {
@@ -354,7 +362,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.mines,
     target: 3,
     unit: "rounds",
-    points: 250,
+    points: 175,
     progress: (s) => s.minesRounds,
   },
   {
@@ -368,7 +376,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.mines,
     target: 2,
     unit: "tokens",
-    points: 275,
+    points: 175,
     progress: (s) => s.minesTables,
   },
 
@@ -378,12 +386,12 @@ export const POOL: QuestDef[] = [
     title: "Nice",
     task: "Play Ronke Blocks at the 69 stake",
     game: "age-of-ronke",
-    tier: "bonus",
+    tier: "core",
     group: "aor-blocks",
-    cost: "ron",
+    cost: "tokens",
     needsLogs: true,
     target: 1,
-    points: 300,
+    points: 125,
     progress: (s) => s.aorHighStakes,
   },
   {
@@ -397,7 +405,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.buyRonke,
     target: MIN_BUY_RON,
     unit: "RON",
-    points: 300,
+    points: 600,
     progress: (s) => Math.floor(s.ronkeRon),
   },
   {
@@ -411,7 +419,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.mines,
     target: 10,
     unit: "RON",
-    points: 350,
+    points: 225,
     progress: (s) => Math.floor(s.minesStakedRon),
   },
   {
@@ -426,7 +434,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.buyRonkestr,
     target: MIN_BUY_RON,
     unit: "RON",
-    points: 350,
+    points: 650,
     progress: (s) => Math.floor(s.ronkestrRon),
   },
   {
@@ -440,7 +448,7 @@ export const POOL: QuestDef[] = [
     needsLogs: true,
     target: MIN_SPIN_RON,
     unit: "RON",
-    points: 400,
+    points: 500,
     progress: (s) => Math.floor(s.spinRon),
   },
   {
@@ -464,7 +472,7 @@ export const POOL: QuestDef[] = [
     group: "citizen",
     cost: "ron",
     target: 1,
-    points: 450,
+    points: 225,
     progress: (s) => s.citizens,
   },
 
@@ -476,9 +484,9 @@ export const POOL: QuestDef[] = [
     game: "age-of-ronke",
     tier: "bonus",
     group: "trophy",
-    cost: "big",
+    cost: "ron",
     target: 1,
-    points: 500,
+    points: 550,
     progress: (s) => s.trophies,
   },
   {
@@ -493,7 +501,7 @@ export const POOL: QuestDef[] = [
     unit: "RON",
     dynamicTarget: ({ floorRon }) =>
       floorRon ? Math.max(1, Math.round(floorRon * MIN_BUY_FLOOR_SHARE)) : undefined,
-    points: 600,
+    points: 1050,
     progress: (s) => Math.floor(s.monkeRon),
   },
 ];
