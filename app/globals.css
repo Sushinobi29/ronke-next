@@ -208,3 +208,16 @@
 /* Thin scrollbars for horizontal strips. */
 .rv-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
 .rv-scroll::-webkit-scrollbar-thumb { background: #262d3d; border-radius: 999px; }
+
+/* Equaliser on the music toggle. Stills itself when motion is unwelcome. */
+.eq-bar {
+  height: 4px;
+  animation: eq 0.9s ease-in-out infinite alternate;
+}
+@keyframes eq {
+  from { height: 3px; }
+  to { height: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eq-bar { animation: none; height: 8px; }
+}

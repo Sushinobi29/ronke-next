@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { Suspense } from "react";
 import PageNavbar from "@/components/page-navbar";
 import QuestsApp from "@/components/quests-app";
+import QuestMusic from "@/components/quest-music";
 
 export const metadata: Metadata = {
   title: "Ronke Quest | Ronkeverse - five new quests every day",
@@ -58,6 +59,7 @@ export default function QuestsPage() {
       >
         <QuestsApp />
       </Suspense>
+      <QuestMusic />
     </main>
   );
 }
