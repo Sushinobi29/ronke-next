@@ -397,3 +397,76 @@ export async function getToday(force = false): Promise<TodayState> {
 
   return state!;
 }
+
+/* ------------------------------------------------------------- leaderboard */
+
+export interface BoardEntry {
+  address: string;
+  mines: number;
+  spins: number;
+  plays: number;
+  monkes: number;
+  ronSpent: number;
+  actions: number;
+}
+
+/**
+ * Who has been busiest today, built entirely from state already gathered for
+ * the quests — no extra reads, however many people are on the page.
+ *
+ * It ranks observed activity, not quest points: scoring a wallet needs its own
+ * balance reads, and doing that for every player on every refresh is exactly
+ * the spending pattern that rate-limited the board before. Actions first, RON
+ * as the tie-break, so grinding free rounds cannot outrank real commitment.
+ */
+export function buildLeaderboard(today: TodayState, limit = 15): BoardEntry[] {
+  const by = new Map<string, BoardEntry>();
+
+  const entry = (address: string) => {
+    const key = address.toLowerCase();
+    const found = by.get(key) ?? {
+      address: key,
+      mines: 0,
+      spins: 0,
+      plays: 0,
+      monkes: 0,
+      ronSpent: 0,
+      actions: 0,
+    };
+    by.set(key, found);
+    return found;
+  };
+
+  for (const round of today.rounds) {
+    const e = entry(round.player);
+    e.mines += 1;
+    if (round.table === "RON") e.ronSpent += round.bet;
+  }
+
+  for (const [address, count] of today.spins) {
+    entry(address).spins += count;
+  }
+  for (const [address, ron] of today.spinRon) {
+    entry(address).ronSpent += ron;
+  }
+
+  for (const [address, play] of today.aor) {
+    entry(address).plays += play.plays;
+  }
+
+  for (const sale of today.sales) {
+    const e = entry(sale.buyer);
+    e.monkes += 1;
+    e.ronSpent += sale.ron;
+  }
+
+  for (const e of by.values()) {
+    e.actions = e.mines + e.spins + e.plays + e.monkes;
+    e.ronSpent = Math.round(e.ronSpent * 100) / 100;
+  }
+
+  return [...by.values()]
+    .filter((e) => e.actions > 0)
+    .sort((a, b) => b.actions - a.actions || b.ronSpent - a.ronSpent)
+    .slice(0, limit);
+}

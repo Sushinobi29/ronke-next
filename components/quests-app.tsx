@@ -31,6 +31,7 @@ interface BoardQuest {
   cost: CostTier;
   unit?: string;
   link?: string;
+  needsLogs?: boolean;
 }
 
 interface Round {
@@ -43,10 +44,21 @@ interface Round {
   payout: number;
 }
 
+interface LeaderEntry {
+  address: string;
+  mines: number;
+  spins: number;
+  plays: number;
+  monkes: number;
+  ronSpent: number;
+  actions: number;
+}
+
 interface BoardPayload {
   day: number;
   season: Season;
   quests: BoardQuest[];
+  leaderboard: LeaderEntry[];
   roundsToday: number;
   playersToday: number;
   stakedToday: number;
@@ -373,11 +385,7 @@ export default function QuestsApp() {
             <QuestCard
               key={quest.id}
               quest={quest}
-              catchingUp={
-                logsMissing && (quest.game === "gacha" || quest.game === "age-of-ronke")
-                  ? logCoverage
-                  : undefined
-              }
+              catchingUp={logsMissing && quest.needsLogs ? logCoverage : undefined}
               onMarkDone={() => markHonour(quest.id)}
             />
           ))}
@@ -437,8 +445,93 @@ export default function QuestsApp() {
         )}
       </div>
 
-      {/* ------------------------------------------------- today's tables */}
+      {/* ---------------------------------------------------- leaderboard */}
       <div className="rv-card mt-10 overflow-hidden">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-5 py-4">
+          <h2 className="text-sm font-semibold tracking-wide">Today&apos;s leaderboard</h2>
+          <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
+            since midnight UTC
+          </span>
+        </div>
+
+        <div className="rv-scroll overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
+                <th className="px-5 py-2 text-left font-bold">#</th>
+                <th className="px-3 py-2 text-left font-bold">Wallet</th>
+                <th className="px-3 py-2 text-right font-bold">Mines</th>
+                <th className="px-3 py-2 text-right font-bold">Plays</th>
+                <th className="px-3 py-2 text-right font-bold">Spins</th>
+                <th className="px-3 py-2 text-right font-bold">Monkes</th>
+                <th className="px-5 py-2 text-right font-bold">RON</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(board?.leaderboard ?? []).map((row, index) => {
+                const you = scored && row.address === scored.toLowerCase();
+                return (
+                  <tr
+                    key={row.address}
+                    className={`border-t border-border-soft ${you ? "bg-accent/10" : ""}`}
+                  >
+                    <td className="mono px-5 py-2.5 text-muted-3">{index + 1}</td>
+                    <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
+                      {short(row.address)}
+                      {you && <span className="ml-2 text-[10px] text-gold">you</span>}
+                    </td>
+                    <td className={`mono px-3 py-2.5 text-right ${row.mines ? "" : "text-muted-3"}`}>
+                      {row.mines || "—"}
+                    </td>
+                    <td className={`mono px-3 py-2.5 text-right ${row.plays ? "" : "text-muted-3"}`}>
+                      {row.plays || "—"}
+                    </td>
+                    <td className={`mono px-3 py-2.5 text-right ${row.spins ? "" : "text-muted-3"}`}>
+                      {row.spins || "—"}
+                    </td>
+                    <td
+                      className={`mono px-3 py-2.5 text-right ${
+                        row.monkes ? "text-gold" : "text-muted-3"
+                      }`}
+                    >
+                      {row.monkes || "—"}
+                    </td>
+                    <td
+                      className={`mono px-5 py-2.5 text-right ${
+                        row.ronSpent ? "text-muted-1" : "text-muted-3"
+                      }`}
+                    >
+                      {row.ronSpent ? compact(row.ronSpent) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {board && board.leaderboard.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-2">
+                    Nobody has played yet today. Be the first name up there.
+                  </td>
+                </tr>
+              )}
+              {!board && !boardError && (
+                <tr>
+                  <td colSpan={7} className="mono px-5 py-10 text-center text-xs text-muted-3">
+                    Reading Ronin…
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="border-t border-border-soft px-5 py-3 text-[12px] text-muted-2">
+          Ranked on what the chain has seen you do today, not on quest points —
+          scoring every wallet would cost a read per player per refresh.
+        </p>
+      </div>
+
+      {/* ------------------------------------------------- today's tables */}
+      <div className="rv-card mt-4 overflow-hidden">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold tracking-wide">Today at the tables</h2>
           <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">

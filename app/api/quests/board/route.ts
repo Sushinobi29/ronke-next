@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getToday } from "@/lib/quests/today";
+import { buildLeaderboard, getToday } from "@/lib/quests/today";
 import { dayIndex, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
 
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       day,
       season: seasonAt(),
       quests: questsForDay(day).map(
-        ({ id, title, task, game, points, target, verify, cost, unit, link, dynamicTarget }) => ({
+        ({ id, title, task, game, points, target, verify, cost, unit, link, needsLogs, dynamicTarget }) => ({
           id,
           title,
           task,
@@ -39,9 +39,11 @@ export async function GET(request: Request) {
           cost,
           unit,
           link,
+          needsLogs,
         })
       ),
       floorRon: today.floorRon,
+      leaderboard: buildLeaderboard(today),
       roundsToday: today.rounds.length,
       playersToday: players.size,
       feed: today.rounds.slice(0, 8),

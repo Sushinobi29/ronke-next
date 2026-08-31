@@ -17,7 +17,7 @@ export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
 
 /** What a token buy has to be worth to count. Keeps a one-RON tap off the board. */
-export const MIN_BUY_RON = 10;
+export const MIN_BUY_RON = 100;
 /**
  * A monke has to cost near what a monke costs. Expressed against the live
  * floor rather than a fixed number, because the floor moves and a hard-coded
@@ -188,6 +188,11 @@ export interface QuestDef {
   /** Roughly what it costs to do — drives the points, and shown on the card so
    *  the weighting is legible rather than arbitrary. */
   cost: CostTier;
+  /** True when this quest is resolved from event logs rather than a balance
+   *  read. Only these are affected while the day's history is being walked
+   *  back — saying so on a balance-derived quest reads as "still loading" when
+   *  the answer was already final. */
+  needsLogs?: boolean;
   /** Some thresholds move with the market — the monke floor does. Returning
    *  undefined keeps the static target. */
   dynamicTarget?: (context: QuestContext) => number | undefined;
@@ -227,20 +232,8 @@ export const POOL: QuestDef[] = [
     group: "hold",
     cost: "free",
     target: 1,
-    points: 75,
+    points: 50,
     progress: (s) => (s.heldTheLine ? 1 : 0),
-  },
-  {
-    id: "hold.barracks",
-    title: "Hold the line",
-    task: "Do not sell a single barracks today",
-    game: "age-of-ronke",
-    tier: "core",
-    group: "hold-barracks",
-    cost: "free",
-    target: 1,
-    points: 75,
-    progress: (s) => (s.heldBarracks ? 1 : 0),
   },
   {
     id: "vote.cast",
@@ -264,6 +257,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "aor-pinball",
     cost: "tokens",
+    needsLogs: true,
     target: 1,
     points: 150,
     progress: (s) => s.aorPinball,
@@ -302,6 +296,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "aor-blocks",
     cost: "tokens",
+    needsLogs: true,
     target: 1,
     points: 200,
     progress: (s) => s.aorBlocks,
@@ -384,6 +379,7 @@ export const POOL: QuestDef[] = [
     tier: "bonus",
     group: "aor-blocks",
     cost: "ron",
+    needsLogs: true,
     target: 1,
     points: 300,
     progress: (s) => s.aorHighStakes,
@@ -438,6 +434,7 @@ export const POOL: QuestDef[] = [
     tier: "bonus",
     group: "spin",
     cost: "ron",
+    needsLogs: true,
     target: MIN_SPIN_RON,
     unit: "RON",
     points: 400,
