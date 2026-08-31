@@ -10,7 +10,26 @@
  * casino and Age of Ronke ship a parallel testnet config in their bundles.
  */
 
-export const RONIN_RPC = "https://api.roninchain.com/rpc";
+/**
+ * Ronin RPC endpoints, tried in order.
+ *
+ * The public node is the committed default because it needs no arrangement
+ * with anyone. It is also stingy: ~30 requests a second, a sustained quota
+ * behind that, and eth_getLogs capped at 200 blocks — a whole day of logs is
+ * 144 requests per contract.
+ *
+ * Set RONIN_RPC_URL (comma-separated for several) to put something better in
+ * front. A Conduit endpoint measured 45 req/s with no failures and served
+ * 50,000-block ranges, which turns that same day into one request. Kept in an
+ * env var rather than committed: an endpoint belongs to whoever pays for it.
+ */
+export const RONIN_RPCS: string[] = (process.env.RONIN_RPC_URL ?? "")
+  .split(",")
+  .map((url) => url.trim())
+  .filter(Boolean)
+  .concat("https://api.roninchain.com/rpc");
+
+export const RONIN_RPC = RONIN_RPCS[0];
 export const MULTICALL3 = "0xca11bde05977b3631167028862be2a173976ca11";
 
 /** Tokens and collections the quests read balances from. */

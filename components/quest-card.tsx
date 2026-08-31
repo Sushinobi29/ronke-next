@@ -63,6 +63,9 @@ export default function QuestCard({
           />
         </div>
         <p className="mt-0.5 truncate text-[13px] text-muted-1">{quest.task}</p>
+        {quest.note && !quest.done && (
+          <p className="mt-1 text-[11px] leading-snug text-paper">{quest.note}</p>
+        )}
         {catchingUp !== undefined && !quest.done && (
           <p className="mono mt-1 text-[10px] uppercase tracking-[0.12em] text-paper">
             reading today&apos;s history · {Math.round(catchingUp * 100)}%

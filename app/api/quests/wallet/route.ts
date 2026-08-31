@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAddress, readDaily } from "@/lib/quests/read";
 import { getToday } from "@/lib/quests/today";
 import { dayIndex, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
+import { seasonAt } from "@/lib/quests/season";
+import { recordDay, walletSeason } from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +38,21 @@ export async function GET(request: NextRequest) {
       today.sales
     );
 
+    const day = dayIndex();
+    const score = scoreDay(stats, day, { floorRon: today.floorRon });
+    const wallet = address.trim().toLowerCase();
+
+    const season = seasonAt();
+    const [seasonTotal] = await Promise.all([
+      walletSeason(wallet, Math.floor(season.startsAt / 86_400), Math.floor((season.endsAt - 1) / 86_400)),
+      recordDay(day, { address: wallet, points: score.total, done: score.done, bonus: score.bonus }),
+    ]);
+
     return NextResponse.json({
-      address: address.trim().toLowerCase(),
+      address: wallet,
       stats,
-      score: scoreDay(stats, dayIndex(), { floorRon: today.floorRon }),
+      seasonTotal,
+      score,
       floorRon: today.floorRon,
       readAt: today.at,
       stale: today.error ?? null,

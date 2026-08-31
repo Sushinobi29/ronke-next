@@ -32,6 +32,7 @@ interface BoardQuest {
   unit?: string;
   link?: string;
   needsLogs?: boolean;
+  note?: string;
 }
 
 interface Round {
@@ -46,12 +47,16 @@ interface Round {
 
 interface LeaderEntry {
   address: string;
-  mines: number;
-  spins: number;
-  plays: number;
-  monkes: number;
-  ronSpent: number;
-  actions: number;
+  points: number;
+  done: number;
+  bonus: number;
+}
+
+interface SeasonRow {
+  address: string;
+  points: number;
+  days: number;
+  sweeps: number;
 }
 
 interface BoardPayload {
@@ -59,6 +64,8 @@ interface BoardPayload {
   season: Season;
   quests: BoardQuest[];
   leaderboard: LeaderEntry[];
+  seasonStandings: SeasonRow[];
+  seasonPersisted: boolean;
   roundsToday: number;
   playersToday: number;
   stakedToday: number;
@@ -126,6 +133,7 @@ export default function QuestsApp() {
   const [stale, setStale] = useState<string | null>(null);
   const [logsMissing, setLogsMissing] = useState(false);
   const [logCoverage, setLogCoverage] = useState(1);
+  const [tab, setTab] = useState<"today" | "season">("today");
   // Null until mounted: a clock rendered on the server is already stale by the
   // time the client hydrates, which React counts as a mismatch.
   const [now, setNow] = useState<number | null>(null);
@@ -447,75 +455,126 @@ export default function QuestsApp() {
 
       {/* ---------------------------------------------------- leaderboard */}
       <div className="rv-card mt-10 overflow-hidden">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold tracking-wide">Today&apos;s leaderboard</h2>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-5 py-3">
+          <div className="flex gap-1">
+            {(["today", "season"] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
+                  tab === key
+                    ? "bg-card-2 text-foreground"
+                    : "text-muted-2 hover:text-foreground"
+                }`}
+              >
+                {key === "today" ? "Today" : season?.name ?? "Season"}
+              </button>
+            ))}
+          </div>
           <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
-            since midnight UTC
+            {tab === "today" ? "since midnight UTC" : "points, all days so far"}
           </span>
         </div>
 
         <div className="rv-scroll overflow-x-auto">
-          <table className="w-full min-w-[520px] text-sm">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
                 <th className="px-5 py-2 text-left font-bold">#</th>
                 <th className="px-3 py-2 text-left font-bold">Wallet</th>
-                <th className="px-3 py-2 text-right font-bold">Mines</th>
-                <th className="px-3 py-2 text-right font-bold">Plays</th>
-                <th className="px-3 py-2 text-right font-bold">Spins</th>
-                <th className="px-3 py-2 text-right font-bold">Monkes</th>
-                <th className="px-5 py-2 text-right font-bold">RON</th>
+                <th className="px-3 py-2 text-right font-bold">
+                  {tab === "today" ? "Done" : "Days"}
+                </th>
+                <th className="px-3 py-2 text-right font-bold">Sweeps</th>
+                <th className="px-5 py-2 text-right font-bold">Points</th>
               </tr>
             </thead>
             <tbody>
-              {(board?.leaderboard ?? []).map((row, index) => {
-                const you = scored && row.address === scored.toLowerCase();
-                return (
-                  <tr
-                    key={row.address}
-                    className={`border-t border-border-soft ${you ? "bg-accent/10" : ""}`}
-                  >
-                    <td className="mono px-5 py-2.5 text-muted-3">{index + 1}</td>
-                    <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
-                      {short(row.address)}
-                      {you && <span className="ml-2 text-[10px] text-gold">you</span>}
-                    </td>
-                    <td className={`mono px-3 py-2.5 text-right ${row.mines ? "" : "text-muted-3"}`}>
-                      {row.mines || "—"}
-                    </td>
-                    <td className={`mono px-3 py-2.5 text-right ${row.plays ? "" : "text-muted-3"}`}>
-                      {row.plays || "—"}
-                    </td>
-                    <td className={`mono px-3 py-2.5 text-right ${row.spins ? "" : "text-muted-3"}`}>
-                      {row.spins || "—"}
-                    </td>
-                    <td
-                      className={`mono px-3 py-2.5 text-right ${
-                        row.monkes ? "text-gold" : "text-muted-3"
-                      }`}
+              {tab === "today" &&
+                (board?.leaderboard ?? []).map((row, index) => {
+                  const you = scored && row.address === scored.toLowerCase();
+                  return (
+                    <tr
+                      key={row.address}
+                      className={`border-t border-border-soft ${you ? "bg-accent/10" : ""}`}
                     >
-                      {row.monkes || "—"}
-                    </td>
-                    <td
-                      className={`mono px-5 py-2.5 text-right ${
-                        row.ronSpent ? "text-muted-1" : "text-muted-3"
-                      }`}
+                      <td className="mono px-5 py-2.5 text-muted-3">{index + 1}</td>
+                      <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
+                        {short(row.address)}
+                        {you && <span className="ml-2 text-[10px] text-gold">you</span>}
+                      </td>
+                      <td className="mono px-3 py-2.5 text-right">
+                        {row.done}/{QUESTS_PER_DAY}
+                      </td>
+                      <td
+                        className={`mono px-3 py-2.5 text-right ${
+                          row.bonus ? "text-gold" : "text-muted-3"
+                        }`}
+                      >
+                        {row.bonus ? "1" : "—"}
+                      </td>
+                      <td className="mono px-5 py-2.5 text-right font-bold text-gold">
+                        {row.points.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+              {tab === "season" &&
+                (board?.seasonStandings ?? []).map((row, index) => {
+                  const you = scored && row.address === scored.toLowerCase();
+                  return (
+                    <tr
+                      key={row.address}
+                      className={`border-t border-border-soft ${you ? "bg-accent/10" : ""}`}
                     >
-                      {row.ronSpent ? compact(row.ronSpent) : "—"}
+                      <td className="mono px-5 py-2.5 text-muted-3">{index + 1}</td>
+                      <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
+                        {short(row.address)}
+                        {you && <span className="ml-2 text-[10px] text-gold">you</span>}
+                      </td>
+                      <td className="mono px-3 py-2.5 text-right">{row.days}</td>
+                      <td
+                        className={`mono px-3 py-2.5 text-right ${
+                          row.sweeps ? "text-gold" : "text-muted-3"
+                        }`}
+                      >
+                        {row.sweeps || "—"}
+                      </td>
+                      <td className="mono px-5 py-2.5 text-right font-bold text-gold">
+                        {row.points.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+
+              {tab === "season" && board && !board.seasonPersisted && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
+                    Season totals start once a database is connected. Today&apos;s board works
+                    either way.
+                  </td>
+                </tr>
+              )}
+              {tab === "season" &&
+                board?.seasonPersisted &&
+                board.seasonStandings.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
+                      Nothing banked yet this season.
                     </td>
                   </tr>
-                );
-              })}
-              {board && board.leaderboard.length === 0 && (
+                )}
+              {tab === "today" && board && board.leaderboard.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-muted-2">
-                    Nobody has played yet today. Be the first name up there.
+                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-2">
+                    Nobody has scored yet today. Be the first name up there.
                   </td>
                 </tr>
               )}
               {!board && !boardError && (
                 <tr>
-                  <td colSpan={7} className="mono px-5 py-10 text-center text-xs text-muted-3">
+                  <td colSpan={5} className="mono px-5 py-10 text-center text-xs text-muted-3">
                     Reading Ronin…
                   </td>
                 </tr>
@@ -523,11 +582,6 @@ export default function QuestsApp() {
             </tbody>
           </table>
         </div>
-
-        <p className="border-t border-border-soft px-5 py-3 text-[12px] text-muted-2">
-          Ranked on what the chain has seen you do today, not on quest points —
-          scoring every wallet would cost a read per player per refresh.
-        </p>
       </div>
 
       {/* ------------------------------------------------- today's tables */}

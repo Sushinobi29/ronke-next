@@ -10,7 +10,7 @@
  * are cached by the route handlers rather than fetched from the browser.
  */
 
-import { MULTICALL3, RONIN_RPC, SELECTORS } from "./contracts";
+import { MULTICALL3, RONIN_RPCS, SELECTORS } from "./contracts";
 
 type Call = { target: string; data: string };
 
@@ -85,15 +85,17 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function rpc<T>(method: string, params: unknown[], attempt = 0): Promise<T> {
   await slot();
 
-  const res = await fetch(RONIN_RPC, {
+  const endpoint = RONIN_RPCS[Math.min(attempt, RONIN_RPCS.length - 1)];
+
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     cache: "no-store",
   });
 
-  // A 429 is worth waiting out rather than failing the board — back off and
-  // try again, giving the throttle room to drain.
+  // A 429 is worth waiting out rather than failing the board — back off, and
+  // fall through to the next endpoint if there is one.
   if (res.status === 429 || res.status === 503) {
     if (attempt < 3) {
       await sleep(400 * 2 ** attempt);
@@ -169,6 +171,17 @@ export interface Log {
  * wider has to be walked. Windows run a dozen at a time; a window that fails
  * yields nothing rather than taking the whole scan down with it.
  */
+/**
+ * Widest range the active endpoint has accepted. Starts optimistic: a good
+ * node serves tens of thousands of blocks at once, and the only way to find
+ * out is to ask. A refusal drops it to the public node's 200 for the rest of
+ * the process, so the cost of guessing wrong is one wasted request.
+ */
+let logWindow = 50_000;
+
+/** How wide a single log scan can usefully be on the active endpoint. */
+export const currentLogWindow = () => logWindow;
+
 export async function getLogsRange(
   address: string,
   topic: string,
@@ -176,7 +189,24 @@ export async function getLogsRange(
   toBlock: number,
   concurrency = 4
 ): Promise<Log[]> {
-  const WINDOW = 200;
+  if (toBlock - fromBlock < logWindow) {
+    try {
+      return await rpc<Log[]>("eth_getLogs", [
+        {
+          address,
+          topics: [topic],
+          fromBlock: "0x" + fromBlock.toString(16),
+          toBlock: "0x" + toBlock.toString(16),
+        },
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (!/range|limit|exceed|too large|200/i.test(message)) throw error;
+      logWindow = 200;
+    }
+  }
+
+  const WINDOW = Math.min(logWindow, 200);
   const windows: [number, number][] = [];
   for (let start = fromBlock; start <= toBlock; start += WINDOW) {
     windows.push([start, Math.min(start + WINDOW - 1, toBlock)]);

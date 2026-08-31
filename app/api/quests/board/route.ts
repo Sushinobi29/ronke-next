@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { buildLeaderboard, getToday } from "@/lib/quests/today";
+import { getLeaderboard, getToday } from "@/lib/quests/today";
 import { dayIndex, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
+import { hasStore, seasonStandings } from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +23,20 @@ export async function GET(request: Request) {
     }
 
     const players = new Set(today.rounds.map((r) => r.player.toLowerCase()));
+    const season = seasonAt();
+    const fromDay = Math.floor(season.startsAt / 86_400);
+    const toDay = Math.floor((season.endsAt - 1) / 86_400);
+
+    const [leaderboard, standings] = await Promise.all([
+      getLeaderboard(today),
+      seasonStandings(fromDay, toDay),
+    ]);
 
     return NextResponse.json({
       day,
-      season: seasonAt(),
+      season,
       quests: questsForDay(day).map(
-        ({ id, title, task, game, points, target, verify, cost, unit, link, needsLogs, dynamicTarget }) => ({
+        ({ id, title, task, game, points, target, verify, cost, unit, link, needsLogs, note, dynamicTarget }) => ({
           id,
           title,
           task,
@@ -40,10 +49,13 @@ export async function GET(request: Request) {
           unit,
           link,
           needsLogs,
+          note,
         })
       ),
       floorRon: today.floorRon,
-      leaderboard: buildLeaderboard(today),
+      leaderboard,
+      seasonStandings: standings,
+      seasonPersisted: hasStore(),
       roundsToday: today.rounds.length,
       playersToday: players.size,
       feed: today.rounds.slice(0, 8),

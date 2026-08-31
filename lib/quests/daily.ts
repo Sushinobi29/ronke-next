@@ -188,6 +188,8 @@ export interface QuestDef {
   /** Roughly what it costs to do — drives the points, and shown on the card so
    *  the weighting is legible rather than arbitrary. */
   cost: CostTier;
+  /** A warning the player needs before they try, not after it fails. */
+  note?: string;
   /** True when this quest is resolved from event logs rather than a balance
    *  read. Only these are affected while the day's history is being walked
    *  back — saying so on a balance-derived quest reads as "still loading" when
@@ -416,6 +418,7 @@ export const POOL: QuestDef[] = [
     id: "token.ronkestr",
     title: "Feed the machine",
     task: `Buy at least ${MIN_BUY_RON} RON of $RONKESTR`,
+    note: "Flat 10% swap tax — set slippage above 10% or the swap fails",
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",

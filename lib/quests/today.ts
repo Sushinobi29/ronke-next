@@ -18,6 +18,7 @@
 import { unstable_cache } from "next/cache";
 import {
   blockNumber,
+  currentLogWindow,
   callData,
   fromWei,
   getLogsRange,
@@ -29,9 +30,10 @@ import {
   words,
 } from "./chain";
 import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, SELECTORS } from "./contracts";
-import { blockAtSecond, readMinesWindow, type AorPlay, type MinesRound } from "./read";
+import { blockAtSecond, readDaily, readMinesWindow, type AorPlay, type MinesRound } from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
-import { dayIndex, dayStart } from "./daily";
+import { dayIndex, dayStart, scoreDay } from "./daily";
+import { recordMany } from "./store";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
@@ -140,8 +142,19 @@ function coverage(startBlock: number, coveredFrom: number, head: number): number
   return Math.min(1, Math.max(0, (head - coveredFrom + 1) / span));
 }
 
-/** The widest range worth asking for in one pass. */
-const sliceFrom = (to: number, floor: number) => Math.max(floor, to - MAX_WINDOWS * WINDOW + 1);
+/**
+ * The widest range worth asking for in one pass.
+ *
+ * On the public node that is twelve 200-block windows, and the day gets
+ * covered over several passes. On an endpoint that serves tens of thousands of
+ * blocks at once there is nothing to slice — the whole day is one request, so
+ * take it in one go and skip the walk-back entirely.
+ */
+function sliceFrom(to: number, floor: number): number {
+  const window = currentLogWindow();
+  const span = window >= 10_000 ? window : MAX_WINDOWS * WINDOW;
+  return Math.max(floor, to - span + 1);
+}
 
 /* -------------------------------------------------------------------- seed */
 
@@ -402,71 +415,102 @@ export async function getToday(force = false): Promise<TodayState> {
 
 export interface BoardEntry {
   address: string;
-  mines: number;
-  spins: number;
-  plays: number;
-  monkes: number;
-  ronSpent: number;
+  points: number;
+  done: number;
+  bonus: number;
   actions: number;
 }
 
-/**
- * Who has been busiest today, built entirely from state already gathered for
- * the quests — no extra reads, however many people are on the page.
- *
- * It ranks observed activity, not quest points: scoring a wallet needs its own
- * balance reads, and doing that for every player on every refresh is exactly
- * the spending pattern that rate-limited the board before. Actions first, RON
- * as the tie-break, so grinding free rounds cannot outrank real commitment.
- */
-export function buildLeaderboard(today: TodayState, limit = 15): BoardEntry[] {
-  const by = new Map<string, BoardEntry>();
-
-  const entry = (address: string) => {
+/** Everyone the chain has seen do something today, busiest first. */
+function activeToday(today: TodayState): string[] {
+  const actions = new Map<string, number>();
+  const bump = (address: string, by = 1) => {
     const key = address.toLowerCase();
-    const found = by.get(key) ?? {
-      address: key,
-      mines: 0,
-      spins: 0,
-      plays: 0,
-      monkes: 0,
-      ronSpent: 0,
-      actions: 0,
-    };
-    by.set(key, found);
-    return found;
+    actions.set(key, (actions.get(key) ?? 0) + by);
   };
 
-  for (const round of today.rounds) {
-    const e = entry(round.player);
-    e.mines += 1;
-    if (round.table === "RON") e.ronSpent += round.bet;
+  for (const round of today.rounds) bump(round.player);
+  for (const [address, count] of today.spins) bump(address, count);
+  for (const [address, play] of today.aor) bump(address, play.plays);
+  for (const sale of today.sales) bump(sale.buyer);
+
+  return [...actions.entries()].sort((a, b) => b[1] - a[1]).map(([address]) => address);
+}
+
+/**
+ * The day's standings, in points.
+ *
+ * Scoring a wallet costs two multicalls, so this is deliberately bounded: only
+ * wallets the chain has seen act today are candidates, ranked by how busy they
+ * were, and only the busiest are scored. That keeps a rebuild at about fifty
+ * requests — affordable once every few minutes behind the shared cache, and
+ * ruinous if it ran per visitor, which is why it is cached rather than live.
+ *
+ * "Today's" is doing real work in the name: a wallet that did nothing today
+ * is not ranked, even though holding quests would score it something.
+ */
+const LEADERBOARD_TTL_MS = 180_000;
+const SCORE_AT_MOST = 25;
+
+let cached: { day: number; at: number; rows: BoardEntry[] } | null = null;
+let building: Promise<BoardEntry[]> | null = null;
+
+async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[]> {
+  const candidates = activeToday(today).slice(0, SCORE_AT_MOST);
+
+  const rows = await Promise.all(
+    candidates.map(async (address) => {
+      try {
+        const stats = await readDaily(
+          address,
+          today.rounds,
+          today.startBlock,
+          today.spins,
+          today.aor,
+          today.spinRon,
+          today.sales
+        );
+        const score = scoreDay(stats, day, { floorRon: today.floorRon });
+        return {
+          address,
+          points: score.total,
+          done: score.done,
+          bonus: score.bonus,
+          actions: score.done,
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const scored = rows.filter((row): row is BoardEntry => row !== null && row.points > 0);
+
+  // The season is the sum of its days, and a day is only knowable while it is
+  // today — so every rebuild writes what it just worked out.
+  await recordMany(day, scored);
+
+  return scored.sort((a, b) => b.points - a.points || b.done - a.done).slice(0, 15);
+}
+
+export async function getLeaderboard(today: TodayState): Promise<BoardEntry[]> {
+  const day = dayIndex();
+  if (cached && cached.day === day && Date.now() - cached.at < LEADERBOARD_TTL_MS) {
+    return cached.rows;
   }
 
-  for (const [address, count] of today.spins) {
-    entry(address).spins += count;
-  }
-  for (const [address, ron] of today.spinRon) {
-    entry(address).ronSpent += ron;
-  }
+  building =
+    building ??
+    scoreWallets(today, day)
+      .then((rows) => {
+        cached = { day, at: Date.now(), rows };
+        return rows;
+      })
+      .catch(() => cached?.rows ?? []);
 
-  for (const [address, play] of today.aor) {
-    entry(address).plays += play.plays;
+  try {
+    return await building;
+  } finally {
+    building = null;
   }
-
-  for (const sale of today.sales) {
-    const e = entry(sale.buyer);
-    e.monkes += 1;
-    e.ronSpent += sale.ron;
-  }
-
-  for (const e of by.values()) {
-    e.actions = e.mines + e.spins + e.plays + e.monkes;
-    e.ronSpent = Math.round(e.ronSpent * 100) / 100;
-  }
-
-  return [...by.values()]
-    .filter((e) => e.actions > 0)
-    .sort((a, b) => b.actions - a.actions || b.ronSpent - a.ronSpent)
-    .slice(0, limit);
 }

@@ -1,0 +1,159 @@
+/**
+ * Season persistence.
+ *
+ * Everything else on the board is derived live from Ronin, which works
+ * because a day's quests are answerable from a day's chain state. A season is
+ * not: once the day rolls the quests are gone, and no amount of reading the
+ * chain will tell you what yesterday's five were or who finished them. So the
+ * day's result has to be written down.
+ *
+ * One row per wallet per day; a season total is a sum over its days. The
+ * board runs without this — it simply cannot show anything but today until a
+ * DATABASE_URL exists.
+ */
+
+import type { Sql } from "postgres";
+
+let client: Sql | null = null;
+let ready: Promise<Sql | null> | null = null;
+
+export const hasStore = () => Boolean(process.env.DATABASE_URL);
+
+async function connect(): Promise<Sql | null> {
+  if (!hasStore()) return null;
+  if (client) return client;
+
+  const { default: postgres } = await import("postgres");
+  // Serverless: many short-lived instances, so keep each one's footprint tiny
+  // and let the pooled connection string do the pooling.
+  const sql = postgres(process.env.DATABASE_URL!, { max: 1, idle_timeout: 20, prepare: false });
+
+  await sql`
+    create table if not exists quest_days (
+      day        integer not null,
+      address    text    not null,
+      points     integer not null,
+      done       integer not null,
+      bonus      integer not null,
+      updated_at timestamptz not null default now(),
+      primary key (day, address)
+    )
+  `;
+  await sql`create index if not exists quest_days_day_idx on quest_days (day)`;
+
+  client = sql;
+  return sql;
+}
+
+/** Resolves to null rather than throwing when no store is configured. */
+function db(): Promise<Sql | null> {
+  ready = ready ?? connect().catch(() => null);
+  return ready;
+}
+
+export interface DayResult {
+  address: string;
+  points: number;
+  done: number;
+  bonus: number;
+}
+
+/**
+ * Writes a wallet's standing for a day. Called whenever a wallet is scored,
+ * so a day's row converges on its final value as the day goes on and settles
+ * once the day rolls.
+ */
+export async function recordDay(day: number, result: DayResult): Promise<void> {
+  const sql = await db();
+  if (!sql) return;
+
+  try {
+    await sql`
+      insert into quest_days (day, address, points, done, bonus, updated_at)
+      values (${day}, ${result.address.toLowerCase()}, ${result.points}, ${result.done}, ${result.bonus}, now())
+      on conflict (day, address) do update
+        set points = excluded.points,
+            done = excluded.done,
+            bonus = excluded.bonus,
+            updated_at = now()
+    `;
+  } catch {
+    // A board that cannot write is still a board that works today.
+  }
+}
+
+export async function recordMany(day: number, results: DayResult[]): Promise<void> {
+  await Promise.all(results.map((result) => recordDay(day, result)));
+}
+
+export interface SeasonRow {
+  address: string;
+  points: number;
+  days: number;
+  sweeps: number;
+}
+
+/** Season standings, highest total first. */
+export async function seasonStandings(
+  fromDay: number,
+  toDay: number,
+  limit = 50
+): Promise<SeasonRow[]> {
+  const sql = await db();
+  if (!sql) return [];
+
+  try {
+    const rows = await sql<
+      { address: string; points: string; days: string; sweeps: string }[]
+    >`
+      select address,
+             sum(points)::text                        as points,
+             count(*)::text                           as days,
+             count(*) filter (where bonus > 0)::text  as sweeps
+        from quest_days
+       where day between ${fromDay} and ${toDay}
+       group by address
+       having sum(points) > 0
+       order by sum(points) desc
+       limit ${limit}
+    `;
+    return rows.map((row) => ({
+      address: row.address,
+      points: Number(row.points),
+      days: Number(row.days),
+      sweeps: Number(row.sweeps),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** One wallet's season total, for pinning their own row. */
+export async function walletSeason(
+  address: string,
+  fromDay: number,
+  toDay: number
+): Promise<SeasonRow | null> {
+  const sql = await db();
+  if (!sql) return null;
+
+  try {
+    const [row] = await sql<{ points: string; days: string; sweeps: string }[]>`
+      select sum(points)::text                       as points,
+             count(*)::text                          as days,
+             count(*) filter (where bonus > 0)::text as sweeps
+        from quest_days
+       where address = ${address.toLowerCase()}
+         and day between ${fromDay} and ${toDay}
+    `;
+    if (!row?.points) return null;
+    return {
+      address: address.toLowerCase(),
+      points: Number(row.points),
+      days: Number(row.days),
+      sweeps: Number(row.sweeps),
+    };
+  } catch {
+    return null;
+  }
+}
