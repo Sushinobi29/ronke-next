@@ -27,10 +27,11 @@ export async function GET(request: Request) {
     const fromDay = Math.floor(season.startsAt / 86_400);
     const toDay = Math.floor((season.endsAt - 1) / 86_400);
 
-    const [leaderboard, standings] = await Promise.all([
-      getLeaderboard(today),
-      seasonStandings(fromDay, toDay),
-    ]);
+    // Sequential, not parallel: building the leaderboard is what writes today's
+    // rows, so reading the standings alongside it races the write and the first
+    // visitor of each window sees an empty season.
+    const leaderboard = await getLeaderboard(today);
+    const standings = await seasonStandings(fromDay, toDay);
 
     return NextResponse.json({
       day,
