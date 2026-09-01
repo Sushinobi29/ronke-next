@@ -206,3 +206,39 @@ export async function socialVerifiedOn(day: number): Promise<Set<string>> {
     return new Set();
   }
 }
+
+/* ------------------------------------------------------------------ streak */
+
+/**
+ * Consecutive clean sweeps ending the day before `day`.
+ *
+ * Read backwards from yesterday and stop at the first gap, so a missed day
+ * resets it — which is the whole point of a streak. Bounded to a season's
+ * worth of rows; nobody needs a thousand-day lookback.
+ */
+export async function priorSweepStreak(address: string, day: number, limit = 60): Promise<number> {
+  const sql = await db();
+  if (!sql) return 0;
+
+  try {
+    const rows = await sql<{ day: number }[]>`
+      select day from quest_days
+       where address = ${address.toLowerCase()}
+         and bonus > 0
+         and day < ${day}
+         and day >= ${day - limit}
+       order by day desc
+    `;
+
+    let streak = 0;
+    let expected = day - 1;
+    for (const row of rows) {
+      if (row.day !== expected) break;
+      streak += 1;
+      expected -= 1;
+    }
+    return streak;
+  } catch {
+    return 0;
+  }
+}

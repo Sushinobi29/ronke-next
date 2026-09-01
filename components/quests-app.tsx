@@ -10,6 +10,7 @@ import { useRoninWallet } from "@/hooks/useRoninWallet";
 import { useSounds } from "@/hooks/useSounds";
 import {
   ALL_DONE_BONUS,
+  STREAK_CAP,
   type CostTier,
   GAME_ART,
   GAME_LABELS,
@@ -41,6 +42,7 @@ interface LeaderEntry {
   points: number;
   done: number;
   bonus: number;
+  streak: number;
 }
 
 interface SeasonRow {
@@ -68,6 +70,8 @@ interface DailyScore {
   done: number;
   points: number;
   bonus: number;
+  streak: number;
+  multiplier: number;
   total: number;
   maxPoints: number;
 }
@@ -379,14 +383,26 @@ export default function QuestsApp() {
               />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-3">
-                Clean sweep
+              <div className="mono flex flex-wrap items-center gap-x-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-3">
+                <span>Clean sweep</span>
+                {!!effective?.streak && effective.streak > 1 && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="text-gold">
+                      {effective.streak} day streak · ×{effective.multiplier}
+                    </span>
+                  </>
+                )}
               </div>
               <div className="mt-0.5 font-semibold">All five in a day</div>
               <p className="mt-0.5 text-[13px] text-muted-1">
                 {effective?.bonus
-                  ? "Bonus banked. Come back tomorrow for five more."
-                  : `Finish every quest today for a bonus ${ALL_DONE_BONUS} points.`}
+                  ? effective.streak > 1
+                    ? `Banked at ×${effective.multiplier}. Miss a day and the run resets.`
+                    : "Banked. Come back tomorrow and it starts multiplying."
+                  : `Finish all five for ${Math.round(
+                      ALL_DONE_BONUS * (effective?.multiplier ?? 1)
+                    )} points — each day in a row multiplies it, up to ×${STREAK_CAP}.`}
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -395,7 +411,7 @@ export default function QuestsApp() {
                   effective?.bonus ? "text-gold" : "text-muted-2"
                 }`}
               >
-                +{ALL_DONE_BONUS}
+                +{effective?.bonus || Math.round(ALL_DONE_BONUS * (effective?.multiplier ?? 1))}
               </div>
               <div className="mono mt-1 text-[10px] uppercase tracking-[0.12em] text-muted-3">
                 {effective?.bonus ? "earned" : "bonus"}
@@ -447,7 +463,7 @@ export default function QuestsApp() {
                 <th className="px-3 py-2 text-right font-bold">
                   {tab === "today" ? "Done" : "Days"}
                 </th>
-                <th className="px-3 py-2 text-right font-bold">Sweeps</th>
+                <th className="px-3 py-2 text-right font-bold">Streak</th>
                 <th className="px-5 py-2 text-right font-bold">Points</th>
               </tr>
             </thead>
@@ -470,10 +486,10 @@ export default function QuestsApp() {
                       </td>
                       <td
                         className={`mono px-3 py-2.5 text-right ${
-                          row.bonus ? "text-gold" : "text-muted-3"
+                          row.streak ? "text-gold" : "text-muted-3"
                         }`}
                       >
-                        {row.bonus ? "1" : "—"}
+                        {row.streak ? `${row.streak}🔥` : "—"}
                       </td>
                       <td className="mono px-5 py-2.5 text-right font-bold text-gold">
                         {row.points.toLocaleString()}

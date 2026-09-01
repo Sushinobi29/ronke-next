@@ -75,6 +75,22 @@ export const COST_LABELS: Record<CostTier, string> = {
 /** Clearing all five in a day pays this on top. */
 export const ALL_DONE_BONUS = 400;
 
+/**
+ * Coming back day after day multiplies that bonus. A quarter more for each
+ * consecutive sweep, capped at triple — enough that a run is worth protecting,
+ * bounded so an early starter cannot become uncatchable.
+ *
+ * Only the sweep bonus scales. Quest points stay what they cost, so a streak
+ * rewards showing up rather than quietly repricing the board.
+ */
+export const STREAK_STEP = 0.25;
+export const STREAK_CAP = 3;
+
+export function streakMultiplier(streak: number): number {
+  if (streak <= 1) return 1;
+  return Math.min(STREAK_CAP, 1 + STREAK_STEP * (streak - 1));
+}
+
 export const GAME_LABELS: Record<QuestGame, string> = {
   casino: "Ronke Casino",
   gacha: "Fortune Spin",
@@ -633,6 +649,8 @@ export function questsForDay(day: number = dayIndex(), address?: string): QuestD
 /** What the day's scoring needs from outside the wallet itself. */
 export interface QuestContext {
   floorRon?: number;
+  /** Consecutive clean sweeps ending yesterday. Today's sweep extends it. */
+  priorStreak?: number;
 }
 
 export interface ScoredQuest extends QuestDef {
@@ -649,8 +667,11 @@ export interface DailyScore {
   done: number;
   /** Points from finished quests, before the clean-sweep bonus. */
   points: number;
-  /** Awarded once all five are done. */
+  /** Awarded once all five are done, multiplied by the streak. */
   bonus: number;
+  /** Consecutive sweeps including today, and what it is worth. */
+  streak: number;
+  multiplier: number;
   /** points + bonus. */
   total: number;
   maxPoints: number;
@@ -678,7 +699,11 @@ export function scoreDay(
 
   const done = quests.filter((q) => q.done).length;
   const points = quests.filter((q) => q.done).reduce((sum, q) => sum + q.points, 0);
-  const bonus = done === QUESTS_PER_DAY ? ALL_DONE_BONUS : 0;
+
+  const swept = done === QUESTS_PER_DAY;
+  const streak = swept ? (context.priorStreak ?? 0) + 1 : 0;
+  const multiplier = streakMultiplier(streak);
+  const bonus = swept ? Math.round(ALL_DONE_BONUS * multiplier) : 0;
 
   return {
     day,
@@ -686,7 +711,12 @@ export function scoreDay(
     done,
     points,
     bonus,
+    streak,
+    multiplier,
     total: points + bonus,
-    maxPoints: quests.reduce((sum, q) => sum + q.points, 0) + ALL_DONE_BONUS,
+    // What today is worth if they finish it, streak included.
+    maxPoints:
+      quests.reduce((sum, q) => sum + q.points, 0) +
+      Math.round(ALL_DONE_BONUS * streakMultiplier((context.priorStreak ?? 0) + 1)),
   };
 }

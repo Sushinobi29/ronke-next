@@ -3,7 +3,12 @@ import { isAddress, readDaily } from "@/lib/quests/read";
 import { getToday } from "@/lib/quests/today";
 import { dayIndex, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
-import { recordDay, socialVerifiedOn, walletSeason } from "@/lib/quests/store";
+import {
+  priorSweepStreak,
+  recordDay,
+  socialVerifiedOn,
+  walletSeason,
+} from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +47,8 @@ export async function GET(request: NextRequest) {
 
     const day = dayIndex();
     const wallet = address.trim().toLowerCase();
-    const score = scoreDay(stats, day, { floorRon: today.floorRon }, wallet);
+    const priorStreak = await priorSweepStreak(wallet, day);
+    const score = scoreDay(stats, day, { floorRon: today.floorRon, priorStreak }, wallet);
 
     const season = seasonAt();
     const [seasonTotal] = await Promise.all([

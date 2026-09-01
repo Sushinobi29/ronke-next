@@ -33,7 +33,7 @@ import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, SELECTORS } from "./contracts
 import { blockAtSecond, readDaily, readMinesWindow, type AorPlay, type MinesRound } from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
 import { dayIndex, dayStart, scoreDay } from "./daily";
-import { recordMany, socialVerifiedOn } from "./store";
+import { priorSweepStreak, recordMany, socialVerifiedOn } from "./store";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
@@ -418,6 +418,7 @@ export interface BoardEntry {
   points: number;
   done: number;
   bonus: number;
+  streak: number;
   actions: number;
 }
 
@@ -473,12 +474,14 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           social
         );
         // Each wallet is scored against its own five, not a shared set.
-        const score = scoreDay(stats, day, { floorRon: today.floorRon }, address);
+        const priorStreak = await priorSweepStreak(address, day);
+        const score = scoreDay(stats, day, { floorRon: today.floorRon, priorStreak }, address);
         return {
           address,
           points: score.total,
           done: score.done,
           bonus: score.bonus,
+          streak: score.streak,
           actions: score.done,
         };
       } catch {
