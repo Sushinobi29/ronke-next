@@ -242,3 +242,27 @@ export async function priorSweepStreak(address: string, day: number, limit = 60)
     return 0;
   }
 }
+
+/**
+ * Wallets that swept on a given day — i.e. who has a streak to protect.
+ *
+ * The daily pass only knows about wallets the chain saw act today, so a
+ * streak-holder whose quests are all holdings-based, or who simply does not
+ * open the page, would drop out of the scoring and lose a run they had not
+ * actually broken. Scoring them anyway costs a couple of reads each and is
+ * cheaper than the argument.
+ */
+export async function sweptOn(day: number, limit = 200): Promise<string[]> {
+  const sql = await db();
+  if (!sql) return [];
+  try {
+    const rows = await sql<{ address: string }[]>`
+      select address from quest_days
+       where day = ${day} and bonus > 0
+       limit ${limit}
+    `;
+    return rows.map((row) => row.address);
+  } catch {
+    return [];
+  }
+}

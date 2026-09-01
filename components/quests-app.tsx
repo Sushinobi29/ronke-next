@@ -356,6 +356,15 @@ export default function QuestsApp() {
                 key={quest.id}
                 quest={quest}
                 catchingUp={logsMissing && quest.needsLogs ? logCoverage : undefined}
+                refreshing={checking}
+                onRefresh={
+                  wallet.address
+                    ? () => {
+                        play("click");
+                        refresh();
+                      }
+                    : undefined
+                }
               />
             )
           )}

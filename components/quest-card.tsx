@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight, Check, RefreshCw } from "lucide-react";
 import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
 
 /**
@@ -12,8 +12,15 @@ import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
 export default function QuestCard({
   quest,
   catchingUp,
+  onRefresh,
+  refreshing,
 }: {
   quest: ScoredQuest;
+  /** Re-reads the chain for this wallet. Chain reads are shared, so one
+   *  quest's check refreshes them all — but people want to press the thing
+   *  they just did. */
+  onRefresh?: () => void;
+  refreshing?: boolean;
   /** 0-1 when this quest's log history is still being walked back. Say so
    *  rather than showing zero, which reads as "you have not done it". */
   catchingUp?: number;
@@ -22,14 +29,27 @@ export default function QuestCard({
   const multi = quest.target > 1;
 
   return (
-    <a
-      href={quest.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`rv-card rv-hover group flex items-center gap-4 p-4 transition-colors sm:gap-5 sm:p-5 ${
-        quest.done ? "border-gold/40" : ""
-      }`}
-    >
+    <div className="relative">
+      {onRefresh && !quest.done && (
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label={`Check ${quest.title} again`}
+          title="Check again"
+          className="absolute right-3 top-3 z-10 rounded-lg border border-border bg-card-2/80 p-1.5 text-muted-3 transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin text-accent" : ""}`} strokeWidth={2.5} />
+        </button>
+      )}
+
+      <a
+        href={quest.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`rv-card rv-hover group flex items-center gap-4 p-4 transition-colors sm:gap-5 sm:p-5 ${
+          quest.done ? "border-gold/40" : ""
+        }`}
+      >
       <span
         className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border sm:h-16 sm:w-16 ${
           quest.done ? "border-gold/50" : "border-border"
@@ -81,7 +101,7 @@ export default function QuestCard({
         )}
       </div>
 
-      <div className="shrink-0 text-right">
+        <div className="shrink-0 pt-5 text-right sm:pt-0">
         <div
           className={`mono text-lg font-bold leading-none sm:text-xl ${
             quest.done ? "text-gold" : "text-muted-2"
@@ -93,6 +113,7 @@ export default function QuestCard({
           {quest.done ? "done" : "points"}
         </div>
       </div>
-    </a>
+      </a>
+    </div>
   );
 }

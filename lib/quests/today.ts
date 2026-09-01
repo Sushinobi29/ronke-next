@@ -33,7 +33,7 @@ import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, SELECTORS } from "./contracts
 import { blockAtSecond, readDaily, readMinesWindow, type AorPlay, type MinesRound } from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
 import { dayIndex, dayStart, scoreDay } from "./daily";
-import { priorSweepStreak, recordMany, socialVerifiedOn } from "./store";
+import { priorSweepStreak, recordMany, socialVerifiedOn, sweptOn } from "./store";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
@@ -451,14 +451,22 @@ function activeToday(today: TodayState): string[] {
  * is not ranked, even though holding quests would score it something.
  */
 const LEADERBOARD_TTL_MS = 180_000;
-const SCORE_AT_MOST = 25;
+const SCORE_AT_MOST = 60;
 
 let cached: { day: number; at: number; rows: BoardEntry[] } | null = null;
 let building: Promise<BoardEntry[]> | null = null;
 
 async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[]> {
-  const candidates = activeToday(today).slice(0, SCORE_AT_MOST);
-  const social = await socialVerifiedOn(day);
+  // Everyone the chain saw act today, plus anyone who swept yesterday: their
+  // run is on the line and it should not depend on them opening the page.
+  const [yesterdaySweepers, social] = await Promise.all([
+    sweptOn(day - 1),
+    socialVerifiedOn(day),
+  ]);
+
+  const candidates = [
+    ...new Set([...activeToday(today).slice(0, SCORE_AT_MOST), ...yesterdaySweepers]),
+  ];
 
   const rows = await Promise.all(
     candidates.map(async (address) => {
