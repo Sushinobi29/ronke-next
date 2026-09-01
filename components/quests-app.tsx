@@ -250,8 +250,8 @@ export default function QuestsApp() {
           className="mx-auto h-auto w-full max-w-[420px]"
         />
         <p className="mx-auto mt-4 max-w-md text-muted-1">
-          Five quests. A new set every day. Play them anywhere in the Ronkeverse — the chain does
-          the rest.
+          Five quests. A new set every day. Play them, get points, get rewarded at the end of
+          the season based on your score.
         </p>
 
         <div className="mono mt-6 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-full border border-border bg-card-2 px-4 py-2 text-[11px] uppercase tracking-[0.12em]">
