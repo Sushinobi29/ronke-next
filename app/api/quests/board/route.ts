@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLeaderboard, getToday } from "@/lib/quests/today";
-import { dayIndex, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
+import { dayIndex, pointsFor, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
 import { hasStore, readRewards, seasonStandings } from "@/lib/quests/store";
 
@@ -41,13 +41,15 @@ export async function GET(request: Request) {
       // No wallet here, so this is the day's shared set — a sample of what a
       // board looks like. Connecting swaps it for the visitor's own five.
       sampleBoard: true,
-      quests: questsForDay(day).map(
-        ({ id, title, task, game, points, target, cost, unit, link, art, needsLogs, note, copy, copyLabel, dynamicTarget }) => ({
+      quests: questsForDay(day).map((quest) => {
+        const { id, title, task, game, target, cost, unit, link, art, needsLogs, note, copy, copyLabel, dynamicTarget } = quest;
+        return {
           id,
           title,
           task,
           game,
-          points,
+          // Priced off the day's floor, the same as a connected wallet's board.
+          points: pointsFor(quest, { floorRon: today.floorRon }),
           // A visitor who has not connected still sees the real threshold.
           target: dynamicTarget?.({ floorRon: today.floorRon }) ?? target,
           cost,
@@ -58,8 +60,8 @@ export async function GET(request: Request) {
           note,
           copy,
           copyLabel,
-        })
-      ),
+        };
+      }),
       floorRon: today.floorRon,
       leaderboard,
       seasonStandings: standings,

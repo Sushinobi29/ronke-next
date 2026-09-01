@@ -18,6 +18,7 @@ import {
   GAME_LINKS,
   QUESTS_PER_DAY,
   type QuestGame,
+  pointsFor,
   questsForDay,
   type ScoredQuest,
 } from "@/lib/quests/daily";
@@ -258,9 +259,11 @@ export default function QuestsApp() {
    */
   const ownPreview = useMemo(() => {
     if (!connected || !board) return null;
+    const context = { floorRon: board.floorRon };
     return questsForDay(board.day, connected).map((quest) => ({
       ...quest,
-      target: quest.dynamicTarget?.({ floorRon: board.floorRon }) ?? quest.target,
+      target: quest.dynamicTarget?.(context) ?? quest.target,
+      points: pointsFor(quest, context),
       value: 0,
       done: false,
       href: quest.link ?? GAME_LINKS[quest.game],

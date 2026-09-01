@@ -310,7 +310,12 @@ async function refreshMarket(current: Internal) {
       fetchFloorRon(),
       fetchSales(current.day * 86_400),
     ]);
-    current.floorRon = floorRon;
+    // The floor is taken once a day and then held. Both the monke quest's
+    // threshold and its points hang off it, and neither may move under
+    // somebody halfway through buying — two wallets doing the same quest on
+    // the same day have to be worth the same, whenever the scoring pass runs.
+    // The day's state is dropped at rollover, so tomorrow takes a fresh one.
+    if (floorRon > 0 && current.floorRon <= 0) current.floorRon = floorRon;
     current.sales = sales;
   } catch {
     // Leave the last good copy in place.

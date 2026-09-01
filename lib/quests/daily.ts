@@ -36,6 +36,22 @@ export const MIN_BUY_FLOOR_SHARE = 0.8;
 export const MIN_SPIN_RON = 69;
 
 /**
+ * The ladder itself, so a quest priced against a moving cost is priced by the
+ * same rule as every hand-set number on the board rather than by guesswork.
+ */
+export function pointsForRon(ron: number): number {
+  return Math.max(25, Math.round((50 + 55 * Math.sqrt(Math.max(0, ron))) / 25) * 25);
+}
+
+/**
+ * How far a moving price may carry a quest's points from the fixed number the
+ * draw budgets against. The draw cannot know the floor — it has to stay a pure
+ * function of the day and the wallet, or the board would reshuffle every time
+ * the marketplace moved — so the two are kept within sight of each other.
+ */
+export const DYNAMIC_POINTS_BAND = 0.4;
+
+/**
  * Ronke Vote runs in seasons — a week or two a month — and the rest of the
  * time the site closes voting. There is no on-chain signal for it: the
  * contract still accepts a vote when the front-end says closed, so the gate
@@ -241,6 +257,8 @@ export interface QuestDef {
   /** Some thresholds move with the market — the monke floor does. Returning
    *  undefined keeps the static target. */
   dynamicTarget?: (context: QuestContext) => number | undefined;
+  /** And where the threshold moves, what it is worth moves with it. */
+  dynamicPoints?: (context: QuestContext) => number | undefined;
   /** Overrides the game's default link when the quest needs a specific door. */
   link?: string;
   /** Overrides the game's art when a quest has its own. */
@@ -545,6 +563,8 @@ export const POOL: QuestDef[] = [
     unit: "RON",
     dynamicTarget: ({ floorRon }) =>
       floorRon ? Math.max(1, Math.round(floorRon * MIN_BUY_FLOOR_SHARE)) : undefined,
+    dynamicPoints: ({ floorRon }) =>
+      floorRon ? pointsForRon(floorRon * MIN_BUY_FLOOR_SHARE) : undefined,
     points: 1050,
     progress: (s) => Math.floor(s.monkeRon),
   },
@@ -707,6 +727,21 @@ export function questsForDay(day: number = dayIndex(), address?: string): QuestD
   );
 }
 
+/**
+ * What a quest is worth today. The fixed number, unless a moving price says
+ * otherwise — and then only within sight of it, because the draw budgets
+ * against the fixed number and cannot see the market.
+ */
+export function pointsFor(quest: QuestDef, context: QuestContext = {}): number {
+  const moved = quest.dynamicPoints?.(context);
+  if (moved === undefined) return quest.points;
+  const band = quest.points * DYNAMIC_POINTS_BAND;
+  return Math.min(
+    Math.round(quest.points + band),
+    Math.max(Math.round(quest.points - band), moved)
+  );
+}
+
 /** What the day's scoring needs from outside the wallet itself. */
 export interface QuestContext {
   floorRon?: number;
@@ -752,6 +787,7 @@ export function scoreDay(
       target,
       value,
       done: value >= target,
+      points: pointsFor(quest, context),
       href: quest.link ?? GAME_LINKS[quest.game],
       art: quest.art ?? GAME_ART[quest.game],
       gameLabel: GAME_LABELS[quest.game],
