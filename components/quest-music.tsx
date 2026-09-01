@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 
 /**
- * Page music.
+ * Page music, and the switch that governs every sound on the page — the
+ * effects in useSounds read the same preference, because one control for "does
+ * this page make noise" is what people expect.
  *
  * Browsers refuse to start audio without a gesture, so this cannot simply
  * autoplay: it tries, and when that is blocked it arms a one-shot listener and
@@ -140,8 +142,8 @@ export default function QuestMusic() {
       <button
         onClick={toggle}
       aria-pressed={playing}
-      aria-label={playing ? "Mute the music" : "Play the music"}
-      title={playing ? "Mute" : "Play music"}
+      aria-label={playing ? "Mute the page" : "Turn sound on"}
+      title={playing ? "Mute" : "Sound on"}
         className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3.5 py-2.5 backdrop-blur transition-colors hover:border-accent/50"
       >
         {playing ? (

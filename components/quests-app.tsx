@@ -7,6 +7,7 @@ import QuestCard from "@/components/quest-card";
 import SocialQuestCard from "@/components/social-quest-card";
 import WalletConnect from "@/components/wallet-connect";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
+import { useSounds } from "@/hooks/useSounds";
 import {
   ALL_DONE_BONUS,
   type CostTier,
@@ -105,6 +106,7 @@ const asPreview = (q: BoardQuest): ScoredQuest => ({
 
 export default function QuestsApp() {
   const wallet = useRoninWallet();
+  const play = useSounds();
 
   const [board, setBoard] = useState<BoardPayload | null>(null);
   const [boardError, setBoardError] = useState<string | null>(null);
@@ -121,6 +123,8 @@ export default function QuestsApp() {
   // time the client hydrates, which React counts as a mismatch.
   const [now, setNow] = useState<number | null>(null);
   const autoLoaded = useRef<string | null>(null);
+  /** Last seen completion, so a cue fires on the change and not on every read. */
+  const lastDone = useRef<number | null>(null);
 
   useEffect(() => {
     setNow(Math.floor(Date.now() / 1000));
@@ -162,6 +166,14 @@ export default function QuestsApp() {
       );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Ronin did not answer");
+      // Only celebrate a change. The first read of a session is the baseline,
+      // or reconnecting would replay every quest already finished today.
+      const done: number = json.score?.done ?? 0;
+      if (lastDone.current !== null && done > lastDone.current) {
+        play(done === QUESTS_PER_DAY ? "sweep" : "questComplete");
+      }
+      lastDone.current = done;
+
       setScore(json.score);
       setScored(json.address);
       setReadAt(json.readAt ?? Date.now());
@@ -185,20 +197,23 @@ export default function QuestsApp() {
     if (!wallet.address) return;
     const timer = setInterval(() => view(wallet.address!), 45_000);
     return () => clearInterval(timer);
-  }, [wallet.address, view]);
+  }, [wallet.address, view, play]);
 
   useEffect(() => {
     const connected = wallet.address?.toLowerCase() ?? null;
     if (!connected) {
       autoLoaded.current = null;
+      lastDone.current = null;
       setScore(null);
       setScored(null);
       return;
     }
     if (autoLoaded.current === connected) return;
     autoLoaded.current = connected;
+    lastDone.current = null;
+    play("connect");
     view(connected);
-  }, [wallet.address, view]);
+  }, [wallet.address, view, play]);
 
   /* ------------------------------------------------------------ render */
 
@@ -256,7 +271,10 @@ export default function QuestsApp() {
         <div className="rv-card mt-4 flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
             <button
-              onClick={refresh}
+              onClick={() => {
+                play("click");
+                refresh();
+              }}
               disabled={checking}
               className="mono group inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-3 transition-colors hover:text-accent disabled:opacity-60"
               title="Re-read the chain"
@@ -401,7 +419,10 @@ export default function QuestsApp() {
             {(["today", "season"] as const).map((key) => (
               <button
                 key={key}
-                onClick={() => setTab(key)}
+                onClick={() => {
+                  play("click");
+                  setTab(key);
+                }}
                 className={`rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
                   tab === key
                     ? "bg-card-2 text-foreground"

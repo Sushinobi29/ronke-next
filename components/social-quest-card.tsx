@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { ArrowUpRight, Check, Copy, Loader2 } from "lucide-react";
 import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
+import { useSounds } from "@/hooks/useSounds";
 
 /**
  * The social quest, which cannot be a plain link like the others: it has to
@@ -27,6 +28,7 @@ export default function SocialQuestCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const play = useSounds();
 
   useEffect(() => {
     if (!address) return;
@@ -52,20 +54,23 @@ export default function SocialQuestCard({
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
+        play("error");
         setError(json.error ?? "Could not check that post.");
         return;
       }
       setUrl("");
       onVerified();
     } catch {
+      play("error");
       setError("Could not reach the checker. Try again.");
     } finally {
       setBusy(false);
     }
-  }, [address, url, onVerified]);
+  }, [address, url, onVerified, play]);
 
   const copy = () => {
     if (!code) return;
+    play("click");
     navigator.clipboard?.writeText(code).then(
       () => {
         setCopied(true);
