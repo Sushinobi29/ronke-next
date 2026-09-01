@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
-import { dailyCode, verifyPost } from "@/lib/quests/social";
+import { dailyCode, signupIntent, verifyDailyPost, verifySignup } from "@/lib/quests/social";
 import { dayIndex } from "@/lib/quests/daily";
-import { hasStore, recordSocial, socialVerifiedOn } from "@/lib/quests/store";
+import {
+  handleOwner,
+  hasStore,
+  linkHandle,
+  linkedHandle,
+  recordSocial,
+  socialVerifiedOn,
+} from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
-/** The code a wallet has to put in its post today. */
+/** Where the wallet stands: linked account, today's code, and the sign-up post. */
 export async function GET(request: NextRequest) {
   const address = request.nextUrl.searchParams.get("address");
   if (!isAddress(address)) {
@@ -14,19 +21,29 @@ export async function GET(request: NextRequest) {
   }
 
   const day = dayIndex();
-  const verified = await socialVerifiedOn(day);
+  const wallet = address.trim().toLowerCase();
+  const [handle, verified] = await Promise.all([
+    linkedHandle(wallet),
+    socialVerifiedOn(day),
+  ]);
+  const code = dailyCode(day, wallet);
 
   return NextResponse.json({
-    code: dailyCode(day, address.trim()),
-    verified: verified.has(address.trim().toLowerCase()),
+    handle,
+    code,
+    signupUrl: signupIntent(code),
+    verified: verified.has(wallet),
     canRecord: hasStore(),
   });
 }
 
 /**
- * Checks a post against X and records it. Verification is free and keyless —
- * publish.x.com/oembed gives the author, the text and the date — and the daily
- * code is what stops a wallet claiming somebody else's post.
+ * Two jobs, told apart by whether the wallet already has an account linked.
+ *
+ * Unlinked, the post has to carry the wallet's code — that is what proves the
+ * account belongs to whoever holds the wallet, and it is the only time the
+ * code is needed. Linked, a post just has to come from that account, so people
+ * can write whatever they like.
  */
 export async function POST(request: NextRequest) {
   let body: { address?: string; url?: string };
@@ -46,18 +63,46 @@ export async function POST(request: NextRequest) {
 
   const day = dayIndex();
   const wallet = address!.trim().toLowerCase();
+  const existing = await linkedHandle(wallet);
 
-  const check = await verifyPost(url, day, wallet);
+  if (!existing) {
+    const check = await verifySignup(url, day, wallet);
+    if (!check.ok) {
+      return NextResponse.json({ ok: false, error: check.reason }, { status: 422 });
+    }
+
+    // One account cannot sign up a second wallet, or the whole link is theatre.
+    const owner = await handleOwner(check.handle!);
+    if (owner && owner !== wallet) {
+      return NextResponse.json(
+        { ok: false, error: `@${check.handle} is already linked to another wallet.` },
+        { status: 409 }
+      );
+    }
+
+    const stored = await linkHandle(wallet, check.handle!, url.trim());
+    if (!stored) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: hasStore()
+            ? "Could not save the link. Try again in a moment."
+            : "Social quests are off here — no database is configured.",
+        },
+        { status: 503 }
+      );
+    }
+
+    // The sign-up post is about the Ronkeverse and is from today, so it counts.
+    await recordSocial(day, wallet, url.trim(), check.handle);
+    return NextResponse.json({ ok: true, linked: check.handle, handle: check.handle });
+  }
+
+  const check = await verifyDailyPost(url, day, existing);
   if (!check.ok) {
     return NextResponse.json({ ok: false, error: check.reason }, { status: 422 });
   }
 
   await recordSocial(day, wallet, url.trim(), check.handle);
-
-  return NextResponse.json({
-    ok: true,
-    handle: check.handle,
-    // Without a store the check still passed, but it will not survive a reload.
-    persisted: hasStore(),
-  });
+  return NextResponse.json({ ok: true, handle: check.handle, persisted: hasStore() });
 }

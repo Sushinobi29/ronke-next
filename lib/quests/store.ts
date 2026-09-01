@@ -41,6 +41,17 @@ async function connect(): Promise<Sql | null> {
   `;
   await sql`create index if not exists quest_days_day_idx on quest_days (day)`;
 
+  // One X account per wallet, and one wallet per X account — without the
+  // second half, a single account could sign up every wallet on the board.
+  await sql`
+    create table if not exists quest_x_links (
+      address     text primary key,
+      handle      text not null unique,
+      proof_url   text not null,
+      linked_at   timestamptz not null default now()
+    )
+  `;
+
   // One verified post per wallet per day. The url is kept so a disputed
   // clean sweep can be checked by a human later.
   await sql`
@@ -316,4 +327,60 @@ export async function priorSweepStreaks(
   }
 
   return streaks;
+}
+
+/* ------------------------------------------------------------------ x link */
+
+export interface XLink {
+  address: string;
+  handle: string;
+}
+
+export async function linkedHandle(address: string): Promise<string | null> {
+  const sql = await db();
+  if (!sql) return null;
+  try {
+    const [row] = await sql<{ handle: string }[]>`
+      select handle from quest_x_links where address = ${address.toLowerCase()}
+    `;
+    return row?.handle ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Who this handle already belongs to, if anyone. */
+export async function handleOwner(handle: string): Promise<string | null> {
+  const sql = await db();
+  if (!sql) return null;
+  try {
+    const [row] = await sql<{ address: string }[]>`
+      select address from quest_x_links where lower(handle) = ${handle.toLowerCase()}
+    `;
+    return row?.address ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function linkHandle(
+  address: string,
+  handle: string,
+  proofUrl: string
+): Promise<boolean> {
+  const sql = await db();
+  if (!sql) return false;
+  try {
+    await sql`
+      insert into quest_x_links (address, handle, proof_url)
+      values (${address.toLowerCase()}, ${handle}, ${proofUrl})
+      on conflict (address) do update
+        set handle = excluded.handle,
+            proof_url = excluded.proof_url,
+            linked_at = now()
+    `;
+    return true;
+  } catch {
+    return false;
+  }
 }

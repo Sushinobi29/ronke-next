@@ -6,10 +6,10 @@
  * key, and returns the author handle, the post text and its date — enough to
  * check a post is real, is about the Ronkeverse, and went up today.
  *
- * The hole in that is obvious: anyone could paste someone else's post. So each
- * wallet is shown a short code for the day, derived from its address, and the
- * post has to contain it. Only that wallet is told that code, so only that
- * wallet can produce a qualifying post.
+ * The hole in that is obvious: anyone could paste someone else's post. That is
+ * settled once, at sign-up: the wallet posts a line carrying a code only it
+ * was shown, which binds its X handle. Every day after, a post just has to
+ * come from that handle — so the code never has to appear in a normal post.
  */
 
 const OEMBED = "https://publish.x.com/oembed";
@@ -47,6 +47,18 @@ export interface PostCheck {
   postedAt?: string;
 }
 
+export const QUEST_URL = "https://ronkeverse.com/quests";
+
+/** The post that binds an X account to a wallet. */
+export function signupText(code: string): string {
+  return `I'm signing up for Ronke Quest — join me at ${QUEST_URL}\n\n${code}`;
+}
+
+/** Opens X with the sign-up post already written. */
+export function signupIntent(code: string): string {
+  return `https://x.com/intent/post?text=${encodeURIComponent(signupText(code))}`;
+}
+
 /** Accepts x.com and twitter.com status links, rejects anything else. */
 function normalize(raw: string): string | null {
   try {
@@ -80,24 +92,25 @@ function dateOf(html: string): Date | null {
   return Number.isNaN(parsed) ? null : new Date(parsed);
 }
 
-export async function verifyPost(
-  rawUrl: string,
-  day: number,
-  address: string
-): Promise<PostCheck> {
+interface Fetched {
+  handle: string;
+  text: string;
+  posted: Date | null;
+}
+
+async function fetchPost(rawUrl: string): Promise<Fetched | { error: string }> {
   const url = normalize(rawUrl);
-  if (!url) return { ok: false, reason: "That is not a link to a post on X." };
+  if (!url) return { error: "That is not a link to a post on X." };
 
   let data: { author_name?: string; author_url?: string; html?: string };
   try {
-    const res = await fetch(
-      `${OEMBED}?url=${encodeURIComponent(url)}&omit_script=1&dnt=1`,
-      { headers: { "User-Agent": "RonkeQuest/1.0" }, cache: "no-store" }
-    );
+    const res = await fetch(`${OEMBED}?url=${encodeURIComponent(url)}&omit_script=1&dnt=1`, {
+      headers: { "User-Agent": "RonkeQuest/1.0" },
+      cache: "no-store",
+    });
     if (!res.ok) {
       return {
-        ok: false,
-        reason:
+        error:
           res.status === 404
             ? "X could not find that post. Is it public?"
             : "X did not answer. Try again in a moment.",
@@ -105,30 +118,76 @@ export async function verifyPost(
     }
     data = await res.json();
   } catch {
-    return { ok: false, reason: "Could not reach X. Try again in a moment." };
+    return { error: "Could not reach X. Try again in a moment." };
   }
 
   const html = data.html ?? "";
-  const text = textOf(html);
-  const handle = data.author_url?.split("/").pop() ?? data.author_name ?? "";
+  return {
+    handle: data.author_url?.split("/").pop() ?? data.author_name ?? "",
+    text: textOf(html),
+    posted: dateOf(html),
+  };
+}
+
+/** Posts are dated to the day, so compare days rather than instants. */
+function isFromDay(posted: Date | null, day: number): boolean {
+  if (!posted) return true;
+  const postedDay = Math.floor(posted.getTime() / 1000 / 86_400);
+  return postedDay >= day - 1 && postedDay <= day + 1;
+}
+
+/**
+ * The one-off link. The post has to carry the wallet's code, which is the only
+ * moment that code is ever needed.
+ */
+export async function verifySignup(
+  rawUrl: string,
+  day: number,
+  address: string
+): Promise<PostCheck> {
+  const found = await fetchPost(rawUrl);
+  if ("error" in found) return { ok: false, reason: found.error };
 
   const code = dailyCode(day, address);
-  if (!text.toUpperCase().includes(code)) {
-    return { ok: false, reason: `The post has to include your code, ${code}.`, handle };
+  if (!found.text.toUpperCase().includes(code)) {
+    return {
+      ok: false,
+      reason: `That post does not carry your code, ${code}.`,
+      handle: found.handle,
+    };
+  }
+  if (!found.handle) {
+    return { ok: false, reason: "Could not read who posted that." };
   }
 
-  if (!MENTIONS.some((pattern) => pattern.test(text))) {
-    return { ok: false, reason: "Say something about the Ronkeverse in it.", handle };
+  return { ok: true, handle: found.handle, postedAt: found.posted?.toISOString() };
+}
+
+/**
+ * A daily post. No code needed — it only has to come from the linked account,
+ * say something about the Ronkeverse, and be from today.
+ */
+export async function verifyDailyPost(
+  rawUrl: string,
+  day: number,
+  handle: string
+): Promise<PostCheck> {
+  const found = await fetchPost(rawUrl);
+  if ("error" in found) return { ok: false, reason: found.error };
+
+  if (found.handle.toLowerCase() !== handle.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `That post is from @${found.handle}, not your linked @${handle}.`,
+      handle: found.handle,
+    };
+  }
+  if (!MENTIONS.some((pattern) => pattern.test(found.text))) {
+    return { ok: false, reason: "Say something about the Ronkeverse in it.", handle: found.handle };
+  }
+  if (!isFromDay(found.posted, day)) {
+    return { ok: false, reason: "That post is not from today.", handle: found.handle };
   }
 
-  // Posts are dated to the day in oEmbed, so compare days rather than instants.
-  const posted = dateOf(html);
-  if (posted) {
-    const postedDay = Math.floor(posted.getTime() / 1000 / 86_400);
-    if (postedDay < day - 1 || postedDay > day + 1) {
-      return { ok: false, reason: "That post is not from today.", handle };
-    }
-  }
-
-  return { ok: true, handle, postedAt: posted?.toISOString() };
+  return { ok: true, handle: found.handle, postedAt: found.posted?.toISOString() };
 }

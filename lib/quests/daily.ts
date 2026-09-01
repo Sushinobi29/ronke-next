@@ -237,6 +237,8 @@ export interface QuestDef {
   dynamicTarget?: (context: QuestContext) => number | undefined;
   /** Overrides the game's default link when the quest needs a specific door. */
   link?: string;
+  /** Overrides the game's art when a quest has its own. */
+  art?: string;
   /** What the progress meter counts, for quests asking for more than one.
    *  Without it "1 / 2" leaves the player guessing whether it means rounds,
    *  tables or tokens. */
@@ -331,6 +333,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "aor-blocks",
     cost: "tokens",
+    art: "/quests/tetris.webp",
     needsLogs: true,
     target: 1,
     points: 100,
@@ -414,6 +417,7 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "aor-blocks",
     cost: "tokens",
+    art: "/quests/tetris.webp",
     needsLogs: true,
     target: 1,
     points: 125,
@@ -511,6 +515,7 @@ export const POOL: QuestDef[] = [
     tier: "bonus",
     group: "trophy",
     cost: "ron",
+    art: "/quests/pewpew-trophy.webp",
     target: 1,
     points: 550,
     progress: (s) => s.trophies,
@@ -703,7 +708,7 @@ export function scoreDay(
       value,
       done: value >= target,
       href: quest.link ?? GAME_LINKS[quest.game],
-      art: GAME_ART[quest.game],
+      art: quest.art ?? GAME_ART[quest.game],
       gameLabel: GAME_LABELS[quest.game],
     };
   });

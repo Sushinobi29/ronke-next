@@ -39,7 +39,7 @@ export async function GET(request: Request) {
       // board looks like. Connecting swaps it for the visitor's own five.
       sampleBoard: true,
       quests: questsForDay(day).map(
-        ({ id, title, task, game, points, target, cost, unit, link, needsLogs, note, dynamicTarget }) => ({
+        ({ id, title, task, game, points, target, cost, unit, link, art, needsLogs, note, dynamicTarget }) => ({
           id,
           title,
           task,
@@ -50,6 +50,7 @@ export async function GET(request: Request) {
           cost,
           unit,
           link,
+          art,
           needsLogs,
           note,
         })

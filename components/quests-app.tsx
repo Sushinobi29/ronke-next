@@ -33,6 +33,7 @@ interface BoardQuest {
   cost: CostTier;
   unit?: string;
   link?: string;
+  art?: string;
   needsLogs?: boolean;
   note?: string;
 }
@@ -102,7 +103,7 @@ const asPreview = (q: BoardQuest): ScoredQuest => ({
   value: 0,
   done: false,
   href: q.link ?? GAME_LINKS[q.game],
-  art: GAME_ART[q.game],
+  art: q.art ?? GAME_ART[q.game],
   gameLabel: GAME_LABELS[q.game],
 });
 
