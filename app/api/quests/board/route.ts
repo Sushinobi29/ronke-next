@@ -36,8 +36,11 @@ export async function GET(request: Request) {
     return NextResponse.json({
       day,
       season,
+      // No wallet here, so this is the day's shared set — a sample of what a
+      // board looks like. Connecting swaps it for the visitor's own five.
+      sampleBoard: true,
       quests: questsForDay(day).map(
-        ({ id, title, task, game, points, target, verify, cost, unit, link, needsLogs, note, dynamicTarget }) => ({
+        ({ id, title, task, game, points, target, cost, unit, link, needsLogs, note, dynamicTarget }) => ({
           id,
           title,
           task,
@@ -45,7 +48,6 @@ export async function GET(request: Request) {
           points,
           // A visitor who has not connected still sees the real threshold.
           target: dynamicTarget?.({ floorRon: today.floorRon }) ?? target,
-          verify,
           cost,
           unit,
           link,

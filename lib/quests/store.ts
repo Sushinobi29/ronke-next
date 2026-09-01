@@ -41,6 +41,19 @@ async function connect(): Promise<Sql | null> {
   `;
   await sql`create index if not exists quest_days_day_idx on quest_days (day)`;
 
+  // One verified post per wallet per day. The url is kept so a disputed
+  // clean sweep can be checked by a human later.
+  await sql`
+    create table if not exists quest_social (
+      day         integer not null,
+      address     text    not null,
+      url         text    not null,
+      handle      text,
+      verified_at timestamptz not null default now(),
+      primary key (day, address)
+    )
+  `;
+
   client = sql;
   return sql;
 }
@@ -155,5 +168,41 @@ export async function walletSeason(
     };
   } catch {
     return null;
+  }
+}
+
+/* ------------------------------------------------------------------ social */
+
+export async function recordSocial(
+  day: number,
+  address: string,
+  url: string,
+  handle?: string
+): Promise<void> {
+  const sql = await db();
+  if (!sql) return;
+  try {
+    await sql`
+      insert into quest_social (day, address, url, handle)
+      values (${day}, ${address.toLowerCase()}, ${url}, ${handle ?? null})
+      on conflict (day, address) do update
+        set url = excluded.url, handle = excluded.handle, verified_at = now()
+    `;
+  } catch {
+    // Verified but unrecorded is better than refusing the player outright.
+  }
+}
+
+/** Everyone who has had a post verified today, in one read. */
+export async function socialVerifiedOn(day: number): Promise<Set<string>> {
+  const sql = await db();
+  if (!sql) return new Set();
+  try {
+    const rows = await sql<{ address: string }[]>`
+      select address from quest_social where day = ${day}
+    `;
+    return new Set(rows.map((row) => row.address));
+  } catch {
+    return new Set();
   }
 }

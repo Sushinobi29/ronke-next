@@ -12,24 +12,20 @@ import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
 export default function QuestCard({
   quest,
   catchingUp,
-  onMarkDone,
 }: {
   quest: ScoredQuest;
   /** 0-1 when this quest's log history is still being walked back. Say so
    *  rather than showing zero, which reads as "you have not done it". */
   catchingUp?: number;
-  onMarkDone?: () => void;
 }) {
   const pct = Math.min(100, (quest.value / quest.target) * 100);
   const multi = quest.target > 1;
-  const honour = quest.verify === "honour";
 
   return (
     <a
       href={quest.href}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={honour && !quest.done ? onMarkDone : undefined}
       className={`rv-card rv-hover group flex items-center gap-4 p-4 transition-colors sm:gap-5 sm:p-5 ${
         quest.done ? "border-gold/40" : ""
       }`}
@@ -69,11 +65,6 @@ export default function QuestCard({
         {catchingUp !== undefined && !quest.done && (
           <p className="mono mt-1 text-[10px] uppercase tracking-[0.12em] text-paper">
             reading today&apos;s history · {Math.round(catchingUp * 100)}%
-          </p>
-        )}
-        {honour && (
-          <p className="mono mt-1 text-[10px] uppercase tracking-[0.12em] text-muted-3">
-            {quest.done ? "marked done · on your honour" : "tap to open · counts on your honour"}
           </p>
         )}
 

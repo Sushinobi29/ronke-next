@@ -204,7 +204,8 @@ export async function readDaily(
   spinsToday: Map<string, number> = new Map(),
   aorToday: Map<string, AorPlay> = new Map(),
   spinRonToday: Map<string, number> = new Map(),
-  salesToday: { buyer: string; ron: number }[] = []
+  salesToday: { buyer: string; ron: number }[] = [],
+  socialToday: Set<string> = new Set()
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
@@ -291,6 +292,7 @@ export async function readDaily(
     aorBlocks: labels.filter((l) => l.startsWith("blocks")).length,
     aorPinball: labels.filter((l) => l === "pinball").length,
     aorHighStakes: labels.filter((l) => l === "blocks_69").length,
+    socialVerified: socialToday.has(address.toLowerCase()),
     heldTheLine: monkesAtOpen > 0 && monkesNow >= monkesAtOpen,
     heldBarracks: openedAt(4) > 0 && word(now, 4) >= openedAt(4),
   };

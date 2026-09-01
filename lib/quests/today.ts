@@ -33,7 +33,7 @@ import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, SELECTORS } from "./contracts
 import { blockAtSecond, readDaily, readMinesWindow, type AorPlay, type MinesRound } from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
 import { dayIndex, dayStart, scoreDay } from "./daily";
-import { recordMany } from "./store";
+import { recordMany, socialVerifiedOn } from "./store";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
@@ -457,6 +457,7 @@ let building: Promise<BoardEntry[]> | null = null;
 
 async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[]> {
   const candidates = activeToday(today).slice(0, SCORE_AT_MOST);
+  const social = await socialVerifiedOn(day);
 
   const rows = await Promise.all(
     candidates.map(async (address) => {
@@ -468,9 +469,11 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           today.spins,
           today.aor,
           today.spinRon,
-          today.sales
+          today.sales,
+          social
         );
-        const score = scoreDay(stats, day, { floorRon: today.floorRon });
+        // Each wallet is scored against its own five, not a shared set.
+        const score = scoreDay(stats, day, { floorRon: today.floorRon }, address);
         return {
           address,
           points: score.total,

@@ -3,7 +3,7 @@ import { isAddress, readDaily } from "@/lib/quests/read";
 import { getToday } from "@/lib/quests/today";
 import { dayIndex, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
-import { recordDay, walletSeason } from "@/lib/quests/store";
+import { recordDay, socialVerifiedOn, walletSeason } from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Ronin did not answer: ${today.error}` }, { status: 502 });
     }
 
+    const social = await socialVerifiedOn(dayIndex());
     const stats = await readDaily(
       address.trim(),
       today.rounds,
@@ -35,12 +36,13 @@ export async function GET(request: NextRequest) {
       today.spins,
       today.aor,
       today.spinRon,
-      today.sales
+      today.sales,
+      social
     );
 
     const day = dayIndex();
-    const score = scoreDay(stats, day, { floorRon: today.floorRon });
     const wallet = address.trim().toLowerCase();
+    const score = scoreDay(stats, day, { floorRon: today.floorRon }, wallet);
 
     const season = seasonAt();
     const [seasonTotal] = await Promise.all([

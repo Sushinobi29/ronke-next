@@ -149,6 +149,8 @@ export interface DailyStats {
   aorBlocks: number;
   aorPinball: number;
   aorHighStakes: number;
+  /** A post about the Ronkeverse, verified against X today. */
+  socialVerified: boolean;
   /** Held every monke they woke up with, and woke up with at least one. */
   heldTheLine: boolean;
   /** The same, for barracks. */
@@ -177,6 +179,7 @@ export const EMPTY_DAILY: DailyStats = {
   aorBlocks: 0,
   aorPinball: 0,
   aorHighStakes: 0,
+  socialVerified: false,
   heldTheLine: false,
   heldBarracks: false,
 };
@@ -212,9 +215,6 @@ export interface QuestDef {
    *  Without it "1 / 2" leaves the player guessing whether it means rounds,
    *  tables or tokens. */
   unit?: string;
-  /** "chain" is proved by Ronin. "honour" is the player's own word — used only
-   *  for the social slot, and flagged as such on the card. */
-  verify?: "chain" | "honour";
   progress: (s: DailyStats) => number;
 }
 
@@ -223,15 +223,14 @@ export const POOL: QuestDef[] = [
   {
     id: "social.shout",
     title: "Spread the word",
-    task: "Post about the Ronkeverse on X",
+    task: "Post about the Ronkeverse on X, then paste the link",
     game: "social",
     tier: "core",
     group: "social",
     cost: "free",
     target: 1,
     points: 50,
-    verify: "honour",
-    progress: () => 0,
+    progress: (s) => (s.socialVerified ? 1 : 0),
   },
   {
     id: "hold.line",
@@ -508,6 +507,34 @@ export const POOL: QuestDef[] = [
 
 /* ------------------------------------------------------------ the daily draw */
 
+/**
+ * Every wallet gets its own five, but every wallet's five are worth the same.
+ *
+ * Randomness on its own would wreck the leaderboard: one player draws a
+ * thousand points of cheap quests while another draws two thousand of
+ * expensive ones, and their totals stop being comparable. So the draw is
+ * rejection-sampled against a fixed budget — of the 3,402 legal boards, only
+ * those landing within TOLERANCE of TARGET are accepted, which is a few
+ * hundred to choose from and a day worth the same to everyone.
+ *
+ * Points per quest stay fixed. A quest is worth what it costs to do, whoever
+ * draws it, which is what keeps the numbers on the cards meaningful.
+ */
+const TARGET_DAY = 1300;
+const TOLERANCE = 75;
+const DRAW_ATTEMPTS = 200;
+
+/** FNV-1a, so a wallet seeds its own board without pulling in a hash library. */
+function hashAddress(address: string): number {
+  let h = 0x811c9dc5;
+  const lower = address.toLowerCase();
+  for (let i = 0; i < lower.length; i++) {
+    h ^= lower.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
 /** mulberry32 — small, fast, and identical everywhere it runs. */
 function rng(seed: number) {
   let a = seed >>> 0;
@@ -563,10 +590,7 @@ export function secondsUntilReset(unix: number = Math.floor(Date.now() / 1000)):
  * one — without it a run of expensive draws would lock an empty wallet out of
  * the board entirely.
  */
-export function questsForDay(day: number = dayIndex()): QuestDef[] {
-  const next = rng(day * 2654435761);
-  const taken = new Set<string>();
-
+export function questsForDay(day: number = dayIndex(), address?: string): QuestDef[] {
   // Vote quests only exist on days a voting season covers.
   const live = voteOpenOn(day) ? POOL : POOL.filter((q) => q.game !== "vote");
 
@@ -574,11 +598,30 @@ export function questsForDay(day: number = dayIndex()): QuestDef[] {
   const cheap = live.filter((q) => q.tier === "core" && q.cost !== "free");
   const paid = live.filter((q) => q.tier === "bonus");
 
-  const chosen = [
-    ...pick(free, 1, next, taken),
-    ...pick(cheap, 2, next, taken),
-    ...pick(paid, 2, next, taken),
-  ];
+  const seed = (day * 2654435761) ^ (address ? hashAddress(address) : 0);
+  const next = rng(seed >>> 0);
+
+  const draw = () => {
+    const taken = new Set<string>();
+    return [...pick(free, 1, next, taken), ...pick(cheap, 2, next, taken), ...pick(paid, 2, next, taken)];
+  };
+
+  const worth = (set: QuestDef[]) => set.reduce((sum, q) => sum + q.points, 0);
+
+  let chosen = draw();
+  let best = Math.abs(worth(chosen) - TARGET_DAY);
+
+  // Keep drawing until a board lands on budget, remembering the closest miss
+  // so a thin pool still returns something sensible.
+  for (let i = 0; i < DRAW_ATTEMPTS && best > TOLERANCE; i++) {
+    const candidate = draw();
+    if (candidate.length < QUESTS_PER_DAY) continue;
+    const gap = Math.abs(worth(candidate) - TARGET_DAY);
+    if (gap < best) {
+      best = gap;
+      chosen = candidate;
+    }
+  }
 
   // Cheapest first, so the board reads as a ramp rather than a wall.
   const order: CostTier[] = ["free", "tokens", "ron", "big"];
@@ -616,9 +659,10 @@ export interface DailyScore {
 export function scoreDay(
   stats: DailyStats,
   day: number = dayIndex(),
-  context: QuestContext = {}
+  context: QuestContext = {},
+  address?: string
 ): DailyScore {
-  const quests = questsForDay(day).map((quest) => {
+  const quests = questsForDay(day, address).map((quest) => {
     const target = quest.dynamicTarget?.(context) ?? quest.target;
     const value = Math.min(quest.progress(stats), target);
     return {

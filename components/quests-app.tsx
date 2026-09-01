@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Loader2, RefreshCw, Trophy } from "lucide-react";
 import QuestCard from "@/components/quest-card";
+import SocialQuestCard from "@/components/social-quest-card";
 import WalletConnect from "@/components/wallet-connect";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
 import {
@@ -27,7 +28,6 @@ interface BoardQuest {
   game: QuestGame;
   points: number;
   target: number;
-  verify?: "chain" | "honour";
   cost: CostTier;
   unit?: string;
   link?: string;
@@ -120,7 +120,6 @@ export default function QuestsApp() {
   // Null until mounted: a clock rendered on the server is already stale by the
   // time the client hydrates, which React counts as a mismatch.
   const [now, setNow] = useState<number | null>(null);
-  const [honour, setHonour] = useState<string[]>([]);
   const autoLoaded = useRef<string | null>(null);
 
   useEffect(() => {
@@ -148,36 +147,6 @@ export default function QuestsApp() {
     const timer = setInterval(loadBoard, 60_000);
     return () => clearInterval(timer);
   }, [loadBoard]);
-
-  // The social slot is the player's own word, remembered per day on this
-  // device only. It never reaches the server.
-  const honourKey = board ? `ronke-quests-honour-${board.day}` : null;
-
-  useEffect(() => {
-    if (!honourKey) return;
-    try {
-      setHonour(JSON.parse(window.localStorage.getItem(honourKey) ?? "[]"));
-    } catch {
-      setHonour([]);
-    }
-  }, [honourKey]);
-
-  const markHonour = useCallback(
-    (id: string) => {
-      if (!honourKey) return;
-      setHonour((current) => {
-        if (current.includes(id)) return current;
-        const next = [...current, id];
-        try {
-          window.localStorage.setItem(honourKey, JSON.stringify(next));
-        } catch {
-          // A browser refusing storage just means it will not stick.
-        }
-        return next;
-      });
-    },
-    [honourKey]
-  );
 
   /* wallet ------------------------------------------------------------- */
 
@@ -235,29 +204,9 @@ export default function QuestsApp() {
 
   const secondsToReset = now === null ? null : 86_400 - (now % 86_400);
 
-  /** Folds the on-your-honour slot into whatever the chain reported. */
-  const applyHonour = useCallback(
-    (quests: ScoredQuest[]) =>
-      quests.map((q) =>
-        q.verify === "honour" && honour.includes(q.id)
-          ? { ...q, value: q.target, done: true }
-          : q
-      ),
-    [honour]
-  );
-
-  // Named apart from the fetcher so the memo below reads as data, not action.
   const view_ = score;
-  const effective = useMemo(() => {
-    if (!view_) return null;
-    const quests = applyHonour(view_.quests);
-    const done = quests.filter((q) => q.done).length;
-    const points = quests.filter((q) => q.done).reduce((sum, q) => sum + q.points, 0);
-    const bonus = done === QUESTS_PER_DAY ? ALL_DONE_BONUS : 0;
-    return { ...view_, quests, done, points, bonus, total: points + bonus };
-  }, [view_, applyHonour]);
-
-  const cards = effective?.quests ?? applyHonour(board?.quests.map(asPreview) ?? []);
+  const effective = view_;
+  const cards = effective?.quests ?? board?.quests.map(asPreview) ?? [];
   const season = board?.season;
   const seasonDays =
     season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
@@ -372,14 +321,22 @@ export default function QuestsApp() {
         </div>
 
         <div className="mt-3 flex flex-col gap-3">
-          {cards.map((quest) => (
-            <QuestCard
-              key={quest.id}
-              quest={quest}
-              catchingUp={logsMissing && quest.needsLogs ? logCoverage : undefined}
-              onMarkDone={() => markHonour(quest.id)}
-            />
-          ))}
+          {cards.map((quest) =>
+            quest.game === "social" ? (
+              <SocialQuestCard
+                key={quest.id}
+                quest={quest}
+                address={wallet.address ?? null}
+                onVerified={() => wallet.address && view(wallet.address, true)}
+              />
+            ) : (
+              <QuestCard
+                key={quest.id}
+                quest={quest}
+                catchingUp={logsMissing && quest.needsLogs ? logCoverage : undefined}
+              />
+            )
+          )}
           {cards.length === 0 &&
             !boardError &&
             Array.from({ length: QUESTS_PER_DAY }).map((_, i) => (
@@ -431,7 +388,8 @@ export default function QuestsApp() {
 
         {!wallet.address && cards.length > 0 && (
           <p className="mt-4 text-center text-sm text-muted-2">
-            Connect above to see how far along you already are.
+            That is today&apos;s sample board. Connect to draw your own five — everyone gets a
+            different set, all worth the same.
           </p>
         )}
       </div>
@@ -583,9 +541,10 @@ export default function QuestsApp() {
       )}
 
       <p className="mt-10 text-center text-[13px] leading-relaxed text-muted-2">
-        Everyone gets the same five quests each day, drawn from the date itself — so nobody can
-        reroll for an easier set. Progress is read live from Ronin: no sign-up, no signature, no
-        transaction.
+        Your five are drawn from your wallet and today&apos;s date, so everyone plays a different
+        board — and the draw is held to a fixed budget, so every board is worth the same. Nobody
+        can reroll for an easier one. Progress is read live from Ronin: no sign-up, no signature,
+        no transaction.
       </p>
     </div>
   );
