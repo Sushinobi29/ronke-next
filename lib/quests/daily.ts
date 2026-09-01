@@ -227,6 +227,12 @@ export interface QuestDef {
   cost: CostTier;
   /** A warning the player needs before they try, not after it fails. */
   note?: string;
+  /**
+   * A contract address the quest needs pasted somewhere. Shown in full with a
+   * copy button — a shortened address is unusable for the one thing it is for.
+   */
+  copy?: string;
+  copyLabel?: string;
   /** True when this quest is resolved from event logs rather than a balance
    *  read. Only these are affected while the day's history is being walked
    *  back — saying so on a balance-derived quest reads as "still loading" when
@@ -301,6 +307,7 @@ export const POOL: QuestDef[] = [
   },
   {
     id: "flip.one",
+    art: "/quests/coinflip.webp",
     title: "Call it in the air",
     task: "Flip a coin",
     game: "casino",
@@ -354,6 +361,7 @@ export const POOL: QuestDef[] = [
   },
   {
     id: "flip.win",
+    art: "/quests/coinflip.webp",
     title: "Called it right",
     task: "Win a coinflip",
     game: "casino",
@@ -367,6 +375,7 @@ export const POOL: QuestDef[] = [
   },
   {
     id: "flip.three",
+    art: "/quests/coinflip.webp",
     title: "Best of three",
     task: "Flip three coins",
     game: "casino",
@@ -427,7 +436,9 @@ export const POOL: QuestDef[] = [
     id: "token.ronke",
     title: "Stack the blue",
     task: `Buy at least ${MIN_BUY_RON} RON of $RONKE`,
-    note: `Paste ${TOKENS.RONKE.slice(0, 6)}…${TOKENS.RONKE.slice(-4)} into the token search`,
+    note: "Wallet Swap will not find $RONKE by name — paste the contract",
+    copy: TOKENS.RONKE,
+    copyLabel: "$RONKE contract",
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
@@ -457,6 +468,8 @@ export const POOL: QuestDef[] = [
     title: "Feed the machine",
     task: `Buy at least ${MIN_BUY_RON} RON of $RONKESTR`,
     note: "Flat 10% tax — raise slippage past 10%, or the swap reverts",
+    copy: TOKENS.RONKESTR,
+    copyLabel: "$RONKESTR contract",
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",

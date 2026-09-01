@@ -37,6 +37,8 @@ interface BoardQuest {
   art?: string;
   needsLogs?: boolean;
   note?: string;
+  copy?: string;
+  copyLabel?: string;
 }
 
 interface LeaderEntry {

@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { ArrowUpRight, Check, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Check, Copy, RefreshCw } from "lucide-react";
 import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
 
 /**
@@ -9,7 +10,9 @@ import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
  *
  * The card is a link, but the right-hand column sits outside it — a button
  * inside an anchor is invalid markup, and putting the refresh there lets it
- * share the column with the points rather than float over the card.
+ * share the column with the points rather than float over the card. A quest
+ * that needs a contract pasted somewhere gets a row of its own underneath, for
+ * the same reason.
  */
 export default function QuestCard({
   quest,
@@ -25,15 +28,28 @@ export default function QuestCard({
   onRefresh?: () => void;
   refreshing?: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
   const pct = Math.min(100, (quest.value / quest.target) * 100);
   const multi = quest.target > 1;
 
+  const copyContract = () => {
+    if (!quest.copy) return;
+    navigator.clipboard?.writeText(quest.copy).then(
+      () => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1800);
+      },
+      () => {}
+    );
+  };
+
   return (
     <div
-      className={`rv-card rv-hover group flex items-stretch transition-colors ${
+      className={`rv-card rv-hover group transition-colors ${
         quest.done ? "border-gold/40" : ""
       }`}
     >
+    <div className="flex items-stretch">
       <a
         href={quest.href}
         target="_blank"
@@ -136,6 +152,36 @@ export default function QuestCard({
           </button>
         )}
       </div>
+    </div>
+
+      {quest.copy && !quest.done && (
+        <div className="border-t border-border-soft px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+          <button
+            onClick={copyContract}
+            title="Copy the contract address"
+            className="flex w-full items-center gap-3 rounded-xl border border-border bg-card-2 px-3 py-2.5 text-left transition-colors hover:border-accent/60"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="mono block text-[10px] uppercase tracking-[0.12em] text-muted-3">
+                {quest.copyLabel ?? "Contract"}
+              </span>
+              {/* In full, and wrapping rather than truncated: this string only
+                  exists to be pasted somewhere else. */}
+              <span className="mono mt-0.5 block break-all text-[11px] leading-snug text-muted-1">
+                {quest.copy}
+              </span>
+            </span>
+            <span
+              className={`mono inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em] transition-colors ${
+                copied ? "bg-gold/15 text-gold" : "bg-card text-muted-2"
+              }`}
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copied" : "Copy"}
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
