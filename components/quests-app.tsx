@@ -185,7 +185,7 @@ export default function QuestsApp() {
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [play]);
 
   /** The button, and the safety net for anyone who never presses it. */
   const refresh = useCallback(() => {
