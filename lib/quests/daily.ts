@@ -117,14 +117,24 @@ export const GAME_LINKS: Record<QuestGame, string> = {
  * lobby — a quest that lands you a click away from what it asked for reads as
  * broken even when the scoring is right.
  */
-const swapFor = (token: string) =>
-  `https://app.roninchain.com/swap?outputCurrency=${token}&inputCurrency=RON`;
-
 export const LINKS = {
   coinflip: "https://games.ronkeverse.com",
   mines: "https://games.ronkeverse.com/mines",
-  buyRonke: swapFor(TOKENS.RONKE),
-  buyRonkestr: swapFor(TOKENS.RONKESTR),
+  /**
+   * Katana folded into Ronin Wallet, and the new swap cannot be deep-linked:
+   * tokenInId and tokenOutId are the only parameters it reads, they do not
+   * resolve a token address, and the page renders identically with no
+   * parameters at all. So it opens plain and the card carries the address to
+   * paste — searching by address finds the token immediately.
+   */
+  buyRonke: "https://wallet.roninchain.com/app/swap",
+  /**
+   * $RONKESTR goes somewhere else entirely. Its flat 10% tax breaks a swap at
+   * default slippage, and slippage is not a URL parameter either — it lives in
+   * the wallet's own settings. The strategy page has a trade button and states
+   * the tax on screen, which is the part people were missing.
+   */
+  buyRonkestr: `https://roninstrategy.fun/strategy/${TOKENS.RONKESTR}`,
 } as const;
 
 export const GAME_ART: Record<QuestGame, string> = {
@@ -413,6 +423,7 @@ export const POOL: QuestDef[] = [
     id: "token.ronke",
     title: "Stack the blue",
     task: `Buy at least ${MIN_BUY_RON} RON of $RONKE`,
+    note: `Paste ${TOKENS.RONKE.slice(0, 6)}…${TOKENS.RONKE.slice(-4)} into the token search`,
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
@@ -441,7 +452,7 @@ export const POOL: QuestDef[] = [
     id: "token.ronkestr",
     title: "Feed the machine",
     task: `Buy at least ${MIN_BUY_RON} RON of $RONKESTR`,
-    note: "Flat 10% swap tax — set slippage above 10% or the swap fails",
+    note: "Flat 10% tax — raise slippage past 10%, or the swap reverts",
     game: "ronkeverse",
     tier: "bonus",
     group: "tokens",
