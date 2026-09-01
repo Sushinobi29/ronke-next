@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Loader2, RefreshCw, Trophy } from "lucide-react";
 import QuestCard from "@/components/quest-card";
@@ -18,6 +18,7 @@ import {
   GAME_LINKS,
   QUESTS_PER_DAY,
   type QuestGame,
+  questsForDay,
   type ScoredQuest,
 } from "@/lib/quests/daily";
 import { secondsLeft, type Season } from "@/lib/quests/season";
@@ -59,6 +60,7 @@ interface SeasonRow {
 interface BoardPayload {
   day: number;
   season: Season;
+  floorRon?: number;
   quests: BoardQuest[];
   leaderboard: LeaderEntry[];
   seasonStandings: SeasonRow[];
@@ -232,9 +234,48 @@ export default function QuestsApp() {
 
   const secondsToReset = now === null ? null : 86_400 - (now % 86_400);
 
-  const view_ = score;
-  const effective = view_;
-  const cards = effective?.quests ?? board?.quests.map(asPreview) ?? [];
+  const connected = wallet.address?.toLowerCase() ?? null;
+
+  /**
+   * Everyone draws a different five, so the shared board the API hands out to
+   * a visitor with no wallet is not the board a connected wallet gets. A
+   * browser that already authorised this site resolves its wallet a moment
+   * after first paint — long enough to paint the shared five and then swap
+   * them, which reads as a glitch. So nothing is drawn until it is known
+   * which board this visitor gets, and the placeholders that were already
+   * there cover the wait.
+   *
+   * The address check also covers switching accounts: the outgoing wallet's
+   * five are somebody else's board the instant the account changes.
+   */
+  const ownBoard = score && scored?.toLowerCase() === connected ? score : null;
+
+  /**
+   * The draw is a pure function of the day and the address, so once the wallet
+   * is known the right five can be drawn here and now — no waiting on a chain
+   * read that takes seconds. Progress fills in when the score lands; the set
+   * itself never changes underneath.
+   */
+  const ownPreview = useMemo(() => {
+    if (!connected || !board) return null;
+    return questsForDay(board.day, connected).map((quest) => ({
+      ...quest,
+      target: quest.dynamicTarget?.({ floorRon: board.floorRon }) ?? quest.target,
+      value: 0,
+      done: false,
+      href: quest.link ?? GAME_LINKS[quest.game],
+      art: quest.art ?? GAME_ART[quest.game],
+      gameLabel: GAME_LABELS[quest.game],
+    }));
+  }, [connected, board]);
+
+  // Only the moment before the wallet answers is genuinely unknown, and the
+  // placeholders cover it.
+  const settling = wallet.status === "loading" || wallet.status === "connecting";
+
+  const effective = ownBoard;
+  const cards =
+    ownBoard?.quests ?? ownPreview ?? (settling ? [] : (board?.quests.map(asPreview) ?? []));
   const season = board?.season;
   const seasonDays =
     season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
