@@ -566,8 +566,28 @@ export const POOL: QuestDef[] = [
  * draws it, which is what keeps the numbers on the cards meaningful.
  */
 const TARGET_DAY = 1300;
-const TOLERANCE = 75;
+const TOLERANCE = 150;
 const DRAW_ATTEMPTS = 200;
+
+/**
+ * How the five are made up. Two paid quests is the usual board, but a single
+ * expensive one has to be allowed to stand in for both — without this, a quest
+ * worth most of a day's budget can never be drawn at all, however many
+ * attempts the sampler makes. Adopting a monke costs about a floor, and the
+ * four cheapest other quests only add up to 325, so every board containing it
+ * starts at 1,375: over the old band, every time, forever.
+ */
+const SHAPES: { cheap: number; paid: number }[] = [
+  { cheap: 2, paid: 2 },
+  { cheap: 3, paid: 1 },
+];
+
+/**
+ * The day the shapes came in. Redrawing a board people are halfway through
+ * would take quests off them that they have already been scored for, so the
+ * change waits for a reset rather than landing mid-day.
+ */
+const SHAPES_FROM_DAY = 20_698; // 2026-09-02
 
 /** FNV-1a, so a wallet seeds its own board without pulling in a hash library. */
 function hashAddress(address: string): number {
@@ -646,9 +666,21 @@ export function questsForDay(day: number = dayIndex(), address?: string): QuestD
   const seed = (day * 2654435761) ^ (address ? hashAddress(address) : 0);
   const next = rng(seed >>> 0);
 
+  // Boards before the change are drawn exactly as they were, down to the
+  // random stream: picking a shape consumes a number, so a day that has only
+  // one shape must not ask for one.
+  const shaped = day >= SHAPES_FROM_DAY;
+  const shapes = shaped ? SHAPES : SHAPES.slice(0, 1);
+  const tolerance = shaped ? TOLERANCE : 75;
+
   const draw = () => {
+    const shape = shapes.length > 1 ? shapes[Math.floor(next() * shapes.length)] : shapes[0];
     const taken = new Set<string>();
-    return [...pick(free, 1, next, taken), ...pick(cheap, 2, next, taken), ...pick(paid, 2, next, taken)];
+    return [
+      ...pick(free, 1, next, taken),
+      ...pick(cheap, shape.cheap, next, taken),
+      ...pick(paid, shape.paid, next, taken),
+    ];
   };
 
   const worth = (set: QuestDef[]) => set.reduce((sum, q) => sum + q.points, 0);
@@ -658,7 +690,7 @@ export function questsForDay(day: number = dayIndex(), address?: string): QuestD
 
   // Keep drawing until a board lands on budget, remembering the closest miss
   // so a thin pool still returns something sensible.
-  for (let i = 0; i < DRAW_ATTEMPTS && best > TOLERANCE; i++) {
+  for (let i = 0; i < DRAW_ATTEMPTS && best > tolerance; i++) {
     const candidate = draw();
     if (candidate.length < QUESTS_PER_DAY) continue;
     const gap = Math.abs(worth(candidate) - TARGET_DAY);
