@@ -10,7 +10,7 @@
  * are cached by the route handlers rather than fetched from the browser.
  */
 
-import { MULTICALL3, RONIN_RPCS, SELECTORS } from "./contracts";
+import { HAS_CUSTOM_RPC, MULTICALL3, RONIN_RPCS, SELECTORS } from "./contracts";
 
 type Call = { target: string; data: string };
 
@@ -62,12 +62,15 @@ export function fromWei(value: bigint, decimals = 18): number {
 /* -------------------------------------------------------------------- rpc */
 
 /**
- * The public Ronin node serves roughly 30 requests a second and starts
- * refusing at about 38. Everything here goes through one throttle so a wide
- * scan cannot burst past that and rate-limit the whole board — measured, not
- * guessed: bursts of 25 were clean, bursts of 50 were not.
+ * Everything goes through one throttle so a wide scan cannot rate-limit the
+ * board. The ceiling depends on which node is answering, both measured rather
+ * than guessed: the public one is clean at 25 requests and refusing by 50, so
+ * it gets 14 a second and a quota to respect behind that. A dedicated endpoint
+ * handled 120 requests at 45 a second with no failures, so it gets most of
+ * that — which is the difference between a scoring pass taking nine seconds
+ * and taking three.
  */
-const MAX_PER_SECOND = 14;
+const MAX_PER_SECOND = HAS_CUSTOM_RPC ? 35 : 14;
 const MIN_GAP_MS = 1000 / MAX_PER_SECOND;
 
 let nextSlot = 0;

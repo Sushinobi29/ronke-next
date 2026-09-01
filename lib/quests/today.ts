@@ -33,7 +33,7 @@ import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, SELECTORS } from "./contracts
 import { blockAtSecond, readDaily, readMinesWindow, type AorPlay, type MinesRound } from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
 import { dayIndex, dayStart, scoreDay } from "./daily";
-import { priorSweepStreak, recordMany, socialVerifiedOn, sweptOn } from "./store";
+import { priorSweepStreaks, recordMany, socialVerifiedOn, sweptOn } from "./store";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
@@ -468,6 +468,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
     ...new Set([...activeToday(today).slice(0, SCORE_AT_MOST), ...yesterdaySweepers]),
   ];
 
+  const streaks = await priorSweepStreaks(candidates, day);
+
   const rows = await Promise.all(
     candidates.map(async (address) => {
       try {
@@ -482,8 +484,12 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           social
         );
         // Each wallet is scored against its own five, not a shared set.
-        const priorStreak = await priorSweepStreak(address, day);
-        const score = scoreDay(stats, day, { floorRon: today.floorRon, priorStreak }, address);
+        const score = scoreDay(
+          stats,
+          day,
+          { floorRon: today.floorRon, priorStreak: streaks.get(address) ?? 0 },
+          address
+        );
         return {
           address,
           points: score.total,
@@ -507,24 +513,30 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
   return scored.sort((a, b) => b.points - a.points || b.done - a.done).slice(0, 15);
 }
 
-export async function getLeaderboard(today: TodayState): Promise<BoardEntry[]> {
+/**
+ * Standings, without making the page wait for them.
+ *
+ * Scoring sixty wallets is a hundred-odd chain reads and takes a good few
+ * seconds. Blocking the board on that means the five quests — the actual point
+ * of the page — sit behind a spinner for the first visitor of every window.
+ * So a stale or absent leaderboard is served immediately and the rebuild runs
+ * behind it; the page polls anyway, and picks it up on the next pass.
+ */
+export function getLeaderboard(today: TodayState): BoardEntry[] {
   const day = dayIndex();
-  if (cached && cached.day === day && Date.now() - cached.at < LEADERBOARD_TTL_MS) {
-    return cached.rows;
-  }
+  const fresh = cached?.day === day && Date.now() - cached.at < LEADERBOARD_TTL_MS;
 
-  building =
-    building ??
-    scoreWallets(today, day)
+  if (!fresh && !building) {
+    building = scoreWallets(today, day)
       .then((rows) => {
         cached = { day, at: Date.now(), rows };
         return rows;
       })
-      .catch(() => cached?.rows ?? []);
-
-  try {
-    return await building;
-  } finally {
-    building = null;
+      .catch(() => cached?.rows ?? [])
+      .finally(() => {
+        building = null;
+      });
   }
+
+  return cached?.day === day ? cached.rows : [];
 }

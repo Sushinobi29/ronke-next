@@ -266,3 +266,54 @@ export async function sweptOn(day: number, limit = 200): Promise<string[]> {
     return [];
   }
 }
+
+/**
+ * Prior streaks for many wallets in one query.
+ *
+ * The per-wallet version costs a round trip each, which turned a sixty-wallet
+ * scoring pass into sixty of them. One read and the counting happens here.
+ */
+export async function priorSweepStreaks(
+  addresses: string[],
+  day: number,
+  limit = 60
+): Promise<Map<string, number>> {
+  const streaks = new Map<string, number>();
+  const sql = await db();
+  if (!sql || addresses.length === 0) return streaks;
+
+  const wanted = addresses.map((a) => a.toLowerCase());
+
+  try {
+    const rows = await sql<{ address: string; day: number }[]>`
+      select address, day from quest_days
+       where address in ${sql(wanted)}
+         and bonus > 0
+         and day < ${day}
+         and day >= ${day - limit}
+       order by address, day desc
+    `;
+
+    const byWallet = new Map<string, number[]>();
+    for (const row of rows) {
+      const list = byWallet.get(row.address) ?? [];
+      list.push(row.day);
+      byWallet.set(row.address, list);
+    }
+
+    for (const address of wanted) {
+      let streak = 0;
+      let expected = day - 1;
+      for (const swept of byWallet.get(address) ?? []) {
+        if (swept !== expected) break;
+        streak += 1;
+        expected -= 1;
+      }
+      streaks.set(address, streak);
+    }
+  } catch {
+    // No streaks read means no multipliers, not a broken board.
+  }
+
+  return streaks;
+}

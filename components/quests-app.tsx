@@ -123,6 +123,8 @@ export default function QuestsApp() {
   const [logsMissing, setLogsMissing] = useState(false);
   const [logCoverage, setLogCoverage] = useState(1);
   const [tab, setTab] = useState<"today" | "season">("today");
+  /** Which card's refresh is in flight, so only that one spins. */
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
   // Null until mounted: a clock rendered on the server is already stale by the
   // time the client hydrates, which React counts as a mismatch.
   const [now, setNow] = useState<number | null>(null);
@@ -192,9 +194,11 @@ export default function QuestsApp() {
   }, [play]);
 
   /** The button, and the safety net for anyone who never presses it. */
-  const refresh = useCallback(() => {
-    loadBoard(true);
-    if (wallet.address) view(wallet.address, true);
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      loadBoard(true),
+      wallet.address ? view(wallet.address, true) : Promise.resolve(),
+    ]);
   }, [loadBoard, view, wallet.address]);
 
   useEffect(() => {
@@ -356,12 +360,17 @@ export default function QuestsApp() {
                 key={quest.id}
                 quest={quest}
                 catchingUp={logsMissing && quest.needsLogs ? logCoverage : undefined}
-                refreshing={checking}
+                refreshing={refreshingId === quest.id}
                 onRefresh={
                   wallet.address
-                    ? () => {
+                    ? async () => {
                         play("click");
-                        refresh();
+                        setRefreshingId(quest.id);
+                        try {
+                          await refresh();
+                        } finally {
+                          setRefreshingId(null);
+                        }
                       }
                     : undefined
                 }

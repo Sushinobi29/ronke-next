@@ -27,10 +27,9 @@ export async function GET(request: Request) {
     const fromDay = Math.floor(season.startsAt / 86_400);
     const toDay = Math.floor((season.endsAt - 1) / 86_400);
 
-    // Sequential, not parallel: building the leaderboard is what writes today's
-    // rows, so reading the standings alongside it races the write and the first
-    // visitor of each window sees an empty season.
-    const leaderboard = await getLeaderboard(today);
+    // The leaderboard returns what it has and refreshes behind the response,
+    // so the five quests never wait on a scoring pass.
+    const leaderboard = getLeaderboard(today);
     const standings = await seasonStandings(fromDay, toDay);
 
     return NextResponse.json({

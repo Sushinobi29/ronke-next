@@ -10,7 +10,9 @@ import { useCallback, useEffect, useRef } from "react";
  * would mean explaining the difference.
  *
  * Every slot is optional: a name whose file is not there yet simply does
- * nothing, so cues can be wired before the audio exists.
+ * nothing, so cues can be wired before the audio exists. A failure is retried
+ * a couple of times before the slot is given up on, because a dev server
+ * restarting mid-session should not silence a sound for good.
  */
 
 export type SoundName = "questComplete" | "sweep" | "click" | "error" | "connect";
@@ -44,7 +46,7 @@ export function soundEnabled(): boolean {
 
 export function useSounds() {
   const cache = useRef(new Map<SoundName, HTMLAudioElement>());
-  const missing = useRef(new Set<SoundName>());
+  const failures = useRef(new Map<SoundName, number>());
 
   useEffect(() => {
     const pool = cache.current;
@@ -55,19 +57,32 @@ export function useSounds() {
   }, []);
 
   return useCallback((name: SoundName) => {
-    if (typeof window === "undefined" || !soundEnabled() || missing.current.has(name)) return;
+    if (typeof window === "undefined" || !soundEnabled()) return;
+    if ((failures.current.get(name) ?? 0) >= 3) return;
 
     let element = cache.current.get(name);
     if (!element) {
       element = new Audio(FILES[name]);
       element.preload = "auto";
-      // A slot with no file yet should stay silent rather than retry forever.
-      element.addEventListener("error", () => missing.current.add(name), { once: true });
+      element.addEventListener(
+        "error",
+        () => {
+          failures.current.set(name, (failures.current.get(name) ?? 0) + 1);
+          // Drop the broken element so the next attempt starts a fresh load
+          // rather than replaying a element stuck in an error state.
+          cache.current.delete(name);
+        },
+        { once: true }
+      );
       cache.current.set(name, element);
     }
 
     element.volume = LEVELS[name];
-    element.currentTime = 0;
+    try {
+      element.currentTime = 0;
+    } catch {
+      // Not seekable yet; playing from wherever it is beats not playing.
+    }
     // Overlapping cues are fine; a rejected play just means no sound.
     void element.play().catch(() => {});
   }, []);

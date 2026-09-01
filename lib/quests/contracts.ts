@@ -30,6 +30,9 @@ export const RONIN_RPCS: string[] = (process.env.RONIN_RPC_URL ?? "")
   .concat("https://api.roninchain.com/rpc");
 
 export const RONIN_RPC = RONIN_RPCS[0];
+
+/** True when something better than the public node is configured. */
+export const HAS_CUSTOM_RPC = RONIN_RPCS.length > 1;
 export const MULTICALL3 = "0xca11bde05977b3631167028862be2a173976ca11";
 
 /** Tokens and collections the quests read balances from. */
