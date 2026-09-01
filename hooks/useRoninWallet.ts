@@ -9,8 +9,10 @@ import {
 
 /**
  * Ronin wallet connection, on the same connector kit the casino front-end uses
- * (@sky-mavis/tanto-connect). Connecting is a read-only handshake — the quest
- * board never asks for a signature and never builds a transaction.
+ * (@sky-mavis/tanto-connect). Connecting is a read-only handshake, and nothing
+ * here ever builds a transaction. The one signature the site asks for is on
+ * the admin panel, where writing the season's prizes has to be proved rather
+ * than claimed.
  */
 
 export const RONIN_CHAIN_ID = 2020;
@@ -31,6 +33,8 @@ export interface RoninWallet {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   switchToRonin: () => Promise<void>;
+  /** personal_sign. Costs nothing and moves nothing — it only proves a key. */
+  sign: (message: string) => Promise<string>;
 }
 
 export function useRoninWallet(): RoninWallet {
@@ -125,5 +129,21 @@ export function useRoninWallet(): RoninWallet {
     }
   }, []);
 
-  return { status, address, chainId, error, connect, disconnect, switchToRonin };
+  const sign = useCallback(
+    async (message: string) => {
+      if (!address) throw new Error("Connect a wallet first.");
+      const connector = await getConnector();
+      const provider = await connector.requestProvider();
+      const hex = Array.from(new TextEncoder().encode(message))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+      return provider.request<string>({
+        method: "personal_sign",
+        params: [`0x${hex}`, address],
+      });
+    },
+    [getConnector, address]
+  );
+
+  return { status, address, chainId, error, connect, disconnect, switchToRonin, sign };
 }

@@ -13,6 +13,7 @@
  */
 
 import type { Sql } from "postgres";
+import type { RewardsConfig } from "@/lib/quests/rewards";
 
 let client: Sql | null = null;
 let ready: Promise<Sql | null> | null = null;
@@ -43,6 +44,17 @@ async function connect(): Promise<Sql | null> {
 
   // One X account per wallet, and one wallet per X account — without the
   // second half, a single account could sign up every wallet on the board.
+  // One row per season. The pool is small, hand-written and read on every
+  // board load, so it lives as a document rather than a row per prize.
+  await sql`
+    create table if not exists quest_rewards (
+      season      integer primary key,
+      config      jsonb not null,
+      updated_by  text not null,
+      updated_at  timestamptz not null default now()
+    )
+  `;
+
   await sql`
     create table if not exists quest_x_links (
       address     text primary key,
@@ -378,6 +390,54 @@ export async function linkHandle(
         set handle = excluded.handle,
             proof_url = excluded.proof_url,
             linked_at = now()
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ----------------------------------------------------------------- rewards */
+
+export interface StoredRewards {
+  config: RewardsConfig;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export async function readRewards(season: number): Promise<StoredRewards | null> {
+  const sql = await db();
+  if (!sql) return null;
+  try {
+    const [row] = await sql<{ config: RewardsConfig; updated_by: string; updated_at: Date }[]>`
+      select config, updated_by, updated_at from quest_rewards where season = ${season}
+    `;
+    if (!row) return null;
+    return {
+      config: row.config,
+      updatedBy: row.updated_by,
+      updatedAt: row.updated_at.toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function writeRewards(
+  season: number,
+  config: RewardsConfig,
+  updatedBy: string
+): Promise<boolean> {
+  const sql = await db();
+  if (!sql) return false;
+  try {
+    await sql`
+      insert into quest_rewards (season, config, updated_by)
+      values (${season}, ${sql.json(config as unknown as never)}, ${updatedBy.toLowerCase()})
+      on conflict (season) do update
+        set config = excluded.config,
+            updated_by = excluded.updated_by,
+            updated_at = now()
     `;
     return true;
   } catch {

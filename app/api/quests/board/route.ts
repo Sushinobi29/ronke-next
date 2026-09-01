@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getLeaderboard, getToday } from "@/lib/quests/today";
 import { dayIndex, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
-import { hasStore, seasonStandings } from "@/lib/quests/store";
+import { hasStore, readRewards, seasonStandings } from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,10 @@ export async function GET(request: Request) {
     // The leaderboard returns what it has and refreshes behind the response,
     // so the five quests never wait on a scoring pass.
     const leaderboard = getLeaderboard(today);
-    const standings = await seasonStandings(fromDay, toDay);
+    const [standings, rewards] = await Promise.all([
+      seasonStandings(fromDay, toDay),
+      readRewards(season.number),
+    ]);
 
     return NextResponse.json({
       day,
@@ -58,6 +61,12 @@ export async function GET(request: Request) {
       floorRon: today.floorRon,
       leaderboard,
       seasonStandings: standings,
+      // What is up for the season, and nothing about who gets what: a
+      // wallet's share moves every time anybody plays, so quoting one would
+      // be quoting a number that is wrong by the time it is read.
+      rewards: rewards?.config.published
+        ? { items: rewards.config.items, note: rewards.config.note }
+        : null,
       seasonPersisted: hasStore(),
       roundsToday: today.rounds.length,
       playersToday: players.size,

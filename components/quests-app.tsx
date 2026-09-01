@@ -6,6 +6,7 @@ import { Loader2, RefreshCw, Trophy } from "lucide-react";
 import QuestCard from "@/components/quest-card";
 import SocialQuestCard from "@/components/social-quest-card";
 import WalletConnect from "@/components/wallet-connect";
+import { describeItem, formatAmount, type RewardItem } from "@/lib/quests/rewards";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
 import { useSounds } from "@/hooks/useSounds";
 import {
@@ -59,6 +60,7 @@ interface BoardPayload {
   quests: BoardQuest[];
   leaderboard: LeaderEntry[];
   seasonStandings: SeasonRow[];
+  rewards: { items: RewardItem[]; note: string } | null;
   seasonPersisted: boolean;
   roundsToday: number;
   playersToday: number;
@@ -446,6 +448,37 @@ export default function QuestsApp() {
           </p>
         )}
       </div>
+
+      {/* -------------------------------------------------------- rewards */}
+      {board?.rewards && board.rewards.items.length > 0 && (
+        <div className="rv-card mt-10 border-gold/40 p-5">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-gold" />
+            <h2 className="mono text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
+              {season?.name ?? "Season"} rewards
+            </h2>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {board.rewards.items.map((item) => (
+              <div key={item.id} className="rounded-xl border border-border bg-card-2 p-4">
+                <div className="text-xl font-bold tracking-tight text-gold">
+                  {formatAmount(item.amount, item.precision)}{" "}
+                  <span className="text-base text-foreground">{item.label}</span>
+                </div>
+                <div className="mono mt-1 text-[11px] uppercase tracking-[0.1em] text-muted-3">
+                  {describeItem(item)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-4 text-[13px] text-muted-1">
+            {board.rewards.note ||
+              "Split down the season leaderboard when it closes. Climb it and the share follows."}
+          </p>
+        </div>
+      )}
 
       {/* ---------------------------------------------------- leaderboard */}
       <div className="rv-card mt-10 overflow-hidden">
