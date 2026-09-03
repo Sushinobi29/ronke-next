@@ -7,7 +7,6 @@ import QuestCard from "@/components/quest-card";
 import SocialQuestCard from "@/components/social-quest-card";
 import WalletConnect from "@/components/wallet-connect";
 import { describeItem, formatAmount, type RewardItem } from "@/lib/quests/rewards";
-import { applyAll, type QuestOverrides } from "@/lib/quests/overrides";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
 import { useSounds } from "@/hooks/useSounds";
 import {
@@ -18,9 +17,12 @@ import {
   GAME_LABELS,
   GAME_LINKS,
   QUESTS_PER_DAY,
+  type QuestDef,
   type QuestGame,
+  needsLogs,
   pointsFor,
   questsForDay,
+  targetFor,
   type ScoredQuest,
 } from "@/lib/quests/daily";
 import { secondsLeft, type Season } from "@/lib/quests/season";
@@ -67,7 +69,7 @@ interface BoardPayload {
   leaderboard: LeaderEntry[];
   seasonStandings: SeasonRow[];
   rewards: { items: RewardItem[]; note: string } | null;
-  overrides?: QuestOverrides;
+  pool?: QuestDef[];
   seasonPersisted: boolean;
   roundsToday: number;
   playersToday: number;
@@ -108,7 +110,8 @@ const asPreview = (q: BoardQuest): ScoredQuest => ({
   ...q,
   tier: "core",
   group: q.id,
-  progress: () => 0,
+  metric: "",
+  needsLogs: q.needsLogs ?? false,
   value: 0,
   done: false,
   href: q.link ?? GAME_LINKS[q.game],
@@ -262,11 +265,12 @@ export default function QuestsApp() {
   const ownPreview = useMemo(() => {
     if (!connected || !board) return null;
     const context = { floorRon: board.floorRon };
-    // Same pure draw as the server, with the same editable wording laid over it.
-    return applyAll(questsForDay(board.day, connected), board.overrides ?? {}).map((quest) => ({
+    // Same pure draw as the server, from the same day's pool.
+    return questsForDay(board.day, connected, board.pool).map((quest) => ({
       ...quest,
-      target: quest.dynamicTarget?.(context) ?? quest.target,
+      target: targetFor(quest, context),
       points: pointsFor(quest, context),
+      needsLogs: needsLogs(quest),
       value: 0,
       done: false,
       href: quest.link ?? GAME_LINKS[quest.game],

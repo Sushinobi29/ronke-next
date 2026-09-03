@@ -12,6 +12,7 @@
  */
 
 import { TOKENS } from "./contracts";
+import { metric as metricFor, readMetric } from "@/lib/quests/metrics";
 
 export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
@@ -263,16 +264,17 @@ export interface QuestDef {
    */
   copy?: string;
   copyLabel?: string;
-  /** True when this quest is resolved from event logs rather than a balance
-   *  read. Only these are affected while the day's history is being walked
-   *  back — saying so on a balance-derived quest reads as "still loading" when
-   *  the answer was already final. */
-  needsLogs?: boolean;
-  /** Some thresholds move with the market — the monke floor does. Returning
-   *  undefined keeps the static target. */
-  dynamicTarget?: (context: QuestContext) => number | undefined;
-  /** And where the threshold moves, what it is worth moves with it. */
-  dynamicPoints?: (context: QuestContext) => number | undefined;
+  /**
+   * Threshold and points track the monke floor rather than sitting still: a
+   * monke has to cost near what a monke costs, and be worth near what that
+   * costs. Read once a day and held — see pointsFor and targetFor.
+   */
+  floorLinked?: boolean;
+  /**
+   * Retired quests stay in the pool so past days still score, and are never
+   * drawn again. Removing one outright would silently rewrite history.
+   */
+  retired?: boolean;
   /** Social quests only: what the post actually has to say. */
   ask?: SocialAsk;
   /** Overrides the game's default link when the quest needs a specific door. */
@@ -283,10 +285,36 @@ export interface QuestDef {
    *  Without it "1 / 2" leaves the player guessing whether it means rounds,
    *  tables or tokens. */
   unit?: string;
-  progress: (s: DailyStats) => number;
+  /**
+   * Which reading answers it, by name — see lib/quests/metrics.ts. A name
+   * rather than a function is what lets a quest be stored, edited and added
+   * without a deploy.
+   */
+  metric: string;
 }
 
-export const POOL: QuestDef[] = [
+/**
+ * Read from event logs rather than a balance, so it is still catching up
+ * early in the day. Inherited from the metric, because that is where it is
+ * true — a quest cannot get it wrong by forgetting to say so.
+ */
+export const needsLogs = (quest: QuestDef): boolean =>
+  Boolean(metricFor(quest.metric)?.needsLogs);
+
+/** What this quest asks for today. The floor moves; most targets do not. */
+export function targetFor(quest: QuestDef, context: QuestContext = {}): number {
+  if (quest.floorLinked && context.floorRon) {
+    return Math.max(1, Math.round(context.floorRon * MIN_BUY_FLOOR_SHARE));
+  }
+  return quest.target;
+}
+
+/**
+ * The quests the code ships with. This is the starting pool and the fallback:
+ * an admin's edits are a dated snapshot laid over it, and with no database
+ * this is the whole board.
+ */
+export const BASE_POOL: QuestDef[] = [
   // ---- free: costs nothing but showing up ----
   {
     id: "social.shout",
@@ -303,7 +331,7 @@ export const POOL: QuestDef[] = [
     cost: "free",
     target: 1,
     points: 50,
-    progress: (s) => (s.socialVerified ? 1 : 0),
+    metric: "socialVerified",
   },
   {
     id: "hold.line",
@@ -315,7 +343,7 @@ export const POOL: QuestDef[] = [
     cost: "free",
     target: 1,
     points: 50,
-    progress: (s) => (s.heldTheLine ? 1 : 0),
+    metric: "heldTheLine",
   },
   {
     id: "vote.cast",
@@ -327,7 +355,7 @@ export const POOL: QuestDef[] = [
     cost: "free",
     target: 1,
     points: 75,
-    progress: (s) => s.votes,
+    metric: "votes",
   },
 
   // ---- a few tokens: Genka's games and a single round at the casino ----
@@ -339,10 +367,9 @@ export const POOL: QuestDef[] = [
     tier: "core",
     group: "aor-pinball",
     cost: "tokens",
-    needsLogs: true,
     target: 1,
     points: 75,
-    progress: (s) => s.aorPinball,
+    metric: "aorPinball",
   },
   {
     id: "flip.one",
@@ -356,7 +383,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.coinflip,
     target: 1,
     points: 100,
-    progress: (s) => s.flips,
+    metric: "flips",
   },
   {
     id: "mines.one",
@@ -369,7 +396,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.mines,
     target: 1,
     points: 100,
-    progress: (s) => s.minesRounds,
+    metric: "minesRounds",
   },
   {
     id: "aor.blocks",
@@ -380,10 +407,9 @@ export const POOL: QuestDef[] = [
     group: "aor-blocks",
     cost: "tokens",
     art: "/quests/tetris.webp",
-    needsLogs: true,
     target: 1,
     points: 100,
-    progress: (s) => s.aorBlocks,
+    metric: "aorBlocks",
   },
   {
     id: "mines.cashout",
@@ -396,7 +422,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.mines,
     target: 1,
     points: 150,
-    progress: (s) => s.minesCashouts,
+    metric: "minesCashouts",
   },
   {
     id: "flip.win",
@@ -410,7 +436,7 @@ export const POOL: QuestDef[] = [
     link: LINKS.coinflip,
     target: 1,
     points: 150,
-    progress: (s) => s.flipWins,
+    metric: "flipWins",
   },
   {
     id: "flip.three",
@@ -425,7 +451,7 @@ export const POOL: QuestDef[] = [
     target: 3,
     unit: "flips",
     points: 175,
-    progress: (s) => s.flips,
+    metric: "flips",
   },
   {
     id: "mines.three",
@@ -439,7 +465,7 @@ export const POOL: QuestDef[] = [
     target: 3,
     unit: "rounds",
     points: 175,
-    progress: (s) => s.minesRounds,
+    metric: "minesRounds",
   },
   {
     id: "mines.tables",
@@ -453,7 +479,7 @@ export const POOL: QuestDef[] = [
     target: 2,
     unit: "tokens",
     points: 175,
-    progress: (s) => s.minesTables,
+    metric: "minesTables",
   },
 
   // ---- costs RON: a real, unrefundable outlay ----
@@ -466,10 +492,9 @@ export const POOL: QuestDef[] = [
     group: "aor-blocks",
     cost: "tokens",
     art: "/quests/tetris.webp",
-    needsLogs: true,
     target: 1,
     points: 125,
-    progress: (s) => s.aorHighStakes,
+    metric: "aorHighStakes",
   },
   {
     id: "token.ronke",
@@ -486,7 +511,7 @@ export const POOL: QuestDef[] = [
     target: MIN_BUY_RON,
     unit: "RON",
     points: 600,
-    progress: (s) => Math.floor(s.ronkeRon),
+    metric: "ronkeRon",
   },
   {
     id: "mines.stake",
@@ -500,7 +525,7 @@ export const POOL: QuestDef[] = [
     target: 10,
     unit: "RON",
     points: 225,
-    progress: (s) => Math.floor(s.minesStakedRon),
+    metric: "minesStakedRon",
   },
   {
     id: "token.ronkestr",
@@ -517,7 +542,7 @@ export const POOL: QuestDef[] = [
     target: MIN_BUY_RON,
     unit: "RON",
     points: 650,
-    progress: (s) => Math.floor(s.ronkestrRon),
+    metric: "ronkestrRon",
   },
   {
     id: "gacha.spin",
@@ -527,11 +552,10 @@ export const POOL: QuestDef[] = [
     tier: "bonus",
     group: "spin",
     cost: "ron",
-    needsLogs: true,
     target: MIN_SPIN_RON,
     unit: "RON",
     points: 500,
-    progress: (s) => Math.floor(s.spinRon),
+    metric: "spinRon",
   },
   {
     id: "barracks.take",
@@ -543,7 +567,7 @@ export const POOL: QuestDef[] = [
     cost: "ron",
     target: 1,
     points: 400,
-    progress: (s) => s.barracks,
+    metric: "barracks",
   },
   {
     id: "vote.found",
@@ -555,7 +579,7 @@ export const POOL: QuestDef[] = [
     cost: "ron",
     target: 1,
     points: 225,
-    progress: (s) => s.citizens,
+    metric: "citizens",
   },
 
   // ---- big ticket: the ones that move real money ----
@@ -570,7 +594,7 @@ export const POOL: QuestDef[] = [
     art: "/quests/pewpew-trophy.webp",
     target: 1,
     points: 550,
-    progress: (s) => s.trophies,
+    metric: "trophies",
   },
   {
     id: "monke.adopt",
@@ -582,12 +606,9 @@ export const POOL: QuestDef[] = [
     cost: "big",
     target: 320,
     unit: "RON",
-    dynamicTarget: ({ floorRon }) =>
-      floorRon ? Math.max(1, Math.round(floorRon * MIN_BUY_FLOOR_SHARE)) : undefined,
-    dynamicPoints: ({ floorRon }) =>
-      floorRon ? pointsForRon(floorRon * MIN_BUY_FLOOR_SHARE) : undefined,
+    floorLinked: true,
     points: 1050,
-    progress: (s) => Math.floor(s.monkeRon),
+    metric: "monkeRon",
   },
 ];
 
@@ -696,9 +717,25 @@ export function secondsUntilReset(unix: number = Math.floor(Date.now() / 1000)):
  * one — without it a run of expensive draws would lock an empty wallet out of
  * the board entirely.
  */
-export function questsForDay(day: number = dayIndex(), address?: string): QuestDef[] {
-  // Vote quests only exist on days a voting season covers.
-  const live = voteOpenOn(day) ? POOL : POOL.filter((q) => q.game !== "vote");
+/**
+ * Whether a quest is in play on a given day at all. Retired quests are kept so
+ * past days still score but are never drawn again; vote quests only exist on
+ * days a voting season covers. One function, so the draw and the fairness
+ * report can never disagree about what is eligible — a quest that is merely
+ * out of season is not a quest that is priced out of reach.
+ */
+export function drawableOn(quest: QuestDef, day: number): boolean {
+  if (quest.retired) return false;
+  if (quest.game === "vote" && !voteOpenOn(day)) return false;
+  return true;
+}
+
+export function questsForDay(
+  day: number = dayIndex(),
+  address?: string,
+  pool: QuestDef[] = BASE_POOL
+): QuestDef[] {
+  const live = pool.filter((quest) => drawableOn(quest, day));
 
   const free = live.filter((q) => q.cost === "free");
   const cheap = live.filter((q) => q.tier === "core" && q.cost !== "free");
@@ -754,8 +791,8 @@ export function questsForDay(day: number = dayIndex(), address?: string): QuestD
  * against the fixed number and cannot see the market.
  */
 export function pointsFor(quest: QuestDef, context: QuestContext = {}): number {
-  const moved = quest.dynamicPoints?.(context);
-  if (moved === undefined) return quest.points;
+  if (!quest.floorLinked || !context.floorRon) return quest.points;
+  const moved = pointsForRon(context.floorRon * MIN_BUY_FLOOR_SHARE);
   const band = quest.points * DYNAMIC_POINTS_BAND;
   return Math.min(
     Math.round(quest.points + band),
@@ -776,6 +813,8 @@ export interface ScoredQuest extends QuestDef {
   href: string;
   art: string;
   gameLabel: string;
+  /** Resolved from the metric, so a card never has to work it out. */
+  needsLogs: boolean;
 }
 
 export interface DailyScore {
@@ -798,17 +837,19 @@ export function scoreDay(
   stats: DailyStats,
   day: number = dayIndex(),
   context: QuestContext = {},
-  address?: string
+  address?: string,
+  pool: QuestDef[] = BASE_POOL
 ): DailyScore {
-  const quests = questsForDay(day, address).map((quest) => {
-    const target = quest.dynamicTarget?.(context) ?? quest.target;
-    const value = Math.min(quest.progress(stats), target);
+  const quests = questsForDay(day, address, pool).map((quest) => {
+    const target = targetFor(quest, context);
+    const value = Math.min(readMetric(quest.metric, stats), target);
     return {
       ...quest,
       target,
       value,
       done: value >= target,
       points: pointsFor(quest, context),
+      needsLogs: needsLogs(quest),
       href: quest.link ?? GAME_LINKS[quest.game],
       art: quest.art ?? GAME_ART[quest.game],
       gameLabel: GAME_LABELS[quest.game],

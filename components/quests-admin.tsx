@@ -13,7 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
-import QuestsAdminCopy from "@/components/quests-admin-copy";
+import QuestsAdminPool from "@/components/quests-admin-pool";
 import type { Season } from "@/lib/quests/season";
 import {
   adminMessage,
@@ -76,7 +76,7 @@ export default function QuestsAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [pane, setPane] = useState<"rewards" | "wording">("rewards");
+  const [pane, setPane] = useState<"rewards" | "quests">("rewards");
 
   useEffect(() => {
     if (!address) {
@@ -258,7 +258,7 @@ export default function QuestsAdmin() {
         {(
           [
             ["rewards", "Season rewards"],
-            ["wording", "Quest wording"],
+            ["quests", "Quests"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -273,8 +273,8 @@ export default function QuestsAdmin() {
         ))}
       </div>
 
-      {pane === "wording" ? (
-        <QuestsAdminCopy wallet={wallet} />
+      {pane === "quests" ? (
+        <QuestsAdminPool wallet={wallet} />
       ) : (
         <>
       <div className="flex flex-wrap items-end justify-between gap-4">

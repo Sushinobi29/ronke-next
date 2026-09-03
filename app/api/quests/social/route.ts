@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
-import { applyPatch } from "@/lib/quests/overrides";
+import { poolOnDay } from "@/lib/quests/pool";
 import { dailyCode, signupIntent, verifyDailyPost, verifySignup } from "@/lib/quests/social";
 import { dayIndex, questsForDay, type SocialAsk } from "@/lib/quests/daily";
 import {
@@ -8,7 +8,7 @@ import {
   hasStore,
   linkHandle,
   linkedHandle,
-  readOverrides,
+  readPools,
   recordSocial,
   socialVerifiedOn,
 } from "@/lib/quests/store";
@@ -45,11 +45,10 @@ export async function GET(request: NextRequest) {
 
 /** The social quest on this wallet's board today, if it drew one. */
 async function socialQuestFor(day: number, wallet: string) {
-  const drawn = questsForDay(day, wallet).find((quest) => quest.game === "social");
-  if (!drawn) return undefined;
-  // The ask is editable, and the checker has to use the words the player was
-  // actually shown.
-  return applyPatch(drawn, (await readOverrides())[drawn.id]);
+  const pool = poolOnDay(day, await readPools());
+  // The pool carries the ask, so the checker uses the words the player was
+  // actually shown on the day they were shown them.
+  return questsForDay(day, wallet, pool).find((quest) => quest.game === "social");
 }
 
 /**

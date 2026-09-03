@@ -14,7 +14,7 @@
 
 import type { Sql } from "postgres";
 import type { RewardsConfig } from "@/lib/quests/rewards";
-import type { QuestOverrides, QuestPatch } from "@/lib/quests/overrides";
+import type { QuestDef } from "@/lib/quests/daily";
 
 let client: Sql | null = null;
 let ready: Promise<Sql | null> | null = null;
@@ -45,14 +45,15 @@ async function connect(): Promise<Sql | null> {
 
   // One X account per wallet, and one wallet per X account — without the
   // second half, a single account could sign up every wallet on the board.
-  // Quest wording, one row per quest. Only quests that have been edited get a
-  // row, so an untouched board costs nothing to read.
+  // The quest pool, as dated snapshots. A row is the whole pool in force from
+  // a given day, so a day's board is settled the moment that day starts and
+  // an edit can never rewrite what yesterday's five were.
   await sql`
-    create table if not exists quest_copy (
-      quest_id    text primary key,
-      patch       jsonb not null,
-      updated_by  text not null,
-      updated_at  timestamptz not null default now()
+    create table if not exists quest_pool (
+      effective_from integer primary key,
+      pool           jsonb not null,
+      updated_by     text not null,
+      updated_at     timestamptz not null default now()
     )
   `;
 
@@ -457,48 +458,65 @@ export async function writeRewards(
   }
 }
 
-/* --------------------------------------------------------- quest wording */
 
-export async function readOverrides(): Promise<QuestOverrides> {
+/* ------------------------------------------------------------- the pool */
+
+export interface PoolSnapshot {
+  from: number;
+  pool: QuestDef[];
+  updatedBy: string;
+  updatedAt: string;
+}
+
+/**
+ * Every snapshot, newest first. There are a handful at most — one per change
+ * an admin has ever made — so reading them all is cheaper than working out
+ * which one applies in SQL, and it lets a season recompute score past days
+ * against the pool those days actually ran on.
+ */
+export async function readPools(): Promise<PoolSnapshot[]> {
   const sql = await db();
-  if (!sql) return {};
+  if (!sql) return [];
   try {
-    const rows = await sql<{ quest_id: string; patch: QuestPatch }[]>`
-      select quest_id, patch from quest_copy
+    const rows = await sql<
+      { effective_from: number; pool: QuestDef[]; updated_by: string; updated_at: Date }[]
+    >`
+      select effective_from, pool, updated_by, updated_at
+        from quest_pool
+       order by effective_from desc
     `;
-    return Object.fromEntries(rows.map((row) => [row.quest_id, row.patch]));
+    return rows.map((row) => ({
+      from: row.effective_from,
+      pool: row.pool,
+      updatedBy: row.updated_by,
+      updatedAt: row.updated_at.toISOString(),
+    }));
   } catch {
-    return {};
+    return [];
   }
 }
 
 /**
- * The whole set at once. A quest missing from the payload has been reset to
- * what the code says, so the row goes rather than lingering as a ghost edit.
+ * Writes the pool in force from a day. Days that have already begun are
+ * refused outright rather than clamped: a caller asking to rewrite a scored
+ * day has misunderstood something, and silently moving the date would hide it.
  */
-export async function writeOverrides(
-  overrides: QuestOverrides,
+export async function writePool(
+  effectiveFrom: number,
+  pool: QuestDef[],
   updatedBy: string
 ): Promise<boolean> {
   const sql = await db();
   if (!sql) return false;
-  const ids = Object.keys(overrides);
   try {
-    await sql.begin(async (tx) => {
-      if (ids.length) await tx`delete from quest_copy where quest_id != all(${ids})`;
-      else await tx`delete from quest_copy`;
-
-      for (const [id, patch] of Object.entries(overrides)) {
-        await tx`
-          insert into quest_copy (quest_id, patch, updated_by)
-          values (${id}, ${tx.json(patch as unknown as never)}, ${updatedBy.toLowerCase()})
-          on conflict (quest_id) do update
-            set patch = excluded.patch,
-                updated_by = excluded.updated_by,
-                updated_at = now()
-        `;
-      }
-    });
+    await sql`
+      insert into quest_pool (effective_from, pool, updated_by)
+      values (${effectiveFrom}, ${sql.json(pool as unknown as never)}, ${updatedBy.toLowerCase()})
+      on conflict (effective_from) do update
+        set pool = excluded.pool,
+            updated_by = excluded.updated_by,
+            updated_at = now()
+    `;
     return true;
   } catch {
     return false;

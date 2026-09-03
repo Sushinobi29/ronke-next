@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import { getLeaderboard, getToday } from "@/lib/quests/today";
-import { dayIndex, pointsFor, questsForDay, secondsUntilReset } from "@/lib/quests/daily";
-import { applyAll } from "@/lib/quests/overrides";
+import {
+  dayIndex,
+  needsLogs,
+  pointsFor,
+  questsForDay,
+  secondsUntilReset,
+  targetFor,
+} from "@/lib/quests/daily";
+import { poolOnDay } from "@/lib/quests/pool";
 import { seasonAt } from "@/lib/quests/season";
-import { hasStore, readOverrides, readRewards, seasonStandings } from "@/lib/quests/store";
+import {
+  hasStore,
+  readPools,
+  readRewards,
+  seasonStandings,
+} from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +43,12 @@ export async function GET(request: Request) {
     // The leaderboard returns what it has and refreshes behind the response,
     // so the five quests never wait on a scoring pass.
     const leaderboard = getLeaderboard(today);
-    const [standings, rewards, overrides] = await Promise.all([
+    const [standings, rewards, snapshots] = await Promise.all([
       seasonStandings(fromDay, toDay),
       readRewards(season.number),
-      readOverrides(),
+      readPools(),
     ]);
+    const pool = poolOnDay(day, snapshots);
 
     return NextResponse.json({
       day,
@@ -43,8 +56,8 @@ export async function GET(request: Request) {
       // No wallet here, so this is the day's shared set — a sample of what a
       // board looks like. Connecting swaps it for the visitor's own five.
       sampleBoard: true,
-      quests: applyAll(questsForDay(day), overrides).map((quest) => {
-        const { id, title, task, game, target, cost, unit, link, art, needsLogs, note, copy, copyLabel, dynamicTarget } = quest;
+      quests: questsForDay(day, undefined, pool).map((quest) => {
+        const { id, title, task, game, cost, unit, link, art, note, copy, copyLabel } = quest;
         return {
           id,
           title,
@@ -53,12 +66,12 @@ export async function GET(request: Request) {
           // Priced off the day's floor, the same as a connected wallet's board.
           points: pointsFor(quest, { floorRon: today.floorRon }),
           // A visitor who has not connected still sees the real threshold.
-          target: dynamicTarget?.({ floorRon: today.floorRon }) ?? target,
+          target: targetFor(quest, { floorRon: today.floorRon }),
           cost,
           unit,
           link,
           art,
-          needsLogs,
+          needsLogs: needsLogs(quest),
           note,
           copy,
           copyLabel,
@@ -66,8 +79,8 @@ export async function GET(request: Request) {
       }),
       floorRon: today.floorRon,
       // The client draws its own board from the same pure function, so it
-      // needs the same wording to lay over it.
-      overrides,
+      // needs the same day's pool to draw from.
+      pool,
       leaderboard,
       seasonStandings: standings,
       // What is up for the season, and nothing about who gets what: a
