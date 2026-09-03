@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
+import { applyPatch } from "@/lib/quests/overrides";
 import { dailyCode, signupIntent, verifyDailyPost, verifySignup } from "@/lib/quests/social";
-import { dayIndex } from "@/lib/quests/daily";
+import { dayIndex, questsForDay, type SocialAsk } from "@/lib/quests/daily";
 import {
   handleOwner,
   hasStore,
   linkHandle,
   linkedHandle,
+  readOverrides,
   recordSocial,
   socialVerifiedOn,
 } from "@/lib/quests/store";
@@ -27,14 +29,27 @@ export async function GET(request: NextRequest) {
     socialVerifiedOn(day),
   ]);
   const code = dailyCode(day, wallet);
+  const quest = await socialQuestFor(day, wallet);
 
   return NextResponse.json({
     handle,
     code,
     signupUrl: signupIntent(code),
     verified: verified.has(wallet),
+    // The player is shown the words the checker looks for, verbatim.
+    ask: quest?.ask ?? null,
+    task: quest?.task ?? null,
     canRecord: hasStore(),
   });
+}
+
+/** The social quest on this wallet's board today, if it drew one. */
+async function socialQuestFor(day: number, wallet: string) {
+  const drawn = questsForDay(day, wallet).find((quest) => quest.game === "social");
+  if (!drawn) return undefined;
+  // The ask is editable, and the checker has to use the words the player was
+  // actually shown.
+  return applyPatch(drawn, (await readOverrides())[drawn.id]);
 }
 
 /**
@@ -93,16 +108,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // The sign-up post is about the Ronkeverse and is from today, so it counts.
-    await recordSocial(day, wallet, url.trim(), check.handle);
-    return NextResponse.json({ ok: true, linked: check.handle, handle: check.handle });
+    // Linking is not the quest. The sign-up line is written for them, so
+    // counting it would pay out for pressing a button — the quest asks for
+    // something they actually wrote.
+    return NextResponse.json({
+      ok: true,
+      linked: check.handle,
+      handle: check.handle,
+      completed: false,
+    });
   }
 
-  const check = await verifyDailyPost(url, day, existing);
+  const quest = await socialQuestFor(day, wallet);
+  if (!quest?.ask) {
+    return NextResponse.json(
+      { ok: false, error: "No social quest on your board today. Come back tomorrow." },
+      { status: 409 }
+    );
+  }
+
+  const check = await verifyDailyPost(url, day, existing, quest.ask as SocialAsk);
   if (!check.ok) {
     return NextResponse.json({ ok: false, error: check.reason }, { status: 422 });
   }
 
   await recordSocial(day, wallet, url.trim(), check.handle);
-  return NextResponse.json({ ok: true, handle: check.handle, persisted: hasStore() });
+  return NextResponse.json({
+    ok: true,
+    handle: check.handle,
+    completed: true,
+    persisted: hasStore(),
+  });
 }

@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyAll } from "@/lib/quests/overrides";
 import { isAddress, readDaily } from "@/lib/quests/read";
 import { getToday } from "@/lib/quests/today";
 import { dayIndex, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt } from "@/lib/quests/season";
-import {
-  priorSweepStreak,
-  recordDay,
-  socialVerifiedOn,
-  walletSeason,
-} from "@/lib/quests/store";
+import { priorSweepStreak, readOverrides, recordDay, socialVerifiedOn, walletSeason } from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
 
@@ -47,8 +43,14 @@ export async function GET(request: NextRequest) {
 
     const day = dayIndex();
     const wallet = address.trim().toLowerCase();
-    const priorStreak = await priorSweepStreak(wallet, day);
-    const score = scoreDay(stats, day, { floorRon: today.floorRon, priorStreak }, wallet);
+    const [priorStreak, overrides] = await Promise.all([
+      priorSweepStreak(wallet, day),
+      readOverrides(),
+    ]);
+    const scored = scoreDay(stats, day, { floorRon: today.floorRon, priorStreak }, wallet);
+    // Wording only — the scoring is already done, and nothing editable can
+    // change what a quest is worth or what counts as finishing it.
+    const score = { ...scored, quests: applyAll(scored.quests, overrides) };
 
     const season = seasonAt();
     const [seasonTotal] = await Promise.all([

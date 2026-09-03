@@ -14,6 +14,7 @@
 
 import type { Sql } from "postgres";
 import type { RewardsConfig } from "@/lib/quests/rewards";
+import type { QuestOverrides, QuestPatch } from "@/lib/quests/overrides";
 
 let client: Sql | null = null;
 let ready: Promise<Sql | null> | null = null;
@@ -44,6 +45,17 @@ async function connect(): Promise<Sql | null> {
 
   // One X account per wallet, and one wallet per X account — without the
   // second half, a single account could sign up every wallet on the board.
+  // Quest wording, one row per quest. Only quests that have been edited get a
+  // row, so an untouched board costs nothing to read.
+  await sql`
+    create table if not exists quest_copy (
+      quest_id    text primary key,
+      patch       jsonb not null,
+      updated_by  text not null,
+      updated_at  timestamptz not null default now()
+    )
+  `;
+
   // One row per season. The pool is small, hand-written and read on every
   // board load, so it lives as a document rather than a row per prize.
   await sql`
@@ -439,6 +451,54 @@ export async function writeRewards(
             updated_by = excluded.updated_by,
             updated_at = now()
     `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* --------------------------------------------------------- quest wording */
+
+export async function readOverrides(): Promise<QuestOverrides> {
+  const sql = await db();
+  if (!sql) return {};
+  try {
+    const rows = await sql<{ quest_id: string; patch: QuestPatch }[]>`
+      select quest_id, patch from quest_copy
+    `;
+    return Object.fromEntries(rows.map((row) => [row.quest_id, row.patch]));
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * The whole set at once. A quest missing from the payload has been reset to
+ * what the code says, so the row goes rather than lingering as a ghost edit.
+ */
+export async function writeOverrides(
+  overrides: QuestOverrides,
+  updatedBy: string
+): Promise<boolean> {
+  const sql = await db();
+  if (!sql) return false;
+  const ids = Object.keys(overrides);
+  try {
+    await sql.begin(async (tx) => {
+      if (ids.length) await tx`delete from quest_copy where quest_id != all(${ids})`;
+      else await tx`delete from quest_copy`;
+
+      for (const [id, patch] of Object.entries(overrides)) {
+        await tx`
+          insert into quest_copy (quest_id, patch, updated_by)
+          values (${id}, ${tx.json(patch as unknown as never)}, ${updatedBy.toLowerCase()})
+          on conflict (quest_id) do update
+            set patch = excluded.patch,
+                updated_by = excluded.updated_by,
+                updated_at = now()
+        `;
+      }
+    });
     return true;
   } catch {
     return false;

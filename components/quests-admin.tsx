@@ -13,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
+import QuestsAdminCopy from "@/components/quests-admin-copy";
 import type { Season } from "@/lib/quests/season";
 import {
   adminMessage,
@@ -75,6 +76,7 @@ export default function QuestsAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pane, setPane] = useState<"rewards" | "wording">("rewards");
 
   useEffect(() => {
     if (!address) {
@@ -252,6 +254,29 @@ export default function QuestsAdmin() {
 
   return (
     <Shell>
+      <div className="mb-8 flex gap-1 rounded-xl border border-border p-1">
+        {(
+          [
+            ["rewards", "Season rewards"],
+            ["wording", "Quest wording"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setPane(key)}
+            className={`flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${
+              pane === key ? "bg-card-2 text-foreground" : "text-muted-2 hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {pane === "wording" ? (
+        <QuestsAdminCopy wallet={wallet} />
+      ) : (
+        <>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Season rewards</h1>
@@ -523,6 +548,8 @@ export default function QuestsAdmin() {
           </p>
         )}
       </section>
+        </>
+      )}
     </Shell>
   );
 }

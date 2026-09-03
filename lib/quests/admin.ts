@@ -35,14 +35,18 @@ const IS_VALID_SIGNATURE = "0x1626ba7e";
 
 export type AdminCheck = { ok: true } | { ok: false; reason: string; status: number };
 
-export async function verifyAdminWrite(params: {
+/**
+ * The gate itself, over any signed line. Callers build the message from what
+ * they are about to write — never from what arrived in the body — so a
+ * signature only ever authorises the numbers or words actually being stored.
+ */
+export async function verifyAdminMessage(params: {
   address: string;
   signature: string;
   issuedAt: string;
-  season: number;
-  config: RewardsConfig;
+  message: string;
 }): Promise<AdminCheck> {
-  const { address, signature, issuedAt, season, config } = params;
+  const { address, signature, issuedAt, message } = params;
 
   if (!hasAdmins()) {
     return {
@@ -66,10 +70,6 @@ export async function verifyAdminWrite(params: {
     return { ok: false, status: 400, reason: "That signature has expired. Sign again." };
   }
 
-  // Rebuilt here rather than taken from the body: the signature is only worth
-  // anything if it covers the numbers the server is about to write.
-  const message = adminMessage(config, season, address, issuedAt);
-
   try {
     const signer = await recoverMessageAddress({ message, signature: signature as `0x${string}` });
     if (signer.toLowerCase() === address.trim().toLowerCase()) return { ok: true };
@@ -80,6 +80,23 @@ export async function verifyAdminWrite(params: {
   if (await validForContract(address, message, signature)) return { ok: true };
 
   return { ok: false, status: 403, reason: "That signature does not match the wallet." };
+}
+
+/** Season rewards. The message is the payout, in words. */
+export function verifyAdminWrite(params: {
+  address: string;
+  signature: string;
+  issuedAt: string;
+  season: number;
+  config: RewardsConfig;
+}): Promise<AdminCheck> {
+  const { address, signature, issuedAt, season, config } = params;
+  return verifyAdminMessage({
+    address,
+    signature,
+    issuedAt,
+    message: adminMessage(config, season, address, issuedAt),
+  });
 }
 
 /**

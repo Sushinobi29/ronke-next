@@ -52,6 +52,20 @@ export function pointsForRon(ron: number): number {
 export const DYNAMIC_POINTS_BAND = 0.4;
 
 /**
+ * What a social post has to contain to count.
+ *
+ * Plain strings rather than patterns, matched case-insensitively: they are
+ * shown to the player word for word, so the ask and the check are the same
+ * text and cannot drift apart.
+ */
+export interface SocialAsk {
+  /** Every one of these. This is what keeps a post on the Ronkeverse. */
+  all: string[];
+  /** And at least one of these, which is what makes it about today's ask. */
+  any: string[];
+}
+
+/**
  * Ronke Vote runs in seasons — a week or two a month — and the rest of the
  * time the site closes voting. There is no on-chain signal for it: the
  * contract still accepts a vote when the front-end says closed, so the gate
@@ -259,6 +273,8 @@ export interface QuestDef {
   dynamicTarget?: (context: QuestContext) => number | undefined;
   /** And where the threshold moves, what it is worth moves with it. */
   dynamicPoints?: (context: QuestContext) => number | undefined;
+  /** Social quests only: what the post actually has to say. */
+  ask?: SocialAsk;
   /** Overrides the game's default link when the quest needs a specific door. */
   link?: string;
   /** Overrides the game's art when a quest has its own. */
@@ -275,7 +291,12 @@ export const POOL: QuestDef[] = [
   {
     id: "social.shout",
     title: "Spread the word",
-    task: "Post about the Ronkeverse on X, then paste the link",
+    task: "Post about Ronke Quest on X, tagging @RonkeOnRon",
+    note: "Your own words — the sign-up post does not count for this",
+    ask: {
+      all: ["@RonkeOnRon"],
+      any: ["Ronke Quest", "Ronkeverse", "$RONKE"],
+    },
     game: "social",
     tier: "core",
     group: "social",

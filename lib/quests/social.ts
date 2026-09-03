@@ -14,8 +14,27 @@
 
 const OEMBED = "https://publish.x.com/oembed";
 
-/** What a post has to be about to count. */
-const MENTIONS = [/ronkeverse/i, /ronke\s*quest/i, /\$ronke\b/i, /@ronkeonron/i];
+/**
+ * Whether a post says what the day's quest asked for.
+ *
+ * Whitespace is loosened and case ignored, but nothing else: the words are
+ * shown to the player exactly as they are checked, so "post about X" and "we
+ * looked for X" can never drift apart. Anything cleverer — stemming, fuzzy
+ * matching — would make the check unexplainable, and a rule nobody can
+ * predict is worse than a strict one.
+ */
+function says(text: string, phrase: string): boolean {
+  const loosen = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+  return loosen(text).includes(loosen(phrase));
+}
+
+export function missingFrom(text: string, ask: SocialAsk): string[] {
+  const missing = ask.all.filter((phrase) => !says(text, phrase));
+  if (ask.any.length && !ask.any.some((phrase) => says(text, phrase))) {
+    missing.push(ask.any.join(" or "));
+  }
+  return missing;
+}
 
 /** Short, unambiguous alphabet — no O/0, I/1 to mistype. */
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -39,6 +58,8 @@ export function dailyCode(day: number, address: string): string {
   }
   return `RQ-${out}`;
 }
+
+import type { SocialAsk } from "@/lib/quests/daily";
 
 export interface PostCheck {
   ok: boolean;
@@ -164,13 +185,15 @@ export async function verifySignup(
 }
 
 /**
- * A daily post. No code needed — it only has to come from the linked account,
- * say something about the Ronkeverse, and be from today.
+ * A daily post. No code needed — the account is already bound to the wallet,
+ * so what is left to check is that the post is from that account, from today,
+ * and actually says what the quest asked for.
  */
 export async function verifyDailyPost(
   rawUrl: string,
   day: number,
-  handle: string
+  handle: string,
+  ask: SocialAsk
 ): Promise<PostCheck> {
   const found = await fetchPost(rawUrl);
   if ("error" in found) return { ok: false, reason: found.error };
@@ -182,8 +205,13 @@ export async function verifyDailyPost(
       handle: found.handle,
     };
   }
-  if (!MENTIONS.some((pattern) => pattern.test(found.text))) {
-    return { ok: false, reason: "Say something about the Ronkeverse in it.", handle: found.handle };
+  const missing = missingFrom(found.text, ask);
+  if (missing.length) {
+    return {
+      ok: false,
+      reason: `That post is missing ${missing.join(", and ")}.`,
+      handle: found.handle,
+    };
   }
   if (!isFromDay(found.posted, day)) {
     return { ok: false, reason: "That post is not from today.", handle: found.handle };

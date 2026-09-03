@@ -7,6 +7,7 @@ import QuestCard from "@/components/quest-card";
 import SocialQuestCard from "@/components/social-quest-card";
 import WalletConnect from "@/components/wallet-connect";
 import { describeItem, formatAmount, type RewardItem } from "@/lib/quests/rewards";
+import { applyAll, type QuestOverrides } from "@/lib/quests/overrides";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
 import { useSounds } from "@/hooks/useSounds";
 import {
@@ -66,6 +67,7 @@ interface BoardPayload {
   leaderboard: LeaderEntry[];
   seasonStandings: SeasonRow[];
   rewards: { items: RewardItem[]; note: string } | null;
+  overrides?: QuestOverrides;
   seasonPersisted: boolean;
   roundsToday: number;
   playersToday: number;
@@ -260,7 +262,8 @@ export default function QuestsApp() {
   const ownPreview = useMemo(() => {
     if (!connected || !board) return null;
     const context = { floorRon: board.floorRon };
-    return questsForDay(board.day, connected).map((quest) => ({
+    // Same pure draw as the server, with the same editable wording laid over it.
+    return applyAll(questsForDay(board.day, connected), board.overrides ?? {}).map((quest) => ({
       ...quest,
       target: quest.dynamicTarget?.(context) ?? quest.target,
       points: pointsFor(quest, context),

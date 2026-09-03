@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { ArrowUpRight, Check, Loader2 } from "lucide-react";
-import { COST_LABELS, type ScoredQuest } from "@/lib/quests/daily";
+import { COST_LABELS, type ScoredQuest, type SocialAsk } from "@/lib/quests/daily";
 import { useSounds } from "@/hooks/useSounds";
 
 /**
@@ -13,8 +13,11 @@ import { useSounds } from "@/hooks/useSounds";
  * X's free oEmbed endpoint tells us the author, the words and the date of any
  * public post, but not who is claiming it. So the account is bound to the
  * wallet once, with a sign-up post carrying a code only this wallet was shown.
- * After that a daily post only has to come from that account, and people can
- * write whatever they like.
+ *
+ * Linking is not the quest, though. The sign-up line is written for them, so
+ * counting it would pay out for pressing a button. The quest wants a post they
+ * wrote, and the words it is checked against are shown here verbatim — a rule
+ * nobody can predict is worse than a strict one.
  */
 export default function SocialQuestCard({
   quest,
@@ -26,6 +29,7 @@ export default function SocialQuestCard({
   onVerified: () => void;
 }) {
   const [handle, setHandle] = useState<string | null>(null);
+  const [ask, setAsk] = useState<SocialAsk | null>(null);
   const [signupUrl, setSignupUrl] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,6 +50,7 @@ export default function SocialQuestCard({
       .then((json) => {
         if (!live) return;
         setHandle(json.handle ?? null);
+        setAsk(json.ask ?? null);
         setSignupUrl(json.signupUrl ?? null);
       })
       .catch(() => {})
@@ -73,6 +78,8 @@ export default function SocialQuestCard({
       }
       if (json.linked) setHandle(json.linked);
       setUrl("");
+      // Linking is not the quest, so say what is left rather than celebrating.
+      if (json.completed === false) setError(null);
       onVerified();
     } catch {
       play("error");
@@ -138,9 +145,34 @@ export default function SocialQuestCard({
             {loading
               ? "Checking your X account…"
               : linked
-                ? "Post about the Ronkeverse today, then paste the link."
-                : "Post the sign-up line once to connect your X account. It carries a code only your wallet was shown, so nobody else can claim it."}
+                ? "Write your post, then paste the link."
+                : "Post the sign-up line once to connect your X account. It carries a code only your wallet was shown, so nobody else can claim it. It does not count as the quest."}
           </p>
+
+          {linked && ask && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12px] text-muted-2">
+              <span>It has to include</span>
+              {ask.all.map((phrase) => (
+                <code key={phrase} className="mono rounded-md bg-card-2 px-1.5 py-0.5 text-accent">
+                  {phrase}
+                </code>
+              ))}
+              {ask.any.length > 0 && (
+                <>
+                  <span>and one of</span>
+                  {ask.any.map((phrase, i) => (
+                    <span key={phrase} className="flex items-center gap-2">
+                      <code className="mono rounded-md bg-card-2 px-1.5 py-0.5 text-accent">
+                        {phrase}
+                      </code>
+                      {i < ask.any.length - 1 && <span className="text-muted-3">or</span>}
+                    </span>
+                  ))}
+                </>
+              )}
+              <span>— the rest is yours.</span>
+            </div>
+          )}
 
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input
