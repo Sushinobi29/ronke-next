@@ -724,6 +724,23 @@ export function secondsUntilReset(unix: number = Math.floor(Date.now() / 1000)):
  * report can never disagree about what is eligible — a quest that is merely
  * out of season is not a quest that is priced out of reach.
  */
+export type Slot = "free" | "cheap" | "paid";
+
+/**
+ * Which of the five slots a quest competes for.
+ *
+ * It falls out of two fields, which is why it needs saying out loud: the paid
+ * slot is the bonus tier, and the other two split on whether the quest costs
+ * anything. Deriving it in one total function rather than three filters means
+ * a quest is always in exactly one slot — set free and bonus together and the
+ * old filters put it in two at once, which is a board that can draw the same
+ * quest twice.
+ */
+export function slotOf(quest: QuestDef): Slot {
+  if (quest.tier === "bonus") return "paid";
+  return quest.cost === "free" ? "free" : "cheap";
+}
+
 export function drawableOn(quest: QuestDef, day: number): boolean {
   if (quest.retired) return false;
   if (quest.game === "vote" && !voteOpenOn(day)) return false;
@@ -737,9 +754,9 @@ export function questsForDay(
 ): QuestDef[] {
   const live = pool.filter((quest) => drawableOn(quest, day));
 
-  const free = live.filter((q) => q.cost === "free");
-  const cheap = live.filter((q) => q.tier === "core" && q.cost !== "free");
-  const paid = live.filter((q) => q.tier === "bonus");
+  const free = live.filter((q) => slotOf(q) === "free");
+  const cheap = live.filter((q) => slotOf(q) === "cheap");
+  const paid = live.filter((q) => slotOf(q) === "paid");
 
   const seed = (day * 2654435761) ^ (address ? hashAddress(address) : 0);
   const next = rng(seed >>> 0);

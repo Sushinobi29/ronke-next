@@ -5,14 +5,16 @@ import { AlertTriangle, Check, Loader2, Plus, Save, Undo2, X } from "lucide-reac
 import type { RoninWallet } from "@/hooks/useRoninWallet";
 import {
   COST_LABELS,
+  drawableOn,
   GAME_LABELS,
   pointsForRon,
+  slotOf,
   type CostTier,
   type QuestDef,
   type QuestGame,
 } from "@/lib/quests/daily";
 import type { Metric } from "@/lib/quests/metrics";
-import { COSTS, GAMES, poolMessage, reportOn, sanitizePool } from "@/lib/quests/pool";
+import { COSTS, GAMES, poolMessage, reportOn, rivals, sanitizePool, SLOTS } from "@/lib/quests/pool";
 
 const clock = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -186,6 +188,36 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
       {error && <p className="mono mt-3 text-[12px] text-burn">{error}</p>}
       {done && <p className="mono mt-3 text-[12px] text-gold">{done}</p>}
 
+      {/* ------------------------------------------------- how a board works */}
+      <section className="rv-card mt-6 p-5">
+        <div className="mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-3">
+          How the five are drawn
+        </div>
+        <p className="mt-2 max-w-[68ch] text-[13px] text-muted-1">
+          Every wallet gets its own five, and every wallet&apos;s five are worth the same. Boards
+          are drawn at random and thrown away until one lands within{" "}
+          <b className="text-foreground">150 of 1,300 points</b> — so a quest priced far off the
+          ladder does not merely look wrong, it stops appearing at all.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {SLOTS.map((slot) => (
+            <div key={slot.key} className="rounded-xl border border-border bg-card-2 p-3.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[13px] font-semibold">{slot.label}</span>
+                <span className="mono text-[10px] uppercase tracking-[0.1em] text-accent">
+                  {slot.per}
+                </span>
+              </div>
+              <p className="mt-1.5 text-[12px] leading-snug text-muted-2">{slot.blurb}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mono mt-3 text-[11px] text-muted-3">
+          Never two quests from the same group in one day — that is what stops a board spending
+          two of its five slots on the same action.
+        </p>
+      </section>
+
       {/* ------------------------------------------------ the fairness read */}
       <section className="rv-card mt-6 p-5">
         <div className="mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-3">
@@ -233,13 +265,16 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
       </section>
 
       {/* ------------------------------------------------------- the quests */}
-      <div className="mt-6 space-y-2">
-        {pool.map((quest, index) => {
+      {(() => {
+        const row = (quest: QuestDef, index: number) => {
+        
           const isOpen = open === quest.id || (!quest.id && open === `new-${index}`);
           const share = shares.get(quest.id);
           const base = shipped.find((s) => s.id === quest.id);
           const changed = base && JSON.stringify(base) !== JSON.stringify(quest);
           const kind = metrics.find((m) => m.key === quest.metric)?.kind;
+          const competing = rivals(pool, quest);
+          const outOfSeason = !quest.retired && !!quest.id && !drawableOn(quest, from ?? 0);
 
           return (
             <div
@@ -250,33 +285,67 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
             >
               <button
                 onClick={() => setOpen(isOpen ? null : quest.id || `new-${index}`)}
-                className="flex w-full items-center gap-3 p-4 text-left"
+                className="flex w-full items-center gap-4 p-4 text-left"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="mono block text-[10px] uppercase tracking-[0.12em] text-muted-3">
-                    {quest.id || "new quest"} · {GAME_LABELS[quest.game]} ·{" "}
-                    {COST_LABELS[quest.cost]}
-                    {!base && <span className="ml-2 text-diamond">added</span>}
-                    {changed && <span className="ml-2 text-gold">changed</span>}
-                    {quest.retired && <span className="ml-2 text-burn">retired</span>}
+                  <span className="mono flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-[0.12em] text-muted-3">
+                    <span>{quest.id || "new quest"}</span>
+                    <span aria-hidden>·</span>
+                    <span>{GAME_LABELS[quest.game]}</span>
+                    <span aria-hidden>·</span>
+                    <span>{COST_LABELS[quest.cost]}</span>
+                    {competing.length > 0 && (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span
+                          className="text-accent"
+                          title={`Shares the "${quest.group}" group with ${competing
+                            .map((rival) => rival.title)
+                            .join(", ")} — only one is drawn a day.`}
+                        >
+                          takes turns with {competing.length}
+                        </span>
+                      </>
+                    )}
+                    {!base && <Pill tone="diamond">added</Pill>}
+                    {changed && <Pill tone="gold">changed</Pill>}
+                    {quest.retired && <Pill tone="burn">retired</Pill>}
+                    {outOfSeason && <Pill tone="paper">out of season</Pill>}
                   </span>
-                  <span className="mt-0.5 block truncate font-semibold">
+                  <span className="mt-1 block truncate font-semibold">
                     {quest.title || "Untitled"}
                   </span>
                   <span className="mt-0.5 block truncate text-[13px] text-muted-1">
                     {quest.task || "No task yet"}
                   </span>
                 </span>
-                <span className="shrink-0 text-right">
+
+                <span className="w-[120px] shrink-0 text-right">
                   <span className="mono block text-[15px] font-bold text-muted-2">
                     {quest.points}
+                    <span className="ml-1 text-[10px] font-normal text-muted-3">pts</span>
+                  </span>
+                  {/* How often it actually turns up. The number people ask for. */}
+                  <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-border">
+                    <span
+                      className={`block h-full rounded-full ${
+                        share === 0 ? "bg-burn" : share !== undefined && share < 5 ? "bg-paper" : "bg-accent"
+                      }`}
+                      style={{ width: `${Math.min(100, ((share ?? 0) / 55) * 100)}%` }}
+                    />
                   </span>
                   <span
-                    className={`mono block text-[10px] uppercase tracking-[0.1em] ${
+                    className={`mono mt-1 block text-[10px] uppercase tracking-[0.1em] ${
                       share === 0 ? "text-burn" : "text-muted-3"
                     }`}
                   >
-                    {quest.retired ? "—" : share === undefined ? "dark" : `${share}%`}
+                    {quest.retired
+                      ? "never drawn"
+                      : outOfSeason
+                        ? "not this season"
+                        : share === undefined
+                          ? "—"
+                          : `${share}% of boards`}
                   </span>
                 </span>
               </button>
@@ -438,8 +507,75 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
               )}
             </div>
           );
-        })}
-      </div>
+        };
+
+        const numbered = pool.map((quest, index) => ({ quest, index }));
+        const retiredRows = numbered.filter(({ quest }) => quest.retired);
+        const draft = numbered.filter(({ quest }) => !quest.id);
+
+        return (
+          <>
+            {SLOTS.map((slot) => {
+              const rows = numbered.filter(
+                ({ quest }) => quest.id && !quest.retired && slotOf(quest) === slot.key
+              );
+              const dark = rows.filter(({ quest }) => !drawableOn(quest, from ?? 0)).length;
+
+              return (
+                <section key={slot.key} className="mt-8">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
+                    <h2 className="text-[15px] font-semibold">
+                      {slot.label}
+                      <span className="mono ml-2 text-[11px] font-normal uppercase tracking-[0.1em] text-accent">
+                        {slot.per}
+                      </span>
+                    </h2>
+                    <span className="mono text-[11px] text-muted-3">
+                      {rows.length - dark} in rotation
+                      {dark > 0 && ` · ${dark} out of season`}
+                    </span>
+                  </div>
+
+                  {rows.length === 0 ? (
+                    <p className="mono mt-3 text-[12px] text-burn">
+                      Nothing here — the draw cannot fill this slot.
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      {rows.map(({ quest, index }) => row(quest, index))}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+
+            {draft.length > 0 && (
+              <section className="mt-8">
+                <div className="border-b border-border pb-2">
+                  <h2 className="text-[15px] font-semibold">Not saved yet</h2>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {draft.map(({ quest, index }) => row(quest, index))}
+                </div>
+              </section>
+            )}
+
+            {retiredRows.length > 0 && (
+              <section className="mt-8">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 border-b border-border pb-2">
+                  <h2 className="text-[15px] font-semibold text-muted-2">Retired</h2>
+                  <span className="mono text-[11px] text-muted-3">
+                    kept so the days they ran on still score
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {retiredRows.map(({ quest, index }) => row(quest, index))}
+                </div>
+              </section>
+            )}
+          </>
+        );
+      })()}
 
       <button
         onClick={() => {
@@ -462,6 +598,18 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
 }
 
 /* -------------------------------------------------------------- pieces */
+
+function Pill({ tone, children }: { tone: string; children: React.ReactNode }) {
+  const tones: Record<string, string> = {
+    diamond: "text-diamond bg-diamond/10",
+    gold: "text-gold bg-gold/10",
+    burn: "text-burn bg-burn/10",
+    paper: "text-paper bg-paper/10",
+  };
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${tones[tone]}`}>{children}</span>
+  );
+}
 
 function Stat({ label, value, note, bad }: { label: string; value: string; note: string; bad?: boolean }) {
   return (

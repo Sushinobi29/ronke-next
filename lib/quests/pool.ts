@@ -21,6 +21,8 @@ import {
   ALL_DONE_BONUS,
   drawableOn,
   questsForDay,
+  slotOf,
+  type Slot,
   type CostTier,
   type QuestDef,
   type QuestGame,
@@ -156,6 +158,38 @@ export interface DrawShare {
   /** Share of boards this quest lands on, as a percentage. */
   share: number;
 }
+
+/** How the five are made up, in the words the panel shows. */
+export const SLOTS: { key: Slot; label: string; per: string; blurb: string }[] = [
+  {
+    key: "free",
+    label: "Free slot",
+    per: "1 on every board",
+    blurb:
+      "Costs nothing but showing up. Every board gets exactly one, so a run of expensive draws can never lock an empty wallet out.",
+  },
+  {
+    key: "cheap",
+    label: "Cheap slots",
+    per: "2 or 3 on every board",
+    blurb: "Core quests that cost a few tokens. Three of these when only one paid quest is drawn.",
+  },
+  {
+    key: "paid",
+    label: "Paid slots",
+    per: "1 or 2 on every board",
+    blurb:
+      "Bonus quests that cost real money. One expensive quest can stand in for two, which is what lets a quest worth most of a day's budget be drawn at all.",
+  },
+];
+
+/** Quests sharing a group compete: only one of them is ever drawn in a day. */
+export function rivals(pool: QuestDef[], quest: QuestDef): QuestDef[] {
+  return pool.filter((other) => other.id !== quest.id && other.group === quest.group);
+}
+
+export { slotOf };
+export type { Slot };
 
 export interface PoolReport {
   /** Structural problems. The draw cannot run, so the pool cannot be saved. */
