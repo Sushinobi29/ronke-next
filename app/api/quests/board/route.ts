@@ -9,7 +9,7 @@ import {
   targetFor,
 } from "@/lib/quests/daily";
 import { poolOnDay } from "@/lib/quests/pool";
-import { seasonAt } from "@/lib/quests/season";
+import { seasonAt, seasonDays } from "@/lib/quests/season";
 import {
   hasStore,
   readPools,
@@ -37,8 +37,7 @@ export async function GET(request: Request) {
 
     const players = new Set(today.rounds.map((r) => r.player.toLowerCase()));
     const season = seasonAt();
-    const fromDay = Math.floor(season.startsAt / 86_400);
-    const toDay = Math.floor((season.endsAt - 1) / 86_400);
+    const { fromDay, toDay } = seasonDays(season);
 
     // The leaderboard returns what it has and refreshes behind the response,
     // so the five quests never wait on a scoring pass.

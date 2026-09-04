@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
-import { seasonAt } from "@/lib/quests/season";
+import { seasonAt, seasonDays } from "@/lib/quests/season";
 import { hasStore, readRewards, seasonStandings, writeRewards } from "@/lib/quests/store";
 import { hasAdmins, isAdmin, verifyAdminWrite } from "@/lib/quests/admin";
 import {
@@ -17,11 +17,7 @@ const STANDINGS_LIMIT = 200;
 
 function seasonWindow() {
   const season = seasonAt();
-  return {
-    season,
-    fromDay: Math.floor(season.startsAt / 86_400),
-    toDay: Math.floor((season.endsAt - 1) / 86_400),
-  };
+  return { season, ...seasonDays(season) };
 }
 
 /**

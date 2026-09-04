@@ -3,7 +3,7 @@ import { poolOnDay } from "@/lib/quests/pool";
 import { isAddress, readDaily } from "@/lib/quests/read";
 import { getToday } from "@/lib/quests/today";
 import { dayIndex, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
-import { seasonAt } from "@/lib/quests/season";
+import { seasonAt, seasonDays } from "@/lib/quests/season";
 import {
   priorSweepStreak,
   readPools,
@@ -62,8 +62,9 @@ export async function GET(request: NextRequest) {
     );
 
     const season = seasonAt();
+    const { fromDay, toDay } = seasonDays(season);
     const [seasonTotal] = await Promise.all([
-      walletSeason(wallet, Math.floor(season.startsAt / 86_400), Math.floor((season.endsAt - 1) / 86_400)),
+      walletSeason(wallet, fromDay, toDay),
       recordDay(day, { address: wallet, points: score.total, done: score.done, bonus: score.bonus }),
     ]);
 
