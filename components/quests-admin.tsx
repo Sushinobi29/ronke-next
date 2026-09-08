@@ -322,7 +322,18 @@ export default function QuestsAdmin() {
                   className="w-full rounded-xl border border-border bg-card-2 px-3 py-2 font-semibold outline-none focus:border-accent/60"
                 />
               </Field>
-              <div className="flex rounded-xl border border-border p-0.5">
+              {/*
+                Captioned for the same reason the name is: with one reward on
+                screen an uncaptioned pair of buttons reads as "which kind of
+                reward am I setting up", when it only ever changed this one —
+                so reaching for NFT converted the token reward instead of
+                adding one beside it.
+              */}
+              <label className="block shrink-0">
+                <span className="mono block text-[10px] uppercase tracking-[0.12em] text-muted-3">
+                  Paid in
+                </span>
+                <span className="mt-1.5 flex rounded-xl border border-border p-0.5">
                 {(["token", "nft"] as const).map((kind) => (
                   <button
                     key={kind}
@@ -334,13 +345,14 @@ export default function QuestsAdmin() {
                     {kind}
                   </button>
                 ))}
-              </div>
+                </span>
+              </label>
               {/*
                 Sat flush against the NFT button, so reaching for NFT removed
                 the reward instead — everything typed into it, gone, with
                 nothing to undo. It is off on its own now and asks first.
               */}
-              <span className="ml-2 h-6 w-px bg-border" aria-hidden />
+              <span className="ml-2 mb-1 h-6 w-px bg-border" aria-hidden />
               <button
                 onClick={() => {
                   if (removing === item.id) {
@@ -454,10 +466,10 @@ export default function QuestsAdmin() {
           <button
             onClick={() => setItems((c) => [...c, blankItem()])}
             disabled={items.length >= MAX_ITEMS}
-            className="inline-flex items-center gap-2 rounded-xl border border-border-strong px-4 py-2.5 text-[13px] font-medium text-muted-1 transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-accent/50 px-4 py-2.5 text-[13px] font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/5 disabled:opacity-40"
           >
             <Plus className="h-4 w-4" />
-            Add a reward
+            {items.length ? "Add another reward" : "Add a reward"}
           </button>
           {items.length === 0 && state.suggested && (
             <button
