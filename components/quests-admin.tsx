@@ -308,13 +308,20 @@ export default function QuestsAdmin() {
       <section className="mt-8 space-y-3">
         {items.map((item, index) => (
           <div key={item.id} className="rv-card p-4 sm:p-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                value={item.label}
-                onChange={(e) => patch(index, { label: e.target.value })}
-                placeholder="RONKESTR"
-                className="min-w-0 flex-1 rounded-xl border border-border bg-card-2 px-3 py-2 font-semibold outline-none focus:border-accent/60"
-              />
+            <div className="flex flex-wrap items-end gap-3">
+              {/*
+                This was the only box on the card without a caption, so it read
+                as "the first field" rather than "the name" — and the amount
+                got typed into it.
+              */}
+              <Field label="What it is called">
+                <input
+                  value={item.label}
+                  onChange={(e) => patch(index, { label: e.target.value })}
+                  placeholder={item.kind === "nft" ? "Ronkeverse NFT" : "RONKESTR"}
+                  className="w-full rounded-xl border border-border bg-card-2 px-3 py-2 font-semibold outline-none focus:border-accent/60"
+                />
+              </Field>
               <div className="flex rounded-xl border border-border p-0.5">
                 {(["token", "nft"] as const).map((kind) => (
                   <button
@@ -428,6 +435,13 @@ export default function QuestsAdmin() {
                   className="mt-2 w-full accent-[var(--gold,#e5b567)]"
                 />
               </div>
+            )}
+
+            {/^[\d.,\s]+$/.test(item.label.trim()) && item.label.trim() !== "" && (
+              <p className="mono mt-3 text-[11px] text-paper">
+                &ldquo;{item.label}&rdquo; looks like an amount. This is the name players see —
+                the amount goes in {item.kind === "nft" ? "How many" : "Total pool"}.
+              </p>
             )}
 
             <p className="mono mt-3 text-[11px] text-muted-3">
@@ -595,7 +609,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block">
+    <label className="block min-w-0 flex-1">
       <span className="mono block text-[10px] uppercase tracking-[0.12em] text-muted-3">
         {label}
       </span>
