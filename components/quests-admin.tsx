@@ -77,6 +77,8 @@ export default function QuestsAdmin() {
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [pane, setPane] = useState<"rewards" | "quests">("rewards");
+  /** Which reward is one click from being removed. Nothing is, by default. */
+  const [removing, setRemoving] = useState<string | null>(null);
 
   useEffect(() => {
     if (!address) {
@@ -326,12 +328,34 @@ export default function QuestsAdmin() {
                   </button>
                 ))}
               </div>
+              {/*
+                Sat flush against the NFT button, so reaching for NFT removed
+                the reward instead — everything typed into it, gone, with
+                nothing to undo. It is off on its own now and asks first.
+              */}
+              <span className="ml-2 h-6 w-px bg-border" aria-hidden />
               <button
-                onClick={() => setItems((c) => c.filter((_, i) => i !== index))}
-                className="rounded-xl border border-border p-2 text-muted-3 transition-colors hover:border-burn hover:text-burn"
-                title="Remove"
+                onClick={() => {
+                  if (removing === item.id) {
+                    setItems((c) => c.filter((_, i) => i !== index));
+                    setRemoving(null);
+                  } else {
+                    setRemoving(item.id);
+                    window.setTimeout(
+                      () => setRemoving((current) => (current === item.id ? null : current)),
+                      4000
+                    );
+                  }
+                }}
+                onBlur={() => setRemoving((current) => (current === item.id ? null : current))}
+                className={`rounded-xl border px-2.5 py-2 text-[12px] font-semibold transition-colors ${
+                  removing === item.id
+                    ? "border-burn bg-burn/10 text-burn"
+                    : "border-border text-muted-3 hover:border-burn hover:text-burn"
+                }`}
+                title={removing === item.id ? "Click again to remove it" : "Remove this reward"}
               >
-                <Trash2 className="h-4 w-4" />
+                {removing === item.id ? "Remove?" : <Trash2 className="h-4 w-4" />}
               </button>
             </div>
 
