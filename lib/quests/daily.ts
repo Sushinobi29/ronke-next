@@ -28,11 +28,22 @@ export const QUESTS_PER_DAY = 5;
 /** What a token buy has to be worth to count. Keeps a one-RON tap off the board. */
 export const MIN_BUY_RON = 100;
 /**
- * A monke has to cost near what a monke costs. Expressed against the live
- * floor rather than a fixed number, because the floor moves and a hard-coded
- * threshold would either wave through self-trades or block real buys.
+ * The bar a monke purchase has to clear to count at all, against the live
+ * floor rather than a fixed number, because the floor moves.
+ *
+ * Deliberately well under the floor: paying a little under should still pay
+ * out, just less. It is not shown to anybody — it exists so that a monke
+ * traded between two wallets for pocket change cannot tick off a big-ticket
+ * quest and collect the clean sweep with it.
  */
-export const MIN_BUY_FLOOR_SHARE = 0.8;
+export const MIN_BUY_FLOOR_SHARE = 0.5;
+
+/**
+ * What a normal purchase costs, as a share of the floor. Used only to say
+ * what the quest is worth before anybody has bought anything — once they
+ * have, the number on the card is what they actually earned.
+ */
+export const TYPICAL_BUY_SHARE = 0.8;
 /** What the Fortune machine charges for the pull worth doing. */
 export const MIN_SPIN_RON = 69;
 
@@ -277,6 +288,12 @@ export interface QuestDef {
   retired?: boolean;
   /** Social quests only: what the post actually has to say. */
   ask?: SocialAsk;
+  /**
+   * What it pays follows what was spent, through the same ladder as every
+   * other quest, rather than being fixed. A card for one of these shows no
+   * target and no meter: there is no bar to fill, only more or less of it.
+   */
+  scaled?: boolean;
   /** Overrides the game's default link when the quest needs a specific door. */
   link?: string;
   /** Overrides the game's art when a quest has its own. */
@@ -611,8 +628,9 @@ export const BASE_POOL: QuestDef[] = [
     group: "monke",
     cost: "big",
     target: 320,
-    unit: "RON",
     floorLinked: true,
+    scaled: true,
+    note: "Pays more the more you spend on it",
     points: 1050,
     metric: "monkeRon",
   },
@@ -872,11 +890,26 @@ export function questsForDay(
  */
 export function pointsFor(quest: QuestDef, context: QuestContext = {}): number {
   if (!quest.floorLinked || !context.floorRon) return quest.points;
-  const moved = pointsForRon(context.floorRon * MIN_BUY_FLOOR_SHARE);
+  const moved = pointsForRon(context.floorRon * TYPICAL_BUY_SHARE);
   const band = quest.points * DYNAMIC_POINTS_BAND;
   return Math.min(
     Math.round(quest.points + band),
     Math.max(Math.round(quest.points - band), moved)
+  );
+}
+
+/**
+ * What a scaled quest paid, from what was actually spent.
+ *
+ * Held inside the same band as any other moving price, because the draw
+ * budgets against the fixed number and cannot see what anybody spent. That
+ * band is also the ceiling on what overpaying is worth.
+ */
+export function earnedPoints(quest: QuestDef, spent: number): number {
+  const band = quest.points * DYNAMIC_POINTS_BAND;
+  return Math.min(
+    Math.round(quest.points + band),
+    Math.max(Math.round(quest.points - band), pointsForRon(spent))
   );
 }
 
@@ -932,8 +965,29 @@ export function scoreDay(
   const onBoard = new Set(drawn.map((quest) => quest.id));
 
   const score = (quest: QuestDef) => {
-    const target = targetFor(quest, context);
-    const value = Math.min(readMetric(quest.metric, stats), target);
+    const threshold = targetFor(quest, context);
+    const measured = readMetric(quest.metric, stats);
+    const finished = measured >= threshold;
+
+    if (quest.scaled) {
+      return {
+        ...quest,
+        // Pass or fail on the card, with nothing to fill: what varies is the
+        // payout, not the progress. The threshold stays out of sight.
+        target: 1,
+        value: finished ? 1 : 0,
+        unit: undefined,
+        done: finished,
+        points: finished ? earnedPoints(quest, measured) : pointsFor(quest, context),
+        needsLogs: needsLogs(quest),
+        href: quest.link ?? GAME_LINKS[quest.game],
+        art: quest.art ?? GAME_ART[quest.game],
+        gameLabel: GAME_LABELS[quest.game],
+      };
+    }
+
+    const target = threshold;
+    const value = Math.min(measured, target);
     return {
       ...quest,
       target,
