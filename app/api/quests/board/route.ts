@@ -12,6 +12,7 @@ import { poolOnDay } from "@/lib/quests/pool";
 import { seasonAt, seasonDays } from "@/lib/quests/season";
 import {
   hasStore,
+  readFeatured,
   readPools,
   readRewards,
   seasonStandings,
@@ -42,10 +43,11 @@ export async function GET(request: Request) {
     // The leaderboard returns what it has and refreshes behind the response,
     // so the five quests never wait on a scoring pass.
     const leaderboard = getLeaderboard(today);
-    const [standings, rewards, snapshots] = await Promise.all([
+    const [standings, rewards, snapshots, featured] = await Promise.all([
       seasonStandings(fromDay, toDay),
       readRewards(season.number),
       readPools(),
+      readFeatured(day),
     ]);
     const pool = poolOnDay(day, snapshots);
 
@@ -78,8 +80,9 @@ export async function GET(request: Request) {
       }),
       floorRon: today.floorRon,
       // The client draws its own board from the same pure function, so it
-      // needs the same day's pool to draw from.
+      // needs the same day's pool to draw from, and the same pinned quests.
       pool,
+      featured,
       leaderboard,
       seasonStandings: standings,
       // What is up for the season, and nothing about who gets what: a

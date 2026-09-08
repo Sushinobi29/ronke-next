@@ -897,6 +897,13 @@ export interface ScoredQuest extends QuestDef {
 export interface DailyScore {
   day: number;
   quests: ScoredQuest[];
+  /**
+   * Quests pinned onto the day for everyone, on top of the five. They pay
+   * like any other quest but are not part of the clean sweep — a board that
+   * grew a sixth quest at lunchtime should not move the finish line for
+   * somebody who was one away from it.
+   */
+  extra: ScoredQuest[];
   done: number;
   /** Points from finished quests, before the clean-sweep bonus. */
   points: number;
@@ -915,9 +922,13 @@ export function scoreDay(
   day: number = dayIndex(),
   context: QuestContext = {},
   address?: string,
-  pool: QuestDef[] = BASE_POOL
+  pool: QuestDef[] = BASE_POOL,
+  featured: string[] = []
 ): DailyScore {
-  const quests = questsForDay(day, address, pool).map((quest) => {
+  const drawn = questsForDay(day, address, pool);
+  const onBoard = new Set(drawn.map((quest) => quest.id));
+
+  const score = (quest: QuestDef) => {
     const target = targetFor(quest, context);
     const value = Math.min(readMetric(quest.metric, stats), target);
     return {
@@ -931,10 +942,20 @@ export function scoreDay(
       art: quest.art ?? GAME_ART[quest.game],
       gameLabel: GAME_LABELS[quest.game],
     };
-  });
+  };
+
+  const quests = drawn.map(score);
+  // A pinned quest somebody already drew is just that quest, not two of it.
+  const extra = featured
+    .filter((id) => !onBoard.has(id))
+    .map((id) => pool.find((quest) => quest.id === id))
+    .filter((quest): quest is QuestDef => !!quest && drawableOn(quest, day))
+    .map(score);
 
   const done = quests.filter((q) => q.done).length;
-  const points = quests.filter((q) => q.done).reduce((sum, q) => sum + q.points, 0);
+  const points = [...quests, ...extra]
+    .filter((q) => q.done)
+    .reduce((sum, q) => sum + q.points, 0);
 
   const swept = done === QUESTS_PER_DAY;
   const streak = swept ? (context.priorStreak ?? 0) + 1 : 0;
@@ -944,6 +965,7 @@ export function scoreDay(
   return {
     day,
     quests,
+    extra,
     done,
     points,
     bonus,
@@ -952,7 +974,7 @@ export function scoreDay(
     total: points + bonus,
     // What today is worth if they finish it, streak included.
     maxPoints:
-      quests.reduce((sum, q) => sum + q.points, 0) +
+      [...quests, ...extra].reduce((sum, q) => sum + q.points, 0) +
       Math.round(ALL_DONE_BONUS * streakMultiplier((context.priorStreak ?? 0) + 1)),
   };
 }

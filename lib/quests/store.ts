@@ -45,6 +45,18 @@ async function connect(): Promise<Sql | null> {
 
   // One X account per wallet, and one wallet per X account — without the
   // second half, a single account could sign up every wallet on the board.
+  // Quests pinned onto a day's boards for everyone, on top of the five they
+  // drew. One row per quest per day.
+  await sql`
+    create table if not exists quest_featured (
+      day       integer not null,
+      quest_id  text not null,
+      added_by  text not null,
+      added_at  timestamptz not null default now(),
+      primary key (day, quest_id)
+    )
+  `;
+
   // The quest pool, as dated snapshots. A row is the whole pool in force from
   // a given day, so a day's board is settled the moment that day starts and
   // an edit can never rewrite what yesterday's five were.
@@ -547,6 +559,52 @@ export async function writePool(
             updated_by = excluded.updated_by,
             updated_at = now()
     `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ---------------------------------------------------------- featured */
+
+/** Quests pinned onto every board for a day. */
+export async function readFeatured(day: number): Promise<string[]> {
+  const sql = await db();
+  if (!sql) return [];
+  try {
+    const rows = await sql<{ quest_id: string }[]>`
+      select quest_id from quest_featured where day = ${day} order by quest_id
+    `;
+    return rows.map((row) => row.quest_id);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Pins a set of quests to a day, replacing whatever was pinned before.
+ *
+ * Safe to do to a day already in progress, which a redraw is not: a pinned
+ * quest is added to a board rather than replacing anything on it, so nobody
+ * loses a quest they have already been scored for.
+ */
+export async function writeFeatured(
+  day: number,
+  questIds: string[],
+  addedBy: string
+): Promise<boolean> {
+  const sql = await db();
+  if (!sql) return false;
+  try {
+    await sql.begin(async (tx) => {
+      await tx`delete from quest_featured where day = ${day}`;
+      for (const id of questIds) {
+        await tx`
+          insert into quest_featured (day, quest_id, added_by)
+          values (${day}, ${id}, ${addedBy.toLowerCase()})
+        `;
+      }
+    });
     return true;
   } catch {
     return false;

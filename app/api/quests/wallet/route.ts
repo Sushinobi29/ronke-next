@@ -6,6 +6,7 @@ import { dayIndex, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt, seasonDays } from "@/lib/quests/season";
 import {
   priorSweepStreak,
+  readFeatured,
   readPools,
   recordDay,
   socialVerifiedOn,
@@ -49,16 +50,18 @@ export async function GET(request: NextRequest) {
 
     const day = dayIndex();
     const wallet = address.trim().toLowerCase();
-    const [priorStreak, snapshots] = await Promise.all([
+    const [priorStreak, snapshots, featured] = await Promise.all([
       priorSweepStreak(wallet, day),
       readPools(),
+      readFeatured(day),
     ]);
     const score = scoreDay(
       stats,
       day,
       { floorRon: today.floorRon, priorStreak },
       wallet,
-      poolOnDay(day, snapshots)
+      poolOnDay(day, snapshots),
+      featured
     );
 
     const season = seasonAt();

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { Loader2, RefreshCw, Trophy } from "lucide-react";
+import { Loader2, RefreshCw, Star, Trophy } from "lucide-react";
 import QuestCard from "@/components/quest-card";
 import SocialQuestCard from "@/components/social-quest-card";
 import WalletConnect from "@/components/wallet-connect";
@@ -70,6 +70,7 @@ interface BoardPayload {
   seasonStandings: SeasonRow[];
   rewards: { items: RewardItem[]; note: string } | null;
   pool?: QuestDef[];
+  featured?: string[];
   seasonPersisted: boolean;
   roundsToday: number;
   playersToday: number;
@@ -79,6 +80,7 @@ interface BoardPayload {
 
 interface DailyScore {
   quests: ScoredQuest[];
+  extra: ScoredQuest[];
   done: number;
   points: number;
   bonus: number;
@@ -266,7 +268,8 @@ export default function QuestsApp() {
     if (!connected || !board) return null;
     const context = { floorRon: board.floorRon };
     // Same pure draw as the server, from the same day's pool.
-    return questsForDay(board.day, connected, board.pool).map((quest) => ({
+    const drawn = questsForDay(board.day, connected, board.pool);
+    return drawn.map((quest) => ({
       ...quest,
       target: targetFor(quest, context),
       points: pointsFor(quest, context),
@@ -279,6 +282,29 @@ export default function QuestsApp() {
     }));
   }, [connected, board]);
 
+  /** Quests pinned onto today for everyone, shown even before a score lands. */
+  const pinnedPreview = useMemo(() => {
+    if (!board?.featured?.length) return [];
+    const pool = board.pool ?? [];
+    const onBoard = new Set((ownPreview ?? []).map((quest) => quest.id));
+    const context = { floorRon: board.floorRon };
+    return board.featured
+      .filter((id) => !onBoard.has(id))
+      .map((id) => pool.find((quest) => quest.id === id))
+      .filter((quest): quest is QuestDef => !!quest)
+      .map((quest) => ({
+        ...quest,
+        target: targetFor(quest, context),
+        points: pointsFor(quest, context),
+        needsLogs: needsLogs(quest),
+        value: 0,
+        done: false,
+        href: quest.link ?? GAME_LINKS[quest.game],
+        art: quest.art ?? GAME_ART[quest.game],
+        gameLabel: GAME_LABELS[quest.game],
+      }));
+  }, [board, ownPreview]);
+
   // Only the moment before the wallet answers is genuinely unknown, and the
   // placeholders cover it.
   const settling = wallet.status === "loading" || wallet.status === "connecting";
@@ -286,6 +312,7 @@ export default function QuestsApp() {
   const effective = ownBoard;
   const cards =
     ownBoard?.quests ?? ownPreview ?? (settling ? [] : (board?.quests.map(asPreview) ?? []));
+  const pinned = ownBoard?.extra ?? (settling ? [] : pinnedPreview);
   const season = board?.season;
   const seasonDays =
     season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
@@ -439,6 +466,43 @@ export default function QuestsApp() {
               <div key={i} className="rv-card h-[104px] animate-pulse" />
             ))}
         </div>
+
+        {/* Pinned onto today for everyone, on top of the five. */}
+        {pinned.length > 0 && (
+          <div className="mt-6">
+            <div className="mono flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gold">
+              <Star className="h-3.5 w-3.5" />
+              Featured today · on top of your five
+            </div>
+            <div className="mt-3 flex flex-col gap-3">
+              {pinned.map((quest) => (
+                <QuestCard
+                  key={quest.id}
+                  quest={quest}
+                  catchingUp={logsMissing && quest.needsLogs ? logCoverage : undefined}
+                  refreshing={refreshingId === quest.id}
+                  onRefresh={
+                    wallet.address
+                      ? async () => {
+                          play("click");
+                          setRefreshingId(quest.id);
+                          try {
+                            await refresh();
+                          } finally {
+                            setRefreshingId(null);
+                          }
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+            <p className="mt-2 text-[13px] text-muted-2">
+              An extra quest for everyone today. It pays like any other — the clean sweep still
+              only asks for your five.
+            </p>
+          </div>
+        )}
 
         {cards.length > 0 && (
           <div
