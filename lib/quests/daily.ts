@@ -31,12 +31,14 @@ export const MIN_BUY_RON = 100;
  * The bar a monke purchase has to clear to count at all, against the live
  * floor rather than a fixed number, because the floor moves.
  *
- * Deliberately well under the floor: paying a little under should still pay
- * out, just less. It is not shown to anybody — it exists so that a monke
- * traded between two wallets for pocket change cannot tick off a big-ticket
- * quest and collect the clean sweep with it.
+ * Set far below anything really listed, and that is the whole intent. A bar
+ * is a cliff — a RON either side of it is the difference between everything
+ * and nothing — so it belongs somewhere no honest buyer will ever land. It
+ * exists only so a monke passed between two wallets for dust cannot tick off
+ * a big-ticket quest and collect the clean sweep behind it. Above it, what a
+ * purchase pays slides with what it cost.
  */
-export const MIN_BUY_FLOOR_SHARE = 0.5;
+export const MIN_BUY_FLOOR_SHARE = 0.1;
 
 /**
  * What a normal purchase costs, as a share of the floor. Used only to say
@@ -906,11 +908,10 @@ export function pointsFor(quest: QuestDef, context: QuestContext = {}): number {
  * band is also the ceiling on what overpaying is worth.
  */
 export function earnedPoints(quest: QuestDef, spent: number): number {
-  const band = quest.points * DYNAMIC_POINTS_BAND;
-  return Math.min(
-    Math.round(quest.points + band),
-    Math.max(Math.round(quest.points - band), pointsForRon(spent))
-  );
+  // A ceiling and no floor. Holding the bottom up would pay a small purchase
+  // as though it were a large one, which is the opposite of scaling — the
+  // ladder is allowed to run all the way down.
+  return Math.min(Math.round(quest.points * (1 + DYNAMIC_POINTS_BAND)), pointsForRon(spent));
 }
 
 /** What the day's scoring needs from outside the wallet itself. */
@@ -979,6 +980,12 @@ export function scoreDay(
         unit: undefined,
         done: finished,
         points: finished ? earnedPoints(quest, measured) : pointsFor(quest, context),
+        // Somebody who bought something that did not count is owed an answer,
+        // and staying silent is how a hidden bar becomes a bug report.
+        note:
+          !finished && measured > 0
+            ? "That one was too cheap to count — buy one properly listed"
+            : quest.note,
         needsLogs: needsLogs(quest),
         href: quest.link ?? GAME_LINKS[quest.game],
         art: quest.art ?? GAME_ART[quest.game],
