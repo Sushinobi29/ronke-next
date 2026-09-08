@@ -66,6 +66,8 @@ export interface PostCheck {
   reason?: string;
   handle?: string;
   postedAt?: string;
+  /** The post's own id, so the same post cannot be claimed twice. */
+  postId?: string;
 }
 
 export const QUEST_URL = "https://ronkeverse.com/quests";
@@ -81,6 +83,41 @@ export function signupIntent(code: string): string {
 }
 
 /** Accepts x.com and twitter.com status links, rejects anything else. */
+/** The status id out of a post link, which is the post's identity. */
+export function postIdOf(raw: string): string | null {
+  const url = normalize(raw);
+  return url ? (url.split("/").pop() ?? null) : null;
+}
+
+/**
+ * When a post was written, from its own id.
+ *
+ * X ids are snowflakes: the top 41 bits are milliseconds since November 2010.
+ * That is exact, comes free with the link, and cannot be edited — where the
+ * oEmbed blockquote gives only a date with no time and no timezone, which is
+ * why "is this from today" used to need a day of slack in both directions and
+ * accepted yesterday's post.
+ *
+ * Ids from before snowflakes are small and would decode to 2010; anything
+ * outside the plausible range falls back to the blockquote date.
+ */
+const SNOWFLAKE_EPOCH_MS = 1_288_834_974_657;
+
+export function postedAtFromId(id: string): Date | null {
+  if (!/^\d{1,25}$/.test(id)) return null;
+  try {
+    const ms = Number(BigInt(id) >> BigInt(22)) + SNOWFLAKE_EPOCH_MS;
+    // Ids minted before snowflakes are small and all decode into the first day
+    // after the epoch, so anything landing there is not a real timestamp and
+    // the blockquote date is the better answer. Nor can a post be from the
+    // future, allowing an hour for a clock that disagrees.
+    if (ms < SNOWFLAKE_EPOCH_MS + 86_400_000 || ms > Date.now() + 3_600_000) return null;
+    return new Date(ms);
+  } catch {
+    return null;
+  }
+}
+
 function normalize(raw: string): string | null {
   try {
     const url = new URL(raw.trim());
@@ -117,6 +154,7 @@ interface Fetched {
   handle: string;
   text: string;
   posted: Date | null;
+  id: string | null;
 }
 
 async function fetchPost(rawUrl: string): Promise<Fetched | { error: string }> {
@@ -143,18 +181,27 @@ async function fetchPost(rawUrl: string): Promise<Fetched | { error: string }> {
   }
 
   const html = data.html ?? "";
+  const id = postIdOf(rawUrl);
   return {
     handle: data.author_url?.split("/").pop() ?? data.author_name ?? "",
     text: textOf(html),
-    posted: dateOf(html),
+    // The id is exact; the blockquote date is a fallback for old posts.
+    posted: (id ? postedAtFromId(id) : null) ?? dateOf(html),
+    id,
   };
 }
 
-/** Posts are dated to the day, so compare days rather than instants. */
+/**
+ * Whether a post was written on the quest day.
+ *
+ * Exact, now that the id gives a real timestamp: the day a post belongs to is
+ * the UTC day it was written on, which is the same day the board rolls on. An
+ * unknown date is refused rather than waved through — the previous reading,
+ * that no date means today, let anything oEmbed could not date count.
+ */
 function isFromDay(posted: Date | null, day: number): boolean {
-  if (!posted) return true;
-  const postedDay = Math.floor(posted.getTime() / 1000 / 86_400);
-  return postedDay >= day - 1 && postedDay <= day + 1;
+  if (!posted) return false;
+  return Math.floor(posted.getTime() / 1000 / 86_400) === day;
 }
 
 /**
@@ -181,7 +228,12 @@ export async function verifySignup(
     return { ok: false, reason: "Could not read who posted that." };
   }
 
-  return { ok: true, handle: found.handle, postedAt: found.posted?.toISOString() };
+  return {
+    ok: true,
+    handle: found.handle,
+    postedAt: found.posted?.toISOString(),
+    postId: found.id ?? undefined,
+  };
 }
 
 /**
@@ -214,8 +266,16 @@ export async function verifyDailyPost(
     };
   }
   if (!isFromDay(found.posted, day)) {
-    return { ok: false, reason: "That post is not from today.", handle: found.handle };
+    const when = found.posted
+      ? `That post is from ${found.posted.toISOString().slice(0, 10)}, not today.`
+      : "Could not tell when that post was written.";
+    return { ok: false, reason: `${when} Today's quest wants a post from today.`, handle: found.handle };
   }
 
-  return { ok: true, handle: found.handle, postedAt: found.posted?.toISOString() };
+  return {
+    ok: true,
+    handle: found.handle,
+    postedAt: found.posted?.toISOString(),
+    postId: found.id ?? undefined,
+  };
 }

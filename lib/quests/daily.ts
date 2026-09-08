@@ -560,7 +560,10 @@ export const BASE_POOL: QuestDef[] = [
   {
     id: "barracks.take",
     title: "Take a barracks",
-    task: "Get a barracks — win one or spin for it",
+    // What counts is the NFT arriving, not a raid going well — a raid that
+    // pays out loot and no barracks is a raid this quest cannot see.
+    task: "Get a Pew Pew Barracks into your wallet",
+    note: "Counts the moment the NFT lands — nothing to submit",
     game: "age-of-ronke",
     tier: "bonus",
     group: "barracks",

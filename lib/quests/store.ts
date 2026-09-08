@@ -90,6 +90,14 @@ async function connect(): Promise<Sql | null> {
     )
   `;
 
+  // A post can only ever be claimed once, by anyone, on any day. Postgres
+  // ignores nulls in a unique index, so rows written before this keep working.
+  await sql`alter table quest_social add column if not exists post_id text`;
+  await sql`
+    create unique index if not exists quest_social_post_id
+      on quest_social (post_id)
+  `;
+
   client = sql;
   return sql;
 }
@@ -213,19 +221,41 @@ export async function recordSocial(
   day: number,
   address: string,
   url: string,
-  handle?: string
+  handle?: string,
+  postId?: string
 ): Promise<void> {
   const sql = await db();
   if (!sql) return;
   try {
     await sql`
-      insert into quest_social (day, address, url, handle)
-      values (${day}, ${address.toLowerCase()}, ${url}, ${handle ?? null})
+      insert into quest_social (day, address, url, handle, post_id)
+      values (${day}, ${address.toLowerCase()}, ${url}, ${handle ?? null}, ${postId ?? null})
       on conflict (day, address) do update
-        set url = excluded.url, handle = excluded.handle, verified_at = now()
+        set url = excluded.url,
+            handle = excluded.handle,
+            post_id = excluded.post_id,
+            verified_at = now()
     `;
   } catch {
     // Verified but unrecorded is better than refusing the player outright.
+  }
+}
+
+/**
+ * Who already claimed this post, if anyone. Checked before the quest is
+ * credited: reposting yesterday's link is the obvious thing to try, and until
+ * now it worked.
+ */
+export async function postClaimedBy(postId: string): Promise<{ address: string; day: number } | null> {
+  const sql = await db();
+  if (!sql) return null;
+  try {
+    const [row] = await sql<{ address: string; day: number }[]>`
+      select address, day from quest_social where post_id = ${postId}
+    `;
+    return row ?? null;
+  } catch {
+    return null;
   }
 }
 

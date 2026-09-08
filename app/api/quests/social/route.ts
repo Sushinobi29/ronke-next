@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
 import { poolOnDay } from "@/lib/quests/pool";
-import { dailyCode, signupIntent, verifyDailyPost, verifySignup } from "@/lib/quests/social";
+import {
+  dailyCode,
+  postIdOf,
+  signupIntent,
+  verifyDailyPost,
+  verifySignup,
+} from "@/lib/quests/social";
 import { dayIndex, questsForDay, type SocialAsk } from "@/lib/quests/daily";
 import {
   handleOwner,
   hasStore,
   linkHandle,
   linkedHandle,
+  postClaimedBy,
   readPools,
   recordSocial,
   socialVerifiedOn,
@@ -77,6 +84,26 @@ export async function POST(request: NextRequest) {
 
   const day = dayIndex();
   const wallet = address!.trim().toLowerCase();
+
+  // A post belongs to whoever claimed it first. Checked before anything else,
+  // because reposting an old link is the obvious thing to try.
+  const postId = postIdOf(url);
+  if (postId) {
+    const claimed = await postClaimedBy(postId);
+    if (claimed && !(claimed.address === wallet && claimed.day === day)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            claimed.address === wallet
+              ? "You already used that post on an earlier day. Write a new one."
+              : "That post has already been claimed by another wallet.",
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   const existing = await linkedHandle(wallet);
 
   if (!existing) {
@@ -131,7 +158,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: check.reason }, { status: 422 });
   }
 
-  await recordSocial(day, wallet, url.trim(), check.handle);
+  await recordSocial(day, wallet, url.trim(), check.handle, check.postId);
   return NextResponse.json({
     ok: true,
     handle: check.handle,
