@@ -602,7 +602,10 @@ export const BASE_POOL: QuestDef[] = [
   {
     id: "monke.adopt",
     title: "Adopt a monke",
-    task: "Buy a Ronkeverse monke at or near the floor",
+    // Deliberately silent about where the number comes from. The threshold
+    // tracks the floor, but the player is asked for a purchase, not given a
+    // reading of the market.
+    task: "Buy a Ronkeverse monke",
     game: "ronkeverse",
     tier: "bonus",
     group: "monke",
