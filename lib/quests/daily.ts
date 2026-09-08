@@ -651,6 +651,58 @@ const SHAPES: { cheap: number; paid: number }[] = [
  */
 const SHAPES_FROM_DAY = 20_698; // 2026-09-02
 
+/**
+ * The day the sampler stopped proposing boards that cannot be accepted.
+ * Same reason as the shapes: a redraw mid-day takes quests off people who
+ * have already been scored for them.
+ */
+const FEASIBLE_FROM_DAY = 20_705; // 2026-09-09
+
+/**
+ * The paid quests that could still land a board in budget, given how much the
+ * free and cheap slots can contribute.
+ *
+ * Without this the draw spends half its attempts proposing boards that are
+ * arithmetically impossible — a 225-point quest as the only paid one on a
+ * board that has to reach 1,150 — and the quests that *can* fill that slot
+ * are crowded out by the retries. Adopting a monke is the clearest victim:
+ * it is the best fit for a single-paid board of anything in the pool, and it
+ * was appearing least often of all.
+ *
+ * The bounds ignore group clashes, so the range is if anything wider than
+ * what is really reachable. That errs toward keeping a quest in, which is the
+ * safe direction — the budget check still has the final say.
+ */
+function feasiblePaid(
+  paid: QuestDef[],
+  free: QuestDef[],
+  cheap: QuestDef[],
+  shape: { cheap: number; paid: number },
+  tolerance: number
+): QuestDef[] {
+  if (!free.length || cheap.length < shape.cheap) return paid;
+
+  const points = (list: QuestDef[]) => list.map((quest) => quest.points).sort((a, b) => a - b);
+  const sum = (list: number[]) => list.reduce((total, value) => total + value, 0);
+
+  const freePoints = points(free);
+  const cheapPoints = points(cheap);
+  const lowFill = freePoints[0] + sum(cheapPoints.slice(0, shape.cheap));
+  const highFill = freePoints[freePoints.length - 1] + sum(cheapPoints.slice(-shape.cheap));
+
+  const others = shape.paid - 1;
+  const keep = paid.filter((quest) => {
+    const rest = points(paid.filter((other) => other.id !== quest.id));
+    if (rest.length < others) return true;
+    const low = lowFill + quest.points + sum(rest.slice(0, others));
+    const high = highFill + quest.points + sum(rest.slice(-others || rest.length).slice(0, others));
+    return low <= TARGET_DAY + tolerance && high >= TARGET_DAY - tolerance;
+  });
+
+  // A pool that filters to nothing is a pool with a bigger problem than this.
+  return keep.length ? keep : paid;
+}
+
 /** FNV-1a, so a wallet seeds its own board without pulling in a hash library. */
 function hashAddress(address: string): number {
   let h = 0x811c9dc5;
@@ -768,13 +820,18 @@ export function questsForDay(
   const shapes = shaped ? SHAPES : SHAPES.slice(0, 1);
   const tolerance = shaped ? TOLERANCE : 75;
 
+  // Filtering the paid pool consumes no randomness, so days before the change
+  // draw exactly as they did.
+  const feasible = day >= FEASIBLE_FROM_DAY;
+
   const draw = () => {
     const shape = shapes.length > 1 ? shapes[Math.floor(next() * shapes.length)] : shapes[0];
+    const offer = feasible ? feasiblePaid(paid, free, cheap, shape, tolerance) : paid;
     const taken = new Set<string>();
     return [
       ...pick(free, 1, next, taken),
       ...pick(cheap, shape.cheap, next, taken),
-      ...pick(paid, shape.paid, next, taken),
+      ...pick(offer, shape.paid, next, taken),
     ];
   };
 
