@@ -125,6 +125,7 @@ export function sanitizePool(input: unknown): Sanitized {
       return { ok: false, error: `${id}: that link is not an http address.` };
     }
     if (raw.floorLinked) quest.floorLinked = true;
+    if (raw.scaled) quest.scaled = true;
     if (raw.retired) quest.retired = true;
 
     if (game === "social") {
