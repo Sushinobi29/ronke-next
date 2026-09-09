@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
-import { seasonAt, seasonDays } from "@/lib/quests/season";
+import { seasonAt, seasonByNumber, seasonDays, secondsLeft } from "@/lib/quests/season";
 import { hasStore, readRewards, seasonStandings, writeRewards } from "@/lib/quests/store";
 import { hasAdmins, isAdmin, verifyAdminWrite } from "@/lib/quests/admin";
 import {
@@ -15,9 +15,17 @@ export const dynamic = "force-dynamic";
 
 const STANDINGS_LIMIT = 200;
 
-function seasonWindow() {
-  const season = seasonAt();
-  return { season, ...seasonDays(season) };
+/**
+ * The season being configured. The one running, or the one after it — no
+ * further, because rewards for a season three months out are a guess, and no
+ * earlier, because a closed season's prizes are a record rather than a plan.
+ */
+function seasonWindow(wanted?: number | null) {
+  const now = seasonAt();
+  const number =
+    wanted && wanted >= now.number && wanted <= now.number + 1 ? wanted : now.number;
+  const season = seasonByNumber(number);
+  return { season, ...seasonDays(season), current: now.number };
 }
 
 /**
@@ -36,10 +44,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { season, fromDay, toDay } = seasonWindow();
-  const [stored, standings] = await Promise.all([
+  const wanted = Number(request.nextUrl.searchParams.get("season"));
+  const { season, fromDay, toDay, current } = seasonWindow(Number.isFinite(wanted) ? wanted : null);
+  const [stored, standings, next] = await Promise.all([
     readRewards(season.number),
     seasonStandings(fromDay, toDay, STANDINGS_LIMIT),
+    readRewards(current + 1),
   ]);
 
   const config = stored?.config ?? EMPTY_REWARDS;
@@ -49,6 +59,13 @@ export async function GET(request: NextRequest) {
     configured: true,
     persisted: hasStore(),
     season,
+    // Which seasons can be written, and whether the next one is set up yet.
+    seasons: [
+      { ...seasonByNumber(current), running: true, secondsLeft: secondsLeft(seasonByNumber(current)) },
+      { ...seasonByNumber(current + 1), running: false, secondsLeft: 0 },
+    ],
+    nextConfigured: Boolean(next?.config.items.length),
+    started: season.number <= current,
     config,
     suggested: SUGGESTED_ITEMS,
     updatedBy: stored?.updatedBy ?? null,
@@ -64,7 +81,13 @@ export async function GET(request: NextRequest) {
  * what was signed and what is written are the same numbers.
  */
 export async function POST(request: NextRequest) {
-  let body: { address?: string; signature?: string; issuedAt?: string; config?: unknown };
+  let body: {
+    address?: string;
+    signature?: string;
+    issuedAt?: string;
+    config?: unknown;
+    season?: number;
+  };
   try {
     body = await request.json();
   } catch {
@@ -84,7 +107,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: cleaned.error }, { status: 422 });
   }
 
-  const { season, fromDay, toDay } = seasonWindow();
+  const { season, fromDay, toDay } = seasonWindow(
+    typeof body.season === "number" ? body.season : null
+  );
   const check = await verifyAdminWrite({
     address: address!,
     signature,
@@ -110,6 +135,7 @@ export async function POST(request: NextRequest) {
   const standings = await seasonStandings(fromDay, toDay, STANDINGS_LIMIT);
   return NextResponse.json({
     ok: true,
+    season: season.number,
     config: cleaned,
     updatedAt: new Date().toISOString(),
     updatedBy: address!.toLowerCase(),

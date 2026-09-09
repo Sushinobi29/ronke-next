@@ -30,11 +30,18 @@ import {
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
+interface SeasonChoice extends Season {
+  running: boolean;
+  secondsLeft: number;
+}
+
 interface AdminPayload {
   admin: boolean;
   configured: boolean;
   persisted?: boolean;
   season?: Season;
+  seasons?: SeasonChoice[];
+  started?: boolean;
   config?: RewardsConfig;
   suggested?: RewardItem[];
   updatedBy?: string | null;
@@ -77,6 +84,8 @@ export default function QuestsAdmin() {
   const [saved, setSaved] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [pane, setPane] = useState<"rewards" | "quests">("rewards");
+  /** Which season is being written. Null until the first load answers. */
+  const [forSeason, setForSeason] = useState<number | null>(null);
   /** Which reward is one click from being removed. Nothing is, by default. */
   const [removing, setRemoving] = useState<string | null>(null);
 
@@ -87,7 +96,10 @@ export default function QuestsAdmin() {
     }
     let live = true;
     setLoading(true);
-    fetch(`/api/quests/admin/rewards?address=${address}`)
+    fetch(
+      `/api/quests/admin/rewards?address=${address}` +
+        (forSeason ? `&season=${forSeason}` : "")
+    )
       .then((res) => res.json())
       .then((json: AdminPayload) => {
         if (!live) return;
@@ -97,6 +109,7 @@ export default function QuestsAdmin() {
           setPublished(json.config?.published ?? false);
           setNote(json.config?.note ?? "");
           setStandings(json.standings ?? []);
+          if (forSeason === null && json.season) setForSeason(json.season.number);
         }
       })
       .catch(() => live && setError("Could not load the panel."))
@@ -104,7 +117,7 @@ export default function QuestsAdmin() {
     return () => {
       live = false;
     };
-  }, [address]);
+  }, [address, forSeason]);
 
   const draft: RewardsConfig = useMemo(
     () => ({ items, published, note }),
@@ -149,7 +162,13 @@ export default function QuestsAdmin() {
       const res = await fetch("/api/quests/admin/rewards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, signature, issuedAt, config: cleaned }),
+        body: JSON.stringify({
+          address,
+          signature,
+          issuedAt,
+          config: cleaned,
+          season: state.season.number,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -279,6 +298,32 @@ export default function QuestsAdmin() {
         <QuestsAdminPool wallet={wallet} />
       ) : (
         <>
+      {state.seasons && state.seasons.length > 1 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          {state.seasons.map((choice) => {
+            const picked = state.season?.number === choice.number;
+            return (
+              <button
+                key={choice.number}
+                onClick={() => setForSeason(choice.number)}
+                className={`rounded-xl border px-4 py-2 text-left transition-colors ${
+                  picked ? "border-gold bg-gold/10" : "border-border hover:border-border-strong"
+                }`}
+              >
+                <span className={`block text-[13px] font-semibold ${picked ? "text-gold" : ""}`}>
+                  {choice.name}
+                </span>
+                <span className="mono block text-[10px] uppercase tracking-[0.1em] text-muted-3">
+                  {choice.running
+                    ? `running · ${Math.ceil(choice.secondsLeft / 3600)}h left`
+                    : `from ${new Date(choice.startsAt * 1000).toUTCString().slice(5, 16)}`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Season rewards</h1>
@@ -546,7 +591,9 @@ export default function QuestsAdmin() {
 
         {standings.length === 0 ? (
           <p className="mono mt-4 rounded-xl border border-border bg-card-2 p-4 text-[12px] text-muted-2">
-            Nobody has scored this season yet, so there is nothing to split.
+            {state.started === false
+              ? `${state.season?.name} has not started, so there is nobody to split it between yet. The pool is saved and waiting.`
+              : "Nobody has scored this season yet, so there is nothing to split."}
           </p>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-xl border border-border">

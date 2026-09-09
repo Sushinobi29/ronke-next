@@ -48,6 +48,22 @@ export function seasonAt(unix: number = Math.floor(Date.now() / 1000)): Season {
   };
 }
 
+/**
+ * A season by its number, so the next one can be worked with before it opens.
+ * Prizes have to be settled before players can win them, not at seven in the
+ * morning on the day.
+ */
+export function seasonByNumber(number: number): Season {
+  const index = Math.max(0, Math.round(number) - 1);
+  const startsAt = EPOCH + index * LENGTH;
+  return {
+    number: index + 1,
+    name: `PoD Season ${index + 1}`,
+    startsAt,
+    endsAt: startsAt + LENGTH,
+  };
+}
+
 /** 0 → just started, 1 → over. Drives the season meter. */
 export function seasonProgress(season: Season, unix = Math.floor(Date.now() / 1000)): number {
   return Math.min(1, Math.max(0, (unix - season.startsAt) / (season.endsAt - season.startsAt)));
