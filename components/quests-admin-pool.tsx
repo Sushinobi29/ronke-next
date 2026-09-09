@@ -9,6 +9,7 @@ import {
   GAME_LABELS,
   pointsForRon,
   slotOf,
+  weightOf,
   type CostTier,
   type QuestDef,
   type QuestGame,
@@ -432,6 +433,31 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
                       />
                     </Field>
                   </div>
+
+                  <Field label="How often it comes up">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select
+                        value={String(weightOf(quest))}
+                        options={[
+                          ["0.25", "A quarter as often"],
+                          ["0.5", "Half as often"],
+                          ["1", "Same as the rest of its slot"],
+                          ["1.5", "Half again"],
+                          ["2", "Twice as often"],
+                          ["3", "Three times as often"],
+                          ["5", "As often as it can"],
+                        ]}
+                        onChange={(v) => patch(index, { weight: Number(v) })}
+                      />
+                      <span className="mono shrink-0 text-[11px] text-muted-3">
+                        now on {share === undefined ? "—" : `${share}%`} of boards
+                      </span>
+                    </div>
+                  </Field>
+                  <p className="mono text-[11px] text-muted-3">
+                    Only changes how often it is offered. Every board still has to add up to the
+                    same points, so this cannot make a day worth more than any other.
+                  </p>
 
                   {kind === "ron" && (
                     <LadderHint

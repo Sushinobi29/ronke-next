@@ -288,6 +288,14 @@ export interface QuestDef {
    * drawn again. Removing one outright would silently rewrite history.
    */
   retired?: boolean;
+  /**
+   * How much more or less often to offer this quest than the others sharing
+   * its slot. 1 is even with them, 2 is twice as likely to be reached for,
+   * 0.5 half. It changes which quests are proposed and nothing else — every
+   * board still has to land in budget, so this cannot be used to make a day
+   * worth more or less than any other.
+   */
+  weight?: number;
   /** Social quests only: what the post actually has to say. */
   ask?: SocialAsk;
   /**
@@ -755,6 +763,20 @@ function rng(seed: number) {
   return next;
 }
 
+export const MIN_WEIGHT = 0.1;
+export const MAX_WEIGHT = 5;
+
+export const weightOf = (quest: QuestDef): number =>
+  Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, Number(quest.weight ?? 1) || 1));
+
+/**
+ * Draws from a slot, favouring whatever has been weighted up.
+ *
+ * Walking a weighted total costs exactly one random number, the same as
+ * choosing an index did — and with every weight at 1 it lands on the same
+ * index that Math.floor(next() * length) would. So boards drawn from a pool
+ * nobody has weighted are identical to the ones drawn before this existed.
+ */
 function pick(
   items: QuestDef[],
   count: number,
@@ -764,7 +786,17 @@ function pick(
   const pool = items.filter((q) => !taken.has(q.group));
   const out: QuestDef[] = [];
   while (out.length < count && pool.length > 0) {
-    const [chosen] = pool.splice(Math.floor(next() * pool.length), 1);
+    const weights = pool.map(weightOf);
+    let target = next() * weights.reduce((sum, w) => sum + w, 0);
+    let index = pool.length - 1;
+    for (let i = 0; i < pool.length; i++) {
+      target -= weights[i];
+      if (target < 0) {
+        index = i;
+        break;
+      }
+    }
+    const [chosen] = pool.splice(index, 1);
     taken.add(chosen.group);
     out.push(chosen);
     // Drop anything measuring the same thing.

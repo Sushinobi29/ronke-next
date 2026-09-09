@@ -22,6 +22,8 @@ import {
   drawableOn,
   questsForDay,
   slotOf,
+  MAX_WEIGHT,
+  MIN_WEIGHT,
   type Slot,
   type CostTier,
   type QuestDef,
@@ -123,6 +125,10 @@ export function sanitizePool(input: unknown): Sanitized {
     }
     if (quest.link && !/^https?:\/\//.test(quest.link)) {
       return { ok: false, error: `${id}: that link is not an http address.` };
+    }
+    const weight = Number(raw.weight);
+    if (Number.isFinite(weight) && weight !== 1) {
+      quest.weight = Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, weight));
     }
     if (raw.floorLinked) quest.floorLinked = true;
     if (raw.scaled) quest.scaled = true;
@@ -375,6 +381,10 @@ export function poolMessage(
       lines.push(`- retired ${quest.id} "${quest.title}"`);
     } else if (before.retired && !quest.retired) {
       lines.push(`+ brought back ${quest.id} "${quest.title}"`);
+    } else if ((before.weight ?? 1) !== (quest.weight ?? 1)) {
+      lines.push(
+        `~ ${quest.id}: shown ${(quest.weight ?? 1)}x as often (was ${(before.weight ?? 1)}x)`
+      );
     } else if (before.points !== quest.points || before.target !== quest.target) {
       const moved = [
         before.points !== quest.points ? `${before.points} → ${quest.points} pts` : "",
