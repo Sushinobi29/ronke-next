@@ -36,7 +36,7 @@ const LENGTH = LENGTH_DAYS * 24 * 60 * 60;
  * not "PoD Season 5". Everything before this ran as a test and keeps the PoD
  * number, so nobody mistakes the trial for the thing.
  */
-const QUEST_SEASON_ONE = 5;
+export const QUEST_SEASON_ONE = 5;
 
 const nameFor = (pod: number) =>
   pod >= QUEST_SEASON_ONE ? `Season ${pod - QUEST_SEASON_ONE + 1}` : `PoD Season ${pod}`;

@@ -3,6 +3,9 @@ import { Suspense } from "react";
 import PageNavbar from "@/components/page-navbar";
 import QuestsApp from "@/components/quests-app";
 import QuestMusic from "@/components/quest-music";
+import QuestsTeaser from "@/components/quests-teaser";
+import { QUEST_SEASON_ONE, seasonAt, seasonByNumber } from "@/lib/quests/season";
+import { readRewards } from "@/lib/quests/store";
 
 export const metadata: Metadata = {
   title: "Ronke Quest | Ronkeverse - five new quests every day",
@@ -48,7 +51,48 @@ export const metadata: Metadata = {
   },
 };
 
-export default function QuestsPage() {
+/**
+ * The board, or the teaser that stands in for it until the first season opens.
+ *
+ * The prizes are read here rather than through the board endpoint: a
+ * countdown has no business waiting on a chain read, and the teaser needs
+ * nothing else the board knows.
+ */
+export default async function QuestsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ board?: string }>;
+}) {
+  const now = Math.floor(Date.now() / 1000);
+  const first = seasonByNumber(QUEST_SEASON_ONE);
+  // ?board is the way past it, for anyone checking the real thing works.
+  const teasing = now < first.startsAt && !(await searchParams).board;
+
+  if (teasing) {
+    const running = seasonAt(now);
+    const [current, next] = await Promise.all([
+      readRewards(running.number),
+      readRewards(running.number + 1),
+    ]);
+    const pool = current?.config.published
+      ? { config: current.config, season: running }
+      : next?.config.published
+        ? { config: next.config, season: seasonByNumber(running.number + 1) }
+        : null;
+
+    return (
+      <main className="min-h-screen">
+        <PageNavbar />
+        <QuestsTeaser
+          startsAt={first.startsAt}
+          seasonName={first.name}
+          items={pool?.config.items ?? []}
+        />
+        <QuestMusic />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen">
       <PageNavbar />
