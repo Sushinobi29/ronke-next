@@ -36,6 +36,10 @@ export const HAS_CUSTOM_RPC = RONIN_RPCS.length > 1;
 export const MULTICALL3 = "0xca11bde05977b3631167028862be2a173976ca11";
 
 /** Tokens and collections the quests read balances from. */
+/** Ronin mainnet. Lives here rather than in the wallet hook, so code that is
+ *  not React can reach it without importing a hook and creating a cycle. */
+export const RONIN_CHAIN_ID = 2020;
+
 export const TOKENS = {
   RONKE: "0xf988f63bf26c3ed3fbf39922149e3e7b1e5c27cb",
   RONKESTR: "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc",

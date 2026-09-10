@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowUpRight, Eye, Loader2, LogOut, Wallet } from "lucide-react";
+import { ArrowUpRight, Eye, Loader2, LogOut, Mail, Wallet } from "lucide-react";
 import { RONIN_CHAIN_ID, RONIN_WALLET_URL, type RoninWallet } from "@/hooks/useRoninWallet";
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -10,6 +10,9 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
  * The connect control. Read-only by design: connecting hands over an address
  * and nothing else, which is worth saying on the button itself — in this
  * ecosystem people are right to be wary of a wallet prompt.
+ *
+ * Two ways in. Without the extension the email button becomes the primary
+ * one rather than the page telling somebody to go and install something.
  */
 export default function WalletConnect({
   wallet,
@@ -20,7 +23,9 @@ export default function WalletConnect({
   viewing: string | null;
   onViewSelf: () => void;
 }) {
-  const { status, address, chainId, error, connect, disconnect, switchToRonin } = wallet;
+  const { status, address, chainId, error, via, socialReady, connect, disconnect, switchToRonin } =
+    wallet;
+  const busy = status === "connecting" || status === "loading";
   const viewingOther =
     !!viewing && !!address && viewing.toLowerCase() !== address.toLowerCase();
   const wrongChain = status === "connected" && chainId !== null && chainId !== RONIN_CHAIN_ID;
@@ -37,7 +42,7 @@ export default function WalletConnect({
             {status === "connected" ? (
               <>
                 <div className="mono text-[10px] uppercase tracking-[0.14em] text-muted-3">
-                  {viewingOther ? "Your wallet" : "Connected"}
+                  {viewingOther ? "Your wallet" : via === "stash" ? "Connected by email" : "Connected"}
                 </div>
                 <div className="mono truncate text-sm text-foreground">{short(address!)}</div>
               </>
@@ -78,7 +83,7 @@ export default function WalletConnect({
               <LogOut className="h-3.5 w-3.5" />
               Disconnect
             </button>
-          ) : status === "unavailable" ? (
+          ) : status === "unavailable" && !socialReady ? (
             <a
               href={RONIN_WALLET_URL}
               target="_blank"
@@ -89,18 +94,37 @@ export default function WalletConnect({
               <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
             </a>
           ) : (
-            <button
-              onClick={connect}
-              disabled={status === "connecting" || status === "loading"}
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-sm font-semibold text-[#06121a] transition-opacity hover:opacity-90 disabled:opacity-60"
-            >
-              {status === "connecting" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wallet className="h-4 w-4" />
+            <div className="flex flex-wrap items-center gap-2">
+              {/* No extension is not a dead end when an email will do. */}
+              {status !== "unavailable" && (
+                <button
+                  onClick={() => connect("extension")}
+                  disabled={busy}
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-[#06121a] transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wallet className="h-4 w-4" />
+                  )}
+                  {busy ? "Check your wallet" : "Connect wallet"}
+                </button>
               )}
-              {status === "connecting" ? "Check your wallet" : "Connect wallet"}
-            </button>
+              {socialReady && (
+                <button
+                  onClick={() => connect("stash")}
+                  disabled={busy}
+                  className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${
+                    status === "unavailable"
+                      ? "bg-accent text-[#06121a] hover:opacity-90"
+                      : "border border-border-strong text-muted-1 hover:border-accent hover:text-accent"
+                  }`}
+                >
+                  <Mail className="h-4 w-4" />
+                  Continue with email
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

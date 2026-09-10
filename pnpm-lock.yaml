@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@privy-io/cross-app-connect':
+        specifier: ^0.6.1
+        version: 0.6.3(viem@2.55.19(typescript@5.8.2))
       '@radix-ui/react-accordion':
         specifier: ^1.2.4
         version: 1.2.4(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -523,6 +526,10 @@ packages:
     resolution: {integrity: sha512-k11yZxZg+t+gWvBbIswW0yoJlu8cHOC7dhunwOzoWH/mXGBiYyR4YY6hAEK/3EUs4UpB8la1RfdRpeGsFHkWsA==}
     engines: {node: ^14.21.3 || >=16}
 
+  '@noble/curves@1.9.7':
+    resolution: {integrity: sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw==}
+    engines: {node: ^14.21.3 || >=16}
+
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
@@ -542,6 +549,24 @@ packages:
   '@nolyfill/is-core-module@1.0.39':
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
+
+  '@privy-io/cross-app-connect@0.6.3':
+    resolution: {integrity: sha512-Adk9qc/QMBRhAG5ukBgRlkqO5tVr3uOz5X+7csArJiQlDi7u0pOY9YkHZQQY8WB0dDRl+CrRUptOGj//5++Khg==}
+    peerDependencies:
+      '@rainbow-me/rainbowkit': ^2.2.3
+      '@wagmi/core': ^2.16.4 || ^3.0.0
+      viem: 2.56.0
+    peerDependenciesMeta:
+      '@rainbow-me/rainbowkit':
+        optional: true
+      '@wagmi/core':
+        optional: true
+
+  '@privy-io/encoding@0.2.2':
+    resolution: {integrity: sha512-bQHM5AB+F3/MIEaJ0WcFbCqAyuls7nUbQ34AlyctibPK1tmYL0tc9D2voeHo9q2S31nlgIKLEDJ65VZc+pcv6Q==}
+
+  '@privy-io/popup@0.0.5':
+    resolution: {integrity: sha512-lIwErJA86rHmLkSyapv86Z6hVzoLl544iZsVgk4tcVCHxbLBlLI4UmgLDmviNTZdp+uY0VEZe8fjUQIPpa6tZg==}
 
   '@radix-ui/number@1.1.0':
     resolution: {integrity: sha512-V3gRzhVNU1ldS5XhAPTom1fOIo4ccrjjJgmE+LI2h/WaFpHmx0MQApT+KZHnx8abG6Avtfcz4WoEciMnpFT3HQ==}
@@ -1290,6 +1315,9 @@ packages:
     resolution: {integrity: sha512-6ORQfwtEJYpalCeVO21L4XXGSdbEMfyp2hEv6cP82afKXSwvse6d3sdelgaPWUxHIsFRkWvHDdzh8IyyKHZKxw==}
     engines: {node: '>=16'}
     deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+  '@scure/base@1.1.9':
+    resolution: {integrity: sha512-8YKhl8GHiNI/pU2VMaofa2Tor7PJRAjwQLBBuilkJ9L5+13yVbC7JO/wS7piioAvPSwR3JKM1IJ/u4xQzbcXKg==}
 
   '@scure/base@1.2.6':
     resolution: {integrity: sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg==}
@@ -4141,6 +4169,10 @@ snapshots:
     dependencies:
       '@noble/hashes': 1.8.0
 
+  '@noble/curves@1.9.7':
+    dependencies:
+      '@noble/hashes': 1.8.0
+
   '@noble/hashes@1.8.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
@@ -4156,6 +4188,22 @@ snapshots:
       fastq: 1.19.1
 
   '@nolyfill/is-core-module@1.0.39': {}
+
+  '@privy-io/cross-app-connect@0.6.3(viem@2.55.19(typescript@5.8.2))':
+    dependencies:
+      '@noble/curves': 1.9.7
+      '@noble/hashes': 1.8.0
+      '@privy-io/encoding': 0.2.2
+      '@privy-io/popup': 0.0.5
+      '@scure/base': 1.1.9
+      fflate: 0.8.2
+      viem: 2.55.19(typescript@5.8.2)
+
+  '@privy-io/encoding@0.2.2':
+    dependencies:
+      '@scure/base': 1.2.6
+
+  '@privy-io/popup@0.0.5': {}
 
   '@radix-ui/number@1.1.0': {}
 
@@ -4898,6 +4946,8 @@ snapshots:
       - zod
 
   '@safe-global/safe-gateway-typescript-sdk@3.23.1': {}
+
+  '@scure/base@1.1.9': {}
 
   '@scure/base@1.2.6': {}
 

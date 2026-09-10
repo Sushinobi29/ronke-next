@@ -6,17 +6,25 @@ import {
   requestRoninWalletConnector,
   type RoninWalletConnector,
 } from "@sky-mavis/tanto-connect";
+import { RONIN_CHAIN_ID } from "@/lib/quests/contracts";
+import { connectStash, stashAccount, stashEnabled, stashProvider } from "@/lib/quests/stash";
 
 /**
- * Ronin wallet connection, on the same connector kit the casino front-end uses
- * (@sky-mavis/tanto-connect). Connecting is a read-only handshake, and nothing
- * here ever builds a transaction. The one signature the site asks for is on
- * the admin panel, where writing the season's prizes has to be proved rather
- * than claimed.
+ * Ronin wallet connection, two ways in: the browser extension, on the same
+ * connector kit the casino front-end uses (@sky-mavis/tanto-connect), and
+ * Ronin Stash for anybody who would rather use an email address.
+ *
+ * Both end in the same place — an address, and a provider that can sign — so
+ * everything downstream is unaware of which was used. Connecting is a
+ * read-only handshake either way, and nothing here builds a transaction. The
+ * one signature the site asks for is on the admin panel, where writing the
+ * season's prizes has to be proved rather than claimed.
  */
 
-export const RONIN_CHAIN_ID = 2020;
+export { RONIN_CHAIN_ID };
 export const RONIN_WALLET_URL = "https://wallet.roninchain.com";
+
+export type WalletVia = "extension" | "stash";
 
 export type WalletStatus =
   | "loading"
@@ -30,7 +38,11 @@ export interface RoninWallet {
   address: string | null;
   chainId: number | null;
   error: string | null;
-  connect: () => Promise<void>;
+  /** How this address got here, once there is one. */
+  via: WalletVia | null;
+  /** Whether email login is configured at all. */
+  socialReady: boolean;
+  connect: (via?: WalletVia) => Promise<void>;
   disconnect: () => Promise<void>;
   switchToRonin: () => Promise<void>;
   /** personal_sign. Costs nothing and moves nothing — it only proves a key. */
@@ -43,6 +55,7 @@ export function useRoninWallet(): RoninWallet {
   const [address, setAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [via, setVia] = useState<WalletVia | null>(null);
 
   /** Resolves the injected connector once, or reports the wallet as missing. */
   const getConnector = useCallback(async () => {
@@ -77,14 +90,35 @@ export function useRoninWallet(): RoninWallet {
           if (!live) return;
           if (account) {
             setAddress(account);
+            setVia("extension");
             setChainId(await connector.getChainId().catch(() => RONIN_CHAIN_ID));
             setStatus("connected");
             return;
           }
         }
+        // No extension session. Somebody may still be signed in with Stash.
+        const social = await stashAccount();
+        if (!live) return;
+        if (social) {
+          setAddress(social);
+          setVia("stash");
+          setChainId(RONIN_CHAIN_ID);
+          setStatus("connected");
+          return;
+        }
         setStatus("disconnected");
       } catch {
-        if (live) setStatus("unavailable");
+        if (!live) return;
+        // A missing extension is not a dead end while Stash is an option.
+        const social = await stashAccount().catch(() => null);
+        if (social) {
+          setAddress(social);
+          setVia("stash");
+          setChainId(RONIN_CHAIN_ID);
+          setStatus("connected");
+        } else {
+          setStatus(stashEnabled() ? "disconnected" : "unavailable");
+        }
       }
     })();
 
@@ -94,13 +128,22 @@ export function useRoninWallet(): RoninWallet {
     };
   }, [getConnector]);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (how: WalletVia = "extension") => {
     setError(null);
     setStatus("connecting");
     try {
+      if (how === "stash") {
+        const account = await connectStash();
+        setAddress(account);
+        setVia("stash");
+        setChainId(RONIN_CHAIN_ID);
+        setStatus("connected");
+        return;
+      }
       const connector = await getConnector();
       const result = await connector.connect(RONIN_CHAIN_ID);
       setAddress(result.account);
+      setVia("extension");
       setChainId(result.chainId);
       setStatus("connected");
     } catch (cause) {
@@ -113,12 +156,18 @@ export function useRoninWallet(): RoninWallet {
 
   const disconnect = useCallback(async () => {
     try {
-      await connectorRef.current?.disconnect();
+      if (via === "stash") {
+        const stash = await stashProvider();
+        await stash?.request({ method: "wallet_disconnect" }).catch(() => {});
+      } else {
+        await connectorRef.current?.disconnect();
+      }
     } finally {
       setAddress(null);
+      setVia(null);
       setStatus("disconnected");
     }
-  }, []);
+  }, [via]);
 
   const switchToRonin = useCallback(async () => {
     try {
@@ -132,18 +181,34 @@ export function useRoninWallet(): RoninWallet {
   const sign = useCallback(
     async (message: string) => {
       if (!address) throw new Error("Connect a wallet first.");
-      const connector = await getConnector();
-      const provider = await connector.requestProvider();
       const hex = Array.from(new TextEncoder().encode(message))
         .map((byte) => byte.toString(16).padStart(2, "0"))
         .join("");
-      return provider.request<string>({
-        method: "personal_sign",
-        params: [`0x${hex}`, address],
-      });
+      const params = [`0x${hex}`, address];
+
+      if (via === "stash") {
+        const stash = await stashProvider();
+        if (!stash) throw new Error("Social login is not configured.");
+        return stash.request<string>({ method: "personal_sign", params });
+      }
+
+      const connector = await getConnector();
+      const provider = await connector.requestProvider();
+      return provider.request<string>({ method: "personal_sign", params });
     },
-    [getConnector, address]
+    [getConnector, address, via]
   );
 
-  return { status, address, chainId, error, connect, disconnect, switchToRonin, sign };
+  return {
+    status,
+    address,
+    chainId,
+    error,
+    via,
+    socialReady: stashEnabled(),
+    connect,
+    disconnect,
+    switchToRonin,
+    sign,
+  };
 }
