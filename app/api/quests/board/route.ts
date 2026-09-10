@@ -9,7 +9,8 @@ import {
   targetFor,
 } from "@/lib/quests/daily";
 import { poolOnDay } from "@/lib/quests/pool";
-import { seasonAt, seasonDays } from "@/lib/quests/season";
+import { previewRewards } from "@/lib/quests/rewards";
+import { seasonAt, seasonByNumber, seasonDays } from "@/lib/quests/season";
 import {
   hasStore,
   readFeatured,
@@ -43,13 +44,21 @@ export async function GET(request: Request) {
     // The leaderboard returns what it has and refreshes behind the response,
     // so the five quests never wait on a scoring pass.
     const leaderboard = getLeaderboard(today);
-    const [standings, rewards, snapshots, featured] = await Promise.all([
+    const [standings, rewards, nextRewards, snapshots, featured] = await Promise.all([
       seasonStandings(fromDay, toDay),
       readRewards(season.number),
+      readRewards(season.number + 1),
       readPools(),
       readFeatured(day),
     ]);
     const pool = poolOnDay(day, snapshots);
+
+    // The running season's prizes if it has any, otherwise the next season's.
+    const prizes = rewards?.config.published
+      ? { config: rewards.config, season, upcoming: false }
+      : nextRewards?.config.published
+        ? { config: nextRewards.config, season: seasonByNumber(season.number + 1), upcoming: true }
+        : null;
 
     return NextResponse.json({
       day,
@@ -85,11 +94,19 @@ export async function GET(request: Request) {
       featured,
       leaderboard,
       seasonStandings: standings,
-      // What is up for the season, and nothing about who gets what: a
-      // wallet's share moves every time anybody plays, so quoting one would
-      // be quoting a number that is wrong by the time it is read.
-      rewards: rewards?.config.published
-        ? { items: rewards.config.items, note: rewards.config.note }
+      // What is up for the season. If this one has nothing published, the
+      // next one's pool is shown instead rather than nothing at all — that is
+      // the whole of the days before a season opens, when there is a pool to
+      // announce and no season to announce it on yet.
+      rewards: prizes
+        ? {
+            items: prizes.config.items,
+            note: prizes.config.note,
+            season: prizes.season.name,
+            startsAt: prizes.season.startsAt,
+            upcoming: prizes.upcoming,
+            shares: prizes.config.showShares ? previewRewards(standings, prizes.config) : null,
+          }
         : null,
       seasonPersisted: hasStore(),
       roundsToday: today.rounds.length,

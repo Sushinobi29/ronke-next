@@ -77,6 +77,7 @@ export default function QuestsAdmin() {
   const [items, setItems] = useState<RewardItem[]>([]);
   const [published, setPublished] = useState(false);
   const [note, setNote] = useState("");
+  const [showShares, setShowShares] = useState(false);
   const [standings, setStandings] = useState<SeasonRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -107,6 +108,7 @@ export default function QuestsAdmin() {
         if (json.admin) {
           setItems(json.config?.items ?? []);
           setPublished(json.config?.published ?? false);
+          setShowShares(json.config?.showShares ?? false);
           setNote(json.config?.note ?? "");
           setStandings(json.standings ?? []);
           if (forSeason === null && json.season) setForSeason(json.season.number);
@@ -120,8 +122,8 @@ export default function QuestsAdmin() {
   }, [address, forSeason]);
 
   const draft: RewardsConfig = useMemo(
-    () => ({ items, published, note }),
-    [items, published, note]
+    () => ({ items, published, showShares, note }),
+    [items, published, showShares, note]
   );
 
   // The same preview the players never see: who this pool actually pays, live
@@ -178,6 +180,7 @@ export default function QuestsAdmin() {
 
       setItems(json.config.items);
       setPublished(json.config.published);
+      setShowShares(json.config.showShares ?? false);
       setNote(json.config.note);
       setStandings(json.standings ?? []);
       setState((current) =>
@@ -541,6 +544,23 @@ export default function QuestsAdmin() {
             <span className="mt-0.5 block text-[13px] text-muted-1">
               Players see what is up for the season and how it is split — never their own
               projected cut, which moves every time somebody plays.
+            </span>
+          </span>
+        </label>
+
+        <label className="mt-4 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={showShares}
+            onChange={(e) => setShowShares(e.target.checked)}
+            className="mt-1 h-4 w-4 accent-[var(--accent,#5ad1ff)]"
+          />
+          <span>
+            <span className="font-semibold">Show each wallet what it is in line for</span>
+            <span className="mt-0.5 block text-[13px] text-muted-1">
+              Puts a projected share under every name on the season leaderboard. It is a
+              snapshot, not a promise — it moves every time anybody plays, and it moves most for
+              whoever is near the bottom of the cut.
             </span>
           </span>
         </label>

@@ -68,7 +68,14 @@ interface BoardPayload {
   quests: BoardQuest[];
   leaderboard: LeaderEntry[];
   seasonStandings: SeasonRow[];
-  rewards: { items: RewardItem[]; note: string } | null;
+  rewards: {
+    items: RewardItem[];
+    note: string;
+    season: string;
+    startsAt: number;
+    upcoming: boolean;
+    shares: { address: string; rank: number; shares: { id: string; label: string; amount: number }[] }[] | null;
+  } | null;
   pool?: QuestDef[];
   featured?: string[];
   seasonPersisted: boolean;
@@ -313,6 +320,13 @@ export default function QuestsApp() {
   const cards =
     ownBoard?.quests ?? ownPreview ?? (settling ? [] : (board?.quests.map(asPreview) ?? []));
   const pinned = ownBoard?.extra ?? (settling ? [] : pinnedPreview);
+
+  /** What each wallet is currently in line for, when the season shows it. */
+  const projections = useMemo(() => {
+    const shares = board?.rewards?.shares;
+    if (!shares) return null;
+    return new Map(shares.map((row) => [row.address, row.shares]));
+  }, [board?.rewards?.shares]);
   const season = board?.season;
   const seasonDays =
     season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
@@ -569,11 +583,16 @@ export default function QuestsApp() {
       {/* -------------------------------------------------------- rewards */}
       {board?.rewards && board.rewards.items.length > 0 && (
         <div className="rv-card mt-10 border-gold/40 p-5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <Trophy className="h-4 w-4 text-gold" />
             <h2 className="mono text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
-              {season?.name ?? "Season"} rewards
+              {board.rewards.season} rewards
             </h2>
+            {board.rewards.upcoming && now !== null && (
+              <span className="mono text-[11px] uppercase tracking-[0.12em] text-muted-2">
+                · opens in {clock(Math.max(0, board.rewards.startsAt - now))}
+              </span>
+            )}
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -592,7 +611,9 @@ export default function QuestsApp() {
 
           <p className="mt-4 text-[13px] text-muted-1">
             {board.rewards.note ||
-              "Split down the season leaderboard when it closes. Climb it and the share follows."}
+              (board.rewards.upcoming
+                ? "Up for grabs when the season opens. Everyone starts level."
+                : "Split down the season leaderboard when it closes. Climb it and the share follows.")}
           </p>
         </div>
       )}
@@ -670,6 +691,7 @@ export default function QuestsApp() {
               {tab === "season" &&
                 (board?.seasonStandings ?? []).map((row, index) => {
                   const you = scored && row.address === scored.toLowerCase();
+                  const winning = projections?.get(row.address);
                   return (
                     <tr
                       key={row.address}
@@ -679,6 +701,15 @@ export default function QuestsApp() {
                       <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
                         {short(row.address)}
                         {you && <span className="ml-2 text-[10px] text-gold">you</span>}
+                        {/* On for a season that has chosen to show them. */}
+                        {winning && winning.length > 0 && (
+                          <span className="mono mt-0.5 block text-[10px] text-diamond">
+                            in line for{" "}
+                            {winning
+                              .map((share) => `${share.amount.toLocaleString()} ${share.label}`)
+                              .join(" + ")}
+                          </span>
+                        )}
                       </td>
                       <td className="mono px-3 py-2.5 text-right">{row.days}</td>
                       <td

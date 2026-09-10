@@ -58,6 +58,13 @@ export interface RewardsConfig {
   items: RewardItem[];
   /** Draft until this is on; players see nothing before then. */
   published: boolean;
+  /**
+   * Show each wallet what it is currently in line for, next to its place on
+   * the leaderboard. Off by default: the figure moves every time anybody
+   * plays, so it is a snapshot rather than a promise, and saying so takes
+   * more room than the number does.
+   */
+  showShares?: boolean;
   /** Free text shown with the pool, for payout timing and the like. */
   note: string;
 }
@@ -66,7 +73,12 @@ export const MAX_ITEMS = 8;
 export const MAX_TOP_N = 500;
 export const MAX_FALLOFF = 3;
 
-export const EMPTY_REWARDS: RewardsConfig = { items: [], published: false, note: "" };
+export const EMPTY_REWARDS: RewardsConfig = {
+  items: [],
+  published: false,
+  showShares: false,
+  note: "",
+};
 
 /** What the first season is set to pay, as a starting point in the panel. */
 export const SUGGESTED_ITEMS: RewardItem[] = [
@@ -210,6 +222,7 @@ export function sanitize(input: unknown): RewardsConfig | { error: string } {
   return {
     items,
     published: Boolean(raw.published),
+    showShares: Boolean(raw.showShares),
     note: String(raw.note ?? "").trim().slice(0, 280),
   };
 }
@@ -258,7 +271,7 @@ export function adminMessage(
     "",
     `Season: ${season}`,
     `Wallet: ${address.toLowerCase()}`,
-    `Status: ${config.published ? "published to players" : "draft"}`,
+    `Status: ${config.published ? "published to players" : "draft"}${config.showShares ? ", projections shown" : ""}`,
     `Issued: ${issuedAt}`,
     "",
     lines.length ? lines.join("\n") : "- no rewards",

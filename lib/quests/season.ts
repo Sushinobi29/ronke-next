@@ -29,6 +29,18 @@ const LENGTH_DAYS = 30;
 const EPOCH = Math.floor(Date.parse(EPOCH_ISO) / 1000);
 const LENGTH = LENGTH_DAYS * 24 * 60 * 60;
 
+/**
+ * The PoD season Ronke Quest counts as its own first.
+ *
+ * Seasons follow Ronin's clock, but players are being told about "Season 1",
+ * not "PoD Season 5". Everything before this ran as a test and keeps the PoD
+ * number, so nobody mistakes the trial for the thing.
+ */
+const QUEST_SEASON_ONE = 5;
+
+const nameFor = (pod: number) =>
+  pod >= QUEST_SEASON_ONE ? `Season ${pod - QUEST_SEASON_ONE + 1}` : `PoD Season ${pod}`;
+
 export interface Season {
   /** 1-indexed, counting from the epoch. */
   number: number;
@@ -42,7 +54,7 @@ export function seasonAt(unix: number = Math.floor(Date.now() / 1000)): Season {
   const startsAt = EPOCH + index * LENGTH;
   return {
     number: index + 1,
-    name: `PoD Season ${index + 1}`,
+    name: nameFor(index + 1),
     startsAt,
     endsAt: startsAt + LENGTH,
   };
@@ -58,7 +70,7 @@ export function seasonByNumber(number: number): Season {
   const startsAt = EPOCH + index * LENGTH;
   return {
     number: index + 1,
-    name: `PoD Season ${index + 1}`,
+    name: nameFor(index + 1),
     startsAt,
     endsAt: startsAt + LENGTH,
   };
