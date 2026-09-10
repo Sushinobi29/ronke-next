@@ -21,6 +21,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/** How much of the season table the board draws. */
+const LEADERBOARD_ROWS = 50;
+
 /**
  * Today's five quests and what the tables have seen since midnight. The chain
  * half is shared with every other visitor, so this costs one incremental read
@@ -44,14 +47,12 @@ export async function GET(request: Request) {
     // The leaderboard returns what it has and refreshes behind the response,
     // so the five quests never wait on a scoring pass.
     const leaderboard = getLeaderboard(today);
-    const [standings, rewards, nextRewards, snapshots, featured] = await Promise.all([
-      seasonStandings(fromDay, toDay),
+    const [rewards, nextRewards, snapshots, featured] = await Promise.all([
       readRewards(season.number),
       readRewards(season.number + 1),
       readPools(),
       readFeatured(day),
     ]);
-    const pool = poolOnDay(day, snapshots);
 
     // The running season's prizes if it has any, otherwise the next season's.
     const prizes = rewards?.config.published
@@ -59,6 +60,16 @@ export async function GET(request: Request) {
       : nextRewards?.config.published
         ? { config: nextRewards.config, season: seasonByNumber(season.number + 1), upcoming: true }
         : null;
+
+    /**
+     * A share is a slice of a pool, so it can only be worked out against
+     * everyone the pool reaches. Reading the top fifty and splitting a
+     * top-hundred prize between them hands everybody twice what they are
+     * owed, and tells the second fifty they are owed nothing.
+     */
+    const reach = prizes ? Math.max(...prizes.config.items.map((item) => item.topN), 0) : 0;
+    const standings = await seasonStandings(fromDay, toDay, Math.max(LEADERBOARD_ROWS, reach));
+    const pool = poolOnDay(day, snapshots);
 
     return NextResponse.json({
       day,
@@ -93,7 +104,8 @@ export async function GET(request: Request) {
       pool,
       featured,
       leaderboard,
-      seasonStandings: standings,
+      // The board shows a page of the table; the split needed all of it.
+      seasonStandings: standings.slice(0, LEADERBOARD_ROWS),
       // What is up for the season. If this one has nothing published, the
       // next one's pool is shown instead rather than nothing at all — that is
       // the whole of the days before a season opens, when there is a pool to
@@ -105,7 +117,9 @@ export async function GET(request: Request) {
             season: prizes.season.name,
             startsAt: prizes.season.startsAt,
             upcoming: prizes.upcoming,
-            shares: prizes.config.showShares ? previewRewards(standings, prizes.config) : null,
+            shares: prizes.config.showShares
+              ? previewRewards(standings, prizes.config).filter((row) => row.shares.length)
+              : null,
           }
         : null,
       seasonPersisted: hasStore(),
