@@ -30,6 +30,59 @@ async function connect(): Promise<Sql | null> {
   // and let the pooled connection string do the pooling.
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, idle_timeout: 20, prepare: false });
 
+  await ensureSchema(sql);
+  client = sql;
+  return sql;
+}
+
+/**
+ * Every object this file expects, so the check below is one query rather than
+ * a guess. Add to it when you add a table or an index.
+ */
+const SCHEMA = [
+  "quest_days",
+  "quest_days_day_idx",
+  "quest_featured",
+  "quest_pool",
+  "quest_rewards",
+  "quest_x_links",
+  "quest_social",
+  "quest_social_post_id",
+] as const;
+
+/**
+ * Creates the schema, but only when it is actually missing.
+ *
+ * "if not exists" reads as free and is not. Every one of those statements
+ * takes a lock on the table whether or not it changes anything, and a
+ * serverless app cold-starts often — so under real traffic the create-index
+ * calls queue behind each other and behind whatever insert got there first,
+ * until a fifteen-deep lock convoy is holding the table and nothing can read
+ * it at all. That is not a hypothetical: it took the board down within
+ * minutes of the first production deploy that had a database attached.
+ *
+ * One catalog read costs a round trip and takes no locks.
+ */
+async function ensureSchema(sql: Sql): Promise<void> {
+  try {
+    const [row] = await sql<{ found: number }[]>`
+      select count(*)::int as found
+        from pg_class
+       where relname = any(${[...SCHEMA]})
+         and relnamespace = 'public'::regnamespace
+    `;
+    if (row?.found === SCHEMA.length) return;
+  } catch (cause) {
+    // Worth saying out loud. Swallowing it silently is how the first version
+    // of this check went unnoticed: it threw on every call, so the DDL ran
+    // every time anyway and the lock convoy came back.
+    console.error("[quests] schema check failed, running the migration:", cause);
+  }
+
+  await migrate(sql);
+}
+
+async function migrate(sql: Sql): Promise<void> {
   await sql`
     create table if not exists quest_days (
       day        integer not null,
@@ -109,9 +162,6 @@ async function connect(): Promise<Sql | null> {
     create unique index if not exists quest_social_post_id
       on quest_social (post_id)
   `;
-
-  client = sql;
-  return sql;
 }
 
 /** Resolves to null rather than throwing when no store is configured. */
