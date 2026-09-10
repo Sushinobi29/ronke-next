@@ -69,15 +69,18 @@ export default async function QuestsPage({
   const teasing = now < first.startsAt && !(await searchParams).board;
 
   if (teasing) {
+    // The teaser is teasing the first season, so it shows the first season's
+    // pool. Falling back to whatever is running would put a closing season's
+    // prizes under a heading that names a different one.
     const running = seasonAt(now);
-    const [current, next] = await Promise.all([
+    const [firstPrizes, current] = await Promise.all([
+      readRewards(QUEST_SEASON_ONE),
       readRewards(running.number),
-      readRewards(running.number + 1),
     ]);
-    const pool = current?.config.published
-      ? { config: current.config, season: running }
-      : next?.config.published
-        ? { config: next.config, season: seasonByNumber(running.number + 1) }
+    const pool = firstPrizes?.config.published
+      ? firstPrizes.config
+      : current?.config.published
+        ? current.config
         : null;
 
     return (
@@ -86,7 +89,7 @@ export default async function QuestsPage({
         <QuestsTeaser
           startsAt={first.startsAt}
           seasonName={first.name}
-          items={pool?.config.items ?? []}
+          items={pool?.items ?? []}
         />
         <QuestMusic />
       </main>
