@@ -323,11 +323,15 @@ export async function seasonHeadcount(fromDay: number, toDay: number): Promise<n
  * The board shows a page of the table, so most of the season this is the only
  * thing that tells a player anything: a wallet ranked eighty-seventh reads the
  * top fifty, finds nothing, and cannot tell whether it is close or nowhere.
- * One query for both halves — the rank is only meaningful next to the size of
- * the field it was measured against.
+ * Both halves come back together because a rank means nothing without the size
+ * of the field it was measured in.
+ *
+ * Takes the wallet's own total rather than looking it up: the caller has just
+ * read it, and asking the database to find it again inside a correlated
+ * subquery costs a second pass over the season for a number already in hand.
  */
 export async function seasonPlace(
-  address: string,
+  points: number | null,
   fromDay: number,
   toDay: number
 ): Promise<{ rank: number | null; players: number }> {
@@ -335,27 +339,27 @@ export async function seasonPlace(
   if (!sql) return { rank: null, players: 0 };
 
   try {
-    const [row] = await sql<{ rank: string | null; players: string }[]>`
-      with totals as (
-        select address, sum(points) as points
-          from quest_days
-         where day between ${fromDay} and ${toDay}
-         group by address
-        having sum(points) > 0
-      )
-      select (select count(*)::text from totals) as players,
-             (select count(*) + 1
-                from totals
-               where points > (select points from totals where address = ${address.toLowerCase()})
-             )::text as rank
+    const [row] = await sql<{ players: string; ahead: string }[]>`
+      select count(*)::text                                            as players,
+             count(*) filter (where points > ${points ?? 0})::text      as ahead
+        from (
+          select address, sum(points) as points
+            from quest_days
+           where day between ${fromDay} and ${toDay}
+           group by address
+          having sum(points) > 0
+        ) t
     `;
     return {
       // Null until the wallet has banked a point: it is not on the table yet,
-      // which is not the same as being last on it.
-      rank: row?.rank ? Number(row.rank) : null,
+      // which is not the same as standing last on it.
+      rank: points && points > 0 ? Number(row.ahead) + 1 : null,
       players: Number(row?.players ?? 0),
     };
-  } catch {
+  } catch (error) {
+    // Swallowed once already and it cost an afternoon of wondering why every
+    // rank came back null. A miss here is survivable; a silent one is not.
+    console.error("[quests] seasonPlace failed:", error);
     return { rank: null, players: 0 };
   }
 }

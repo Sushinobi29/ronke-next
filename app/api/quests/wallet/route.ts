@@ -84,10 +84,8 @@ export async function GET(request: NextRequest) {
       done: score.done,
       bonus: score.bonus,
     });
-    const [seasonTotal, place] = await Promise.all([
-      walletSeason(wallet, fromDay, toDay),
-      seasonPlace(wallet, fromDay, toDay),
-    ]);
+    const seasonTotal = await walletSeason(wallet, fromDay, toDay);
+    const place = await seasonPlace(seasonTotal?.points ?? null, fromDay, toDay);
 
     return NextResponse.json({
       address: wallet,
