@@ -52,8 +52,15 @@ export async function GET(request: Request) {
     const season = seasonAt();
     const { fromDay, toDay } = seasonDays(season);
 
-    // The leaderboard returns what it has and refreshes behind the response,
-    // so the five quests never wait on a scoring pass.
+    /**
+     * The daily scoring pass. The page no longer draws a "today" table, but
+     * this call is not decoration: scoring is what writes the day into
+     * quest_days, for everyone the chain saw act and everyone with a streak
+     * on the line. Drop it and the season table shrinks to the wallets that
+     * happened to open the page. It returns what it has and refreshes behind
+     * the response, so the five quests never wait on it, and the rows are
+     * still served for anything reading this endpoint directly.
+     */
     const leaderboard = getLeaderboard(today);
     const [rewards, nextRewards, snapshots, featured] = await Promise.all([
       readRewards(season.number),

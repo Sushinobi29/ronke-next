@@ -46,14 +46,6 @@ interface BoardQuest {
   copyLabel?: string;
 }
 
-interface LeaderEntry {
-  address: string;
-  points: number;
-  done: number;
-  bonus: number;
-  streak: number;
-}
-
 interface SeasonRow {
   address: string;
   points: number;
@@ -66,7 +58,6 @@ interface BoardPayload {
   season: Season;
   floorRon?: number;
   quests: BoardQuest[];
-  leaderboard: LeaderEntry[];
   seasonStandings: SeasonRow[];
   rewards: {
     items: RewardItem[];
@@ -146,7 +137,6 @@ export default function QuestsApp() {
   const [stale, setStale] = useState<string | null>(null);
   const [logsMissing, setLogsMissing] = useState(false);
   const [logCoverage, setLogCoverage] = useState(1);
-  const [tab, setTab] = useState<"today" | "season">("today");
   /** The whole season table, once someone asks to see past the first page. */
   const [fullSeason, setFullSeason] = useState<SeasonRow[] | null>(null);
   const [fullShares, setFullShares] = useState<
@@ -383,7 +373,6 @@ export default function QuestsApp() {
   const hiddenPlayers = Math.max(0, seasonPlayers - seasonRows.length);
   /** A connected wallet ranked past the rows on screen still gets a line. */
   const showOwnRow =
-    tab === "season" &&
     scored !== null &&
     seasonRank !== null &&
     seasonTotal !== null &&
@@ -682,26 +671,11 @@ export default function QuestsApp() {
       {/* ---------------------------------------------------- leaderboard */}
       <div className="rv-card mt-10 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-5 py-3">
-          <div className="flex gap-1">
-            {(["today", "season"] as const).map((key) => (
-              <button
-                key={key}
-                onClick={() => {
-                  play("click");
-                  setTab(key);
-                }}
-                className={`rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${
-                  tab === key
-                    ? "bg-card-2 text-foreground"
-                    : "text-muted-2 hover:text-foreground"
-                }`}
-              >
-                {key === "today" ? "Today" : season?.name ?? "Season"}
-              </button>
-            ))}
-          </div>
+          <h2 className="text-[13px] font-semibold text-foreground">
+            {season?.name ?? "Season"} standings
+          </h2>
           <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
-            {tab === "today" ? "since midnight UTC" : "points, all days so far"}
+            points, all days so far
           </span>
         </div>
 
@@ -711,81 +685,48 @@ export default function QuestsApp() {
               <tr className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
                 <th className="px-5 py-2 text-left font-bold">#</th>
                 <th className="px-3 py-2 text-left font-bold">Wallet</th>
-                <th className="px-3 py-2 text-right font-bold">
-                  {tab === "today" ? "Done" : "Days"}
-                </th>
+                <th className="px-3 py-2 text-right font-bold">Days</th>
                 <th className="px-3 py-2 text-right font-bold">Streak</th>
                 <th className="px-5 py-2 text-right font-bold">Points</th>
               </tr>
             </thead>
             <tbody>
-              {tab === "today" &&
-                (board?.leaderboard ?? []).map((row, index) => {
-                  const you = scored && row.address === scored.toLowerCase();
-                  return (
-                    <tr
-                      key={row.address}
-                      className={`border-t border-border-soft ${you ? "bg-accent/10" : ""}`}
+              {seasonRows.map((row, index) => {
+                const you = scored && row.address === scored.toLowerCase();
+                const winning = projections?.get(row.address);
+                return (
+                  <tr
+                    key={row.address}
+                    className={`border-t border-border-soft ${you ? "bg-accent/10" : ""}`}
+                  >
+                    <td className="mono px-5 py-2.5 text-muted-3">{index + 1}</td>
+                    <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
+                      {short(row.address)}
+                      {you && <span className="ml-2 text-[10px] text-gold">you</span>}
+                      {/* On for a season that has chosen to show them. */}
+                      {winning && winning.length > 0 && (
+                        <span className="mono mt-0.5 block text-[10px] text-diamond">
+                          in line for{" "}
+                          {winning
+                            .map((share) => `${share.amount.toLocaleString()} ${share.label}`)
+                            .join(" + ")}
+                        </span>
+                      )}
+                    </td>
+                    <td className="mono px-3 py-2.5 text-right">{row.days}</td>
+                    <td
+                      className={`mono px-3 py-2.5 text-right ${
+                        row.sweeps ? "text-gold" : "text-muted-3"
+                      }`}
                     >
-                      <td className="mono px-5 py-2.5 text-muted-3">{index + 1}</td>
-                      <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
-                        {short(row.address)}
-                        {you && <span className="ml-2 text-[10px] text-gold">you</span>}
-                      </td>
-                      <td className="mono px-3 py-2.5 text-right">
-                        {row.done}/{QUESTS_PER_DAY}
-                      </td>
-                      <td
-                        className={`mono px-3 py-2.5 text-right ${
-                          row.streak ? "text-gold" : "text-muted-3"
-                        }`}
-                      >
-                        {row.streak ? `${row.streak}🔥` : "—"}
-                      </td>
-                      <td className="mono px-5 py-2.5 text-right font-bold text-gold">
-                        {row.points.toLocaleString()}
-                      </td>
-                    </tr>
-                  );
-                })}
-
-              {tab === "season" &&
-                seasonRows.map((row, index) => {
-                  const you = scored && row.address === scored.toLowerCase();
-                  const winning = projections?.get(row.address);
-                  return (
-                    <tr
-                      key={row.address}
-                      className={`border-t border-border-soft ${you ? "bg-accent/10" : ""}`}
-                    >
-                      <td className="mono px-5 py-2.5 text-muted-3">{index + 1}</td>
-                      <td className={`mono px-3 py-2.5 ${you ? "text-gold" : "text-accent"}`}>
-                        {short(row.address)}
-                        {you && <span className="ml-2 text-[10px] text-gold">you</span>}
-                        {/* On for a season that has chosen to show them. */}
-                        {winning && winning.length > 0 && (
-                          <span className="mono mt-0.5 block text-[10px] text-diamond">
-                            in line for{" "}
-                            {winning
-                              .map((share) => `${share.amount.toLocaleString()} ${share.label}`)
-                              .join(" + ")}
-                          </span>
-                        )}
-                      </td>
-                      <td className="mono px-3 py-2.5 text-right">{row.days}</td>
-                      <td
-                        className={`mono px-3 py-2.5 text-right ${
-                          row.sweeps ? "text-gold" : "text-muted-3"
-                        }`}
-                      >
-                        {row.sweeps || "—"}
-                      </td>
-                      <td className="mono px-5 py-2.5 text-right font-bold text-gold">
-                        {row.points.toLocaleString()}
-                      </td>
-                    </tr>
-                  );
-                })}
+                      {row.sweeps || "—"}
+                    </td>
+                    <td className="mono px-5 py-2.5 text-right font-bold text-gold">
+                      {row.points.toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
 
               {/* Ranked past the page on screen: one line so the number is
                   never a mystery, separated so it does not read as 51st. */}
@@ -810,7 +751,7 @@ export default function QuestsApp() {
                 </tr>
               )}
 
-              {tab === "season" && board && !board.seasonPersisted && (
+              {board && !board.seasonPersisted && (
                 <tr>
                   <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
                     Season totals start once a database is connected. Today&apos;s board works
@@ -818,19 +759,10 @@ export default function QuestsApp() {
                   </td>
                 </tr>
               )}
-              {tab === "season" &&
-                board?.seasonPersisted &&
-                seasonRows.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
-                      Nothing banked yet this season.
-                    </td>
-                  </tr>
-                )}
-              {tab === "today" && board && board.leaderboard.length === 0 && (
+              {board?.seasonPersisted && seasonRows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-2">
-                    Nobody has scored yet today. Be the first name up there.
+                    Nothing banked yet this season. Be the first name up there.
                   </td>
                 </tr>
               )}
@@ -846,7 +778,7 @@ export default function QuestsApp() {
         </div>
 
         {/* The rest of the table, for anyone who wants to read past the page. */}
-        {tab === "season" && board?.seasonPersisted && seasonRows.length > 0 && (
+        {board?.seasonPersisted && seasonRows.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border px-5 py-3">
             <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
               {hiddenPlayers > 0
