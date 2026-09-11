@@ -1,10 +1,16 @@
 /**
  * Daily quests.
  *
- * Five quests a day, drawn from a pool by a seed that is just the date — so
- * everyone in the Ronkeverse gets the same five, nobody can reroll for an
- * easier set, and the board is reproducible by anyone who reads this file.
- * A new set lands at midnight UTC.
+ * Five quests a day, drawn by a seed made of the date and the wallet: a board
+ * is that wallet's own, nobody can reroll for an easier set, and anyone
+ * holding the same day, wallet and pool can reproduce it exactly. A new set
+ * lands at midnight UTC.
+ *
+ * All three inputs matter. The draw walks a weighted stream and redraws
+ * against a points budget, so a pool with one quest edited is a different
+ * pool: it moves the board for most wallets, not just the ones that would
+ * have drawn the edited quest. Anything that scores a wallet has to do it
+ * against the pool that wallet was actually shown.
  *
  * The draw is 3 core + 2 bonus rather than 5 at random, so every day has an
  * approachable spine: a player with an empty wallet can always finish most of

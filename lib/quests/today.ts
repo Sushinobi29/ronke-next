@@ -43,7 +43,15 @@ import {
 } from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
 import { dayIndex, dayStart, scoreDay } from "./daily";
-import { priorSweepStreaks, recordMany, socialVerifiedOn, sweptOn } from "./store";
+import {
+  priorSweepStreaks,
+  readFeatured,
+  readPools,
+  recordMany,
+  socialVerifiedOn,
+  sweptOn,
+} from "./store";
+import { poolOnDay } from "./pool";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
@@ -576,10 +584,24 @@ let building: Promise<BoardEntry[]> | null = null;
 async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[]> {
   // Everyone the chain saw act today, plus anyone who swept yesterday: their
   // run is on the line and it should not depend on them opening the page.
-  const [yesterdaySweepers, social] = await Promise.all([
+  const [yesterdaySweepers, social, snapshots, featured] = await Promise.all([
     sweptOn(day - 1),
     socialVerifiedOn(day),
+    readPools(),
+    readFeatured(day),
   ]);
+
+  /**
+   * The same pool the player's own board was drawn from.
+   *
+   * Not a detail: the draw walks a weighted stream and redraws against a
+   * points budget, so one edited quest in the admin panel moves the whole
+   * board for most wallets. Scoring here against the committed default while
+   * the page shows the live pool ranks people on five quests they were never
+   * given — and since this is what writes the season record, the reward split
+   * inherits it.
+   */
+  const pool = poolOnDay(day, snapshots);
 
   const candidates = [
     ...new Set([...activeToday(today).slice(0, SCORE_AT_MOST), ...yesterdaySweepers]),
@@ -606,7 +628,9 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           stats,
           day,
           { floorRon: today.floorRon, priorStreak: streaks.get(address) ?? 0 },
-          address
+          address,
+          pool,
+          featured
         );
         return {
           address,
