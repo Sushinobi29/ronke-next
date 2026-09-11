@@ -31,10 +31,15 @@ export const metadata: Metadata = {
     siteName: "Ronkeverse",
     images: [
       {
-        url: "https://ronkeverse.com/ronkeverse-banner.png",
+        // A frame off the teaser film rather than the site-wide banner: the
+        // card is the whole of what a share looks like in a timeline, and a
+        // generic one says nothing about what the link leads to. Its own
+        // filename, because X caches a card per image URL and would go on
+        // serving the old one.
+        url: "https://ronkeverse.com/quests/quest-share.jpg",
         width: 1200,
         height: 630,
-        alt: "Ronke Quests - the Ronkeverse quest board",
+        alt: "Ronke Quest - 250,000 $RONKESTR and 10 Ronke NFTs in rewards",
       },
     ],
     type: "website",
@@ -44,7 +49,7 @@ export const metadata: Metadata = {
     title: "Ronke Quest - five new quests every day",
     description:
       "Five quests. New set every midnight. Flips, mines, spins, votes, monkes. Clear all five for a bonus. 🐵",
-    images: ["https://ronkeverse.com/ronkeverse-banner.png"],
+    images: ["https://ronkeverse.com/quests/quest-share.jpg"],
   },
   alternates: {
     canonical: "https://ronkeverse.com/quests",
