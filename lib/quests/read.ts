@@ -38,9 +38,24 @@ import {
 import { EMPTY_DAILY, type DailyStats } from "./daily";
 import { seasonAt, type Season } from "./season";
 
-/** Rounds read per table per page, and the most pages we will walk back. */
+/**
+ * Rounds read per table per page, and the most pages we will walk back.
+ *
+ * The budget has to clear a whole day of the busiest table or the morning's
+ * rounds fall off the bottom: the RON table alone has run 550 in a day, and
+ * 600 was the entire budget across four pages. A table stops as soon as its
+ * page reaches yesterday, so the extra pages cost nothing on a quiet day and
+ * only the busy table ever spends them.
+ */
 const PAGE = 150;
-const MAX_PAGES = 4;
+const MAX_PAGES = 12;
+
+/** A read of the Mines tables, plus where each table stood when it was read. */
+export interface MinesWindow {
+  rounds: MinesRound[];
+  latest: [string, number][];
+  truncated: boolean;
+}
 
 export interface MinesRound {
   table: string;
@@ -72,15 +87,19 @@ export interface SeasonSnapshot {
  * Walks each Mines table back from its newest round until the timestamps drop
  * out of the season, or the page budget runs out. Returns newest first.
  */
-export async function readMinesWindow(since: number): Promise<MinesRound[]> {
+export async function readMinesWindow(since: number): Promise<MinesWindow> {
   const counters = await multicall(
     MINES_TABLES.map((t) => ({ target: t.address, data: SELECTORS.gameCounter }))
+  );
+
+  const latest = MINES_TABLES.map(
+    (table, i) => [table.label, toNumber(words(counters[i] ?? "0x")[0])] as [string, number]
   );
 
   const cursors = MINES_TABLES.map((table, i) => ({
     table: table.label,
     address: table.address,
-    next: toNumber(words(counters[i] ?? "0x")[0]),
+    next: latest[i][1],
     done: false,
   }));
 
@@ -106,14 +125,16 @@ export async function readMinesWindow(since: number): Promise<MinesRound[]> {
 
     const results = await multicall(calls.map(({ target, data }) => ({ target, data })));
     const oldestSeen = new Map<string, number>();
+    const readRows = new Map<string, number>();
 
     results.forEach((result, i) => {
       if (!result) return;
+      const table = calls[i].table;
+      readRows.set(table, (readRows.get(table) ?? 0) + 1);
       const w = words(result);
       const player = toAddress(w[1]);
       if (/^0x0+$/.test(player)) return;
       const at = toNumber(w[0]);
-      const table = calls[i].table;
       oldestSeen.set(table, Math.min(oldestSeen.get(table) ?? at, at));
       if (at < since) return;
       rounds.push({
@@ -127,14 +148,34 @@ export async function readMinesWindow(since: number): Promise<MinesRound[]> {
       });
     });
 
-    // A table is finished once its oldest round in this page predates the season.
+    /**
+     * A table is finished once its oldest round in this page predates the
+     * day. Reading nothing is not the same answer: a page the node did not
+     * return, or one that happens to be all empty rows, used to end the walk
+     * as if it had reached yesterday — which quietly cut the morning off the
+     * board and took whoever played then with it. Keep walking unless a real
+     * round told us we are past midnight.
+     */
     for (const cursor of live) {
       const oldest = oldestSeen.get(cursor.table);
-      if (oldest === undefined || oldest < since) cursor.done = true;
+      if (oldest !== undefined && oldest < since) cursor.done = true;
+      // Nothing at all came back for this table, and it has history left to
+      // read: hold the page cursor so the next pass asks for the same ids.
+      else if (!readRows.get(cursor.table)) cursor.next += PAGE;
     }
   }
 
-  return rounds.sort((a, b) => b.at - a.at);
+  return {
+    rounds: rounds.sort((a, b) => b.at - a.at),
+    // The id each table stood at when this window was read. Whoever reads
+    // forward from here needs it: "the newest round I saw today" is not the
+    // same number on a table that has not been played today, and starting
+    // from a guess skips every round in between.
+    latest,
+    // True when the page budget ran out before the walk reached yesterday,
+    // so the early hours of the day are missing rather than empty.
+    truncated: cursors.some((cursor) => !cursor.done),
+  };
 }
 
 /* ------------------------------------------------------------------ season */

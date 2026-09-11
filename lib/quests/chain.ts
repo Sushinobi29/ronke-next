@@ -289,11 +289,19 @@ function encodeAggregate3(calls: Call[]): string {
 }
 
 async function decodeAggregate3Call(chunk: Call[], block: string) {
-  return decodeAggregate3(await ethCall(MULTICALL3, encodeAggregate3(chunk), block));
+  return decodeAggregate3(await ethCall(MULTICALL3, encodeAggregate3(chunk), block), chunk.length);
 }
 
-/** Decodes `(bool success, bytes returnData)[]` into hex strings or null. */
-function decodeAggregate3(result: string): (string | null)[] {
+/**
+ * Decodes `(bool success, bytes returnData)[]` into hex strings or null.
+ *
+ * Always exactly one entry per call, even when the node answers with fewer.
+ * Callers pair results with their own call list by index and `multicall`
+ * flattens the chunks, so a single short answer does not lose one result — it
+ * shifts every result after it onto the wrong call, and the reader then files
+ * real rounds under other rounds' ids.
+ */
+function decodeAggregate3(result: string, expected: number): (string | null)[] {
   const body = result.replace(/^0x/, "");
   const at = (index: number) => body.slice(index * WORD, (index + 1) * WORD);
 
@@ -314,7 +322,11 @@ function decodeAggregate3(result: string): (string | null)[] {
     const start = (tuple + 3) * WORD;
     out.push("0x" + body.slice(start, start + dataLength * 2));
   }
-  return out;
+
+  // Short answer: pad rather than realign. A null reads as "not read", which
+  // every caller already handles by leaving its cursor alone and asking again.
+  while (out.length < expected) out.push(null);
+  return out.slice(0, expected);
 }
 
 /**

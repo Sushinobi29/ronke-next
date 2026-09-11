@@ -71,6 +71,12 @@ const WINDOW = 200;
 const TTL_MS = 30_000;
 /** A forced refresh still will not re-read anything younger than this. */
 const FLOOR_MS = 8_000;
+/**
+ * Mines ids one pass will catch up on, per table. Only a stalled instance
+ * ever reaches it; a normal pass reads the handful of rounds run in the last
+ * thirty seconds.
+ */
+const MAX_CATCHUP = 400;
 
 export interface TodayState {
   day: number;
@@ -104,6 +110,10 @@ interface Seed {
   spinRon: [string, number][];
   aor: [string, { plays: number; labels: string[]; ronkeSpent: number }][];
   buys: [string, DayBuy][];
+  /** Where each Mines table's id counter stood when the rounds were read. */
+  minesLatest: [string, number][];
+  /** True when the walk back ran out of pages before it reached midnight. */
+  minesTruncated: boolean;
   /** True when the log scan failed and the spin / Age of Ronke / buy quests
    *  are therefore unread. The rest of the board is still good. */
   logsMissing: boolean;
@@ -272,7 +282,7 @@ async function buildSeed(day: number): Promise<Seed> {
   const startBlock = await blockAtSecond(day * 86_400);
   const atBlock = Number(toBigInt((await blockNumber()).replace(/^0x/, "")));
 
-  const rounds = await readMinesWindow(day * 86_400);
+  const mines = await readMinesWindow(day * 86_400);
   const spins = new Map<string, number>();
   const spinRon = new Map<string, number>();
   const aor = new Map<string, AorPlay>();
@@ -298,7 +308,9 @@ async function buildSeed(day: number): Promise<Seed> {
     atBlock,
     coveredFrom,
     startBlock,
-    rounds,
+    rounds: mines.rounds,
+    minesLatest: mines.latest,
+    minesTruncated: mines.truncated,
     // Still missing while any of the day sits behind the covered window — the
     // remaining slices land over the next few passes.
     logsMissing: coveredFrom > startBlock,
@@ -341,12 +353,23 @@ function hydrate(day: number, seed: Seed): Internal {
   // on the next pass.
   const buys = new Map<string, DayBuy>((seed.buys ?? []).map(([k, v]) => [k, { ...v }]));
 
-  const minesCursor = new Map<string, number>();
+  /**
+   * Where the forward read picks up, per table.
+   *
+   * It has to be the counter the seed actually read, not the newest round it
+   * found today: a table nobody has played today yields no rounds at all, and
+   * a cursor guessed from that is either zero — re-reading the table's whole
+   * history every pass — or, worse, silently set to wherever the table
+   * happens to stand now, skipping every round played while the seed was
+   * being built. A seed cached before the counters were recorded has none, so
+   * those tables start from their oldest round today and the first pass
+   * re-reads a little rather than skipping anything.
+   */
+  const minesCursor = new Map<string, number>(seed.minesLatest ?? []);
   for (const table of MINES_TABLES) {
-    const highest = seed.rounds
-      .filter((r) => r.table === table.label)
-      .reduce((max, r) => Math.max(max, r.id), 0);
-    if (highest) minesCursor.set(table.label, highest);
+    if (minesCursor.has(table.label)) continue;
+    const ids = seed.rounds.filter((r) => r.table === table.label).map((r) => r.id);
+    if (ids.length) minesCursor.set(table.label, Math.min(...ids) - 1);
   }
 
   return {
@@ -369,18 +392,38 @@ function hydrate(day: number, seed: Seed): Internal {
   };
 }
 
-/** Reads only the rounds whose ids are newer than the last read. */
+/**
+ * Reads the rounds a table has run since the last pass.
+ *
+ * Two rules, both learned the hard way. Ids are read oldest first, because a
+ * backlog wider than one pass has to close from the bottom — reading the
+ * newest slice each time leaves the middle unread forever. And the cursor
+ * moves only across ids this pass actually decoded: a pass cut short by the
+ * request timeout, or a chunk the node refused, used to leave the cursor
+ * parked above rounds nobody ever read. Rounds are contiguous per player —
+ * one sitting is one run of ids — so a dropped slice does not thin everyone's
+ * day out evenly, it erases a handful of players completely.
+ */
 async function newRounds(current: Internal): Promise<MinesRound[]> {
   const counters = await multicall(
     MINES_TABLES.map((t) => ({ target: t.address, data: SELECTORS.gameCounter }))
   );
 
   const calls: { target: string; data: string; table: string; id: number }[] = [];
+  const asked = new Map<string, number[]>();
+
   MINES_TABLES.forEach((table, i) => {
     const latest = toNumber(words(counters[i] ?? "0x")[0]);
     const seen = current.minesCursor.get(table.label) ?? latest;
-    const from = Math.max(seen + 1, latest - 200);
-    for (let id = latest; id >= from; id--) {
+    if (latest <= seen) return;
+
+    // Bounded so one pass cannot outgrow the request, but the cursor stays
+    // put on whatever is left and the next pass carries on from there.
+    const ids: number[] = [];
+    for (let id = seen + 1; id <= Math.min(latest, seen + MAX_CATCHUP); id++) ids.push(id);
+    asked.set(table.label, ids);
+
+    for (const id of ids) {
       calls.push({
         target: table.address,
         data: callData(SELECTORS.games, padUint(id)),
@@ -388,7 +431,6 @@ async function newRounds(current: Internal): Promise<MinesRound[]> {
         id,
       });
     }
-    current.minesCursor.set(table.label, latest);
   });
 
   if (calls.length === 0) return [];
@@ -396,17 +438,24 @@ async function newRounds(current: Internal): Promise<MinesRound[]> {
   const results = await multicall(calls.map(({ target, data }) => ({ target, data })));
   const since = dayStart();
   const fresh: MinesRound[] = [];
+  const decoded = new Map<string, Set<number>>();
 
   results.forEach((result, i) => {
     if (!result) return;
+    const { table, id } = calls[i];
+    const seenIds = decoded.get(table) ?? new Set<number>();
+    seenIds.add(id);
+    decoded.set(table, seenIds);
+
     const w = words(result);
     const player = toAddress(w[1]);
+    // An empty row still counts as read — the cursor may pass it.
     if (/^0x0+$/.test(player)) return;
     const at = toNumber(w[0]);
     if (at < since) return;
     fresh.push({
-      table: calls[i].table,
-      id: calls[i].id,
+      table,
+      id,
       at,
       player,
       bet: fromWei(toBigInt(w[2])),
@@ -414,6 +463,18 @@ async function newRounds(current: Internal): Promise<MinesRound[]> {
       payout: fromWei(toBigInt(w[4])),
     });
   });
+
+  // Up to the first id that did not come back, and no further.
+  for (const [table, ids] of asked) {
+    const seenIds = decoded.get(table);
+    if (!seenIds) continue;
+    let cursor = current.minesCursor.get(table) ?? ids[0] - 1;
+    for (const id of ids) {
+      if (!seenIds.has(id)) break;
+      cursor = id;
+    }
+    current.minesCursor.set(table, cursor);
+  }
 
   return fresh;
 }

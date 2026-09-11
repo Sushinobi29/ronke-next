@@ -14,6 +14,13 @@ import {
 } from "@/lib/quests/store";
 
 export const dynamic = "force-dynamic";
+/**
+ * The chain half of a pass — a walk back over the Mines tables plus the log
+ * slices — does not fit in the platform default of fifteen seconds under
+ * load, and a pass killed mid-read is how rounds went missing. Long enough to
+ * finish, short enough that a wedged node still fails rather than hangs.
+ */
+export const maxDuration = 60;
 
 /**
  * One wallet's day. Nothing is stored — the address is scored from chain reads
