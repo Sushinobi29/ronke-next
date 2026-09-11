@@ -16,6 +16,7 @@ import {
   readFeatured,
   readPools,
   readRewards,
+  seasonHeadcount,
   seasonStandings,
 } from "@/lib/quests/store";
 
@@ -75,7 +76,10 @@ export async function GET(request: Request) {
      * owed, and tells the second fifty they are owed nothing.
      */
     const reach = prizes ? Math.max(...prizes.config.items.map((item) => item.topN), 0) : 0;
-    const standings = await seasonStandings(fromDay, toDay, Math.max(LEADERBOARD_ROWS, reach));
+    const [standings, seasonPlayers] = await Promise.all([
+      seasonStandings(fromDay, toDay, Math.max(LEADERBOARD_ROWS, reach)),
+      seasonHeadcount(fromDay, toDay),
+    ]);
     const pool = poolOnDay(day, snapshots);
 
     return NextResponse.json({
@@ -113,6 +117,10 @@ export async function GET(request: Request) {
       leaderboard,
       // The board shows a page of the table; the split needed all of it.
       seasonStandings: standings.slice(0, LEADERBOARD_ROWS),
+      // How many are on the table in total, so the page can say what it is a
+      // page of and offer the rest. Counted, not guessed from the rows above:
+      // the query stops at the reward reach and the table does not.
+      seasonPlayers,
       // What is up for the season. If this one has nothing published, the
       // next one's pool is shown instead rather than nothing at all — that is
       // the whole of the days before a season opens, when there is a pool to

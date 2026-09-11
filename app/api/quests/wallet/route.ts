@@ -9,6 +9,7 @@ import {
   readFeatured,
   readPools,
   recordDay,
+  seasonPlace,
   socialVerifiedOn,
   walletSeason,
 } from "@/lib/quests/store";
@@ -74,15 +75,26 @@ export async function GET(request: NextRequest) {
 
     const season = seasonAt();
     const { fromDay, toDay } = seasonDays(season);
-    const [seasonTotal] = await Promise.all([
+    // Record first, then place: a wallet that just earned its first points
+    // of the season should read its own rank off a table it is already on,
+    // rather than being told it is nowhere until the next visit.
+    await recordDay(day, {
+      address: wallet,
+      points: score.total,
+      done: score.done,
+      bonus: score.bonus,
+    });
+    const [seasonTotal, place] = await Promise.all([
       walletSeason(wallet, fromDay, toDay),
-      recordDay(day, { address: wallet, points: score.total, done: score.done, bonus: score.bonus }),
+      seasonPlace(wallet, fromDay, toDay),
     ]);
 
     return NextResponse.json({
       address: wallet,
       stats,
       seasonTotal,
+      seasonRank: place.rank,
+      seasonPlayers: place.players,
       score,
       floorRon: today.floorRon,
       readAt: today.at,

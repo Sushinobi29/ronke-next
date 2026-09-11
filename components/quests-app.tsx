@@ -79,6 +79,8 @@ interface BoardPayload {
   pool?: QuestDef[];
   featured?: string[];
   seasonPersisted: boolean;
+  /** Everyone on the season table, not just the page of it above. */
+  seasonPlayers?: number;
   roundsToday: number;
   playersToday: number;
   stakedToday: number;
@@ -145,6 +147,15 @@ export default function QuestsApp() {
   const [logsMissing, setLogsMissing] = useState(false);
   const [logCoverage, setLogCoverage] = useState(1);
   const [tab, setTab] = useState<"today" | "season">("today");
+  /** The whole season table, once someone asks to see past the first page. */
+  const [fullSeason, setFullSeason] = useState<SeasonRow[] | null>(null);
+  const [fullShares, setFullShares] = useState<
+    { address: string; shares: { id: string; label: string; amount: number }[] }[] | null
+  >(null);
+  const [loadingSeason, setLoadingSeason] = useState(false);
+  const [seasonError, setSeasonError] = useState<string | null>(null);
+  const [seasonRank, setSeasonRank] = useState<number | null>(null);
+  const [seasonTotal, setSeasonTotal] = useState<SeasonRow | null>(null);
   /** Which card's refresh is in flight, so only that one spins. */
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   // Null until mounted: a clock rendered on the server is already stale by the
@@ -204,6 +215,8 @@ export default function QuestsApp() {
 
       setScore(json.score);
       setScored(json.address);
+      setSeasonRank(typeof json.seasonRank === "number" ? json.seasonRank : null);
+      setSeasonTotal(json.seasonTotal ?? null);
       setReadAt(json.readAt ?? Date.now());
       setStale(json.stale ?? null);
       setLogsMissing(!!json.logsMissing);
@@ -321,12 +334,60 @@ export default function QuestsApp() {
     ownBoard?.quests ?? ownPreview ?? (settling ? [] : (board?.quests.map(asPreview) ?? []));
   const pinned = ownBoard?.extra ?? (settling ? [] : pinnedPreview);
 
+  /**
+   * The rest of the table, on request.
+   *
+   * Its own endpoint, and its own fetch: the board is polled every minute and
+   * reads Ronin to do it, so hanging the long tail off that would make a
+   * button that wants more rows pay for a chain read. These rows only change
+   * once a scoring pass, so one fetch stands.
+   */
+  const loadFullSeason = useCallback(async () => {
+    setLoadingSeason(true);
+    setSeasonError(null);
+    try {
+      const res = await fetch("/api/quests/season");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Could not read the season table");
+      setFullSeason(json.standings ?? []);
+      setFullShares(json.shares ?? null);
+    } catch (error) {
+      setSeasonError(error instanceof Error ? error.message : "Could not read the season table");
+    } finally {
+      setLoadingSeason(false);
+    }
+  }, []);
+
+  /**
+   * An expanded table has left the board's polling behind, so it refreshes on
+   * its own. Keyed on the flag rather than the rows, or every fetch would
+   * tear the interval down and start it again.
+   */
+  const seasonExpanded = fullSeason !== null;
+  useEffect(() => {
+    if (!seasonExpanded) return;
+    const timer = setInterval(loadFullSeason, 60_000);
+    return () => clearInterval(timer);
+  }, [seasonExpanded, loadFullSeason]);
+
   /** What each wallet is currently in line for, when the season shows it. */
   const projections = useMemo(() => {
-    const shares = board?.rewards?.shares;
+    const shares = fullShares ?? board?.rewards?.shares;
     if (!shares) return null;
     return new Map(shares.map((row) => [row.address, row.shares]));
-  }, [board?.rewards?.shares]);
+  }, [fullShares, board?.rewards?.shares]);
+
+  /** The page the board gave us, or the whole table once it has been asked for. */
+  const seasonRows = fullSeason ?? board?.seasonStandings ?? [];
+  const seasonPlayers = board?.seasonPlayers ?? seasonRows.length;
+  const hiddenPlayers = Math.max(0, seasonPlayers - seasonRows.length);
+  /** A connected wallet ranked past the rows on screen still gets a line. */
+  const showOwnRow =
+    tab === "season" &&
+    scored !== null &&
+    seasonRank !== null &&
+    seasonTotal !== null &&
+    !seasonRows.some((row) => row.address === scored.toLowerCase());
   const season = board?.season;
   const seasonDays =
     season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
@@ -689,7 +750,7 @@ export default function QuestsApp() {
                 })}
 
               {tab === "season" &&
-                (board?.seasonStandings ?? []).map((row, index) => {
+                seasonRows.map((row, index) => {
                   const you = scored && row.address === scored.toLowerCase();
                   const winning = projections?.get(row.address);
                   return (
@@ -726,6 +787,29 @@ export default function QuestsApp() {
                   );
                 })}
 
+              {/* Ranked past the page on screen: one line so the number is
+                  never a mystery, separated so it does not read as 51st. */}
+              {showOwnRow && (
+                <tr className="border-t-2 border-border bg-accent/10">
+                  <td className="mono px-5 py-2.5 text-muted-3">{seasonRank}</td>
+                  <td className="mono px-3 py-2.5 text-gold">
+                    {short(scored!)}
+                    <span className="ml-2 text-[10px] text-gold">you</span>
+                  </td>
+                  <td className="mono px-3 py-2.5 text-right">{seasonTotal?.days ?? 0}</td>
+                  <td
+                    className={`mono px-3 py-2.5 text-right ${
+                      seasonTotal?.sweeps ? "text-gold" : "text-muted-3"
+                    }`}
+                  >
+                    {seasonTotal?.sweeps || "—"}
+                  </td>
+                  <td className="mono px-5 py-2.5 text-right font-bold text-gold">
+                    {(seasonTotal?.points ?? 0).toLocaleString()}
+                  </td>
+                </tr>
+              )}
+
               {tab === "season" && board && !board.seasonPersisted && (
                 <tr>
                   <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
@@ -736,7 +820,7 @@ export default function QuestsApp() {
               )}
               {tab === "season" &&
                 board?.seasonPersisted &&
-                board.seasonStandings.length === 0 && (
+                seasonRows.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
                       Nothing banked yet this season.
@@ -760,6 +844,37 @@ export default function QuestsApp() {
             </tbody>
           </table>
         </div>
+
+        {/* The rest of the table, for anyone who wants to read past the page. */}
+        {tab === "season" && board?.seasonPersisted && seasonRows.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border px-5 py-3">
+            <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
+              {hiddenPlayers > 0
+                ? `showing ${seasonRows.length} of ${seasonPlayers}`
+                : `all ${seasonPlayers} ${seasonPlayers === 1 ? "player" : "players"}`}
+            </span>
+            {hiddenPlayers > 0 && (
+              <button
+                onClick={() => {
+                  play("click");
+                  loadFullSeason();
+                }}
+                disabled={loadingSeason}
+                className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-3 py-1.5 text-[13px] font-medium transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+              >
+                {loadingSeason ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Reading the table…
+                  </>
+                ) : (
+                  `Show all ${seasonPlayers}`
+                )}
+              </button>
+            )}
+            {seasonError && <span className="mono text-[11px] text-burn">{seasonError}</span>}
+          </div>
+        )}
       </div>
 
       {boardError && (

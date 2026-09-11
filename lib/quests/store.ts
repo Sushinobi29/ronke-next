@@ -277,6 +277,71 @@ export async function walletSeason(
   }
 }
 
+/** How many wallets have banked a point this season. */
+export async function seasonHeadcount(fromDay: number, toDay: number): Promise<number> {
+  const sql = await db();
+  if (!sql) return 0;
+
+  try {
+    const [row] = await sql<{ n: string }[]>`
+      select count(*)::text as n
+        from (
+          select address
+            from quest_days
+           where day between ${fromDay} and ${toDay}
+           group by address
+          having sum(points) > 0
+        ) t
+    `;
+    return Number(row?.n ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Where one wallet stands in the season, and how many it stands among.
+ *
+ * The board shows a page of the table, so most of the season this is the only
+ * thing that tells a player anything: a wallet ranked eighty-seventh reads the
+ * top fifty, finds nothing, and cannot tell whether it is close or nowhere.
+ * One query for both halves — the rank is only meaningful next to the size of
+ * the field it was measured against.
+ */
+export async function seasonPlace(
+  address: string,
+  fromDay: number,
+  toDay: number
+): Promise<{ rank: number | null; players: number }> {
+  const sql = await db();
+  if (!sql) return { rank: null, players: 0 };
+
+  try {
+    const [row] = await sql<{ rank: string | null; players: string }[]>`
+      with totals as (
+        select address, sum(points) as points
+          from quest_days
+         where day between ${fromDay} and ${toDay}
+         group by address
+        having sum(points) > 0
+      )
+      select (select count(*)::text from totals) as players,
+             (select count(*) + 1
+                from totals
+               where points > (select points from totals where address = ${address.toLowerCase()})
+             )::text as rank
+    `;
+    return {
+      // Null until the wallet has banked a point: it is not on the table yet,
+      // which is not the same as being last on it.
+      rank: row?.rank ? Number(row.rank) : null,
+      players: Number(row?.players ?? 0),
+    };
+  } catch {
+    return { rank: null, players: 0 };
+  }
+}
+
 /* ------------------------------------------------------------------ social */
 
 export async function recordSocial(
