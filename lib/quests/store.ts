@@ -187,6 +187,23 @@ export async function recordDay(day: number, result: DayResult): Promise<void> {
   if (!sql) return;
 
   try {
+    /**
+     * A day's record only ever goes up.
+     *
+     * Scoring is a read of the chain, and a read can come back short — a
+     * truncated log scan, a refused multicall, a pass cut off by the request
+     * timeout. Every one of those looks exactly like a player who did less.
+     * The old upsert believed the last pass over the best one, so a flaky
+     * read overwrote a finished day: three wallets lost a clean sweep on the
+     * first day of Season 1, each collapsing from about two thousand points
+     * to four hundred, because losing the fifth quest also loses the sweep
+     * bonus and the streak multiplier with it.
+     *
+     * Nothing a player did today can be undone by tomorrow's reading of it,
+     * so the higher score is the true one and the `where` keeps it. A real
+     * correction downward has to be deliberate, not a side effect of a bad
+     * network day.
+     */
     await sql`
       insert into quest_days (day, address, points, done, bonus, updated_at)
       values (${day}, ${result.address.toLowerCase()}, ${result.points}, ${result.done}, ${result.bonus}, now())
@@ -195,6 +212,7 @@ export async function recordDay(day: number, result: DayResult): Promise<void> {
             done = excluded.done,
             bonus = excluded.bonus,
             updated_at = now()
+      where excluded.points > quest_days.points
     `;
   } catch {
     // A board that cannot write is still a board that works today.
