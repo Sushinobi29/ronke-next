@@ -89,6 +89,18 @@ export const POOLS = {
   },
 } as const;
 
+/**
+ * topic0 of the pair's `Swap`, which is what a buy quest is actually asking
+ * about. Standard Uniswap V2, keccak-matched against a log the RONKE pair
+ * emitted rather than taken on faith.
+ *
+ * Neither indexed address on it is the buyer: topic1 is the router and topic2
+ * is wherever the tokens were sent, and on Ronin both are normally the
+ * aggregator the player clicked through. The buyer is the transaction's
+ * sender, which costs one lookup per swap to learn.
+ */
+export const SWAP_TOPIC = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822";
+
 /** Ronke Vote — v3 is the live contract; the older generations still hold RON. */
 export const VOTE = {
   current: "0xccdddadf9308c697889b473cce83dd9dbf56e0d4",

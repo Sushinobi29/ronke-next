@@ -22,15 +22,25 @@ import {
   callData,
   fromWei,
   getLogsRange,
+  LogWindowNarrowed,
   multicall,
   padUint,
   toAddress,
   toBigInt,
   toNumber,
+  transactionSender,
   words,
+  type Log,
 } from "./chain";
-import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, SELECTORS } from "./contracts";
-import { blockAtSecond, readDaily, readMinesWindow, type AorPlay, type MinesRound } from "./read";
+import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, POOLS, SELECTORS, SWAP_TOPIC } from "./contracts";
+import {
+  blockAtSecond,
+  readDaily,
+  readMinesWindow,
+  type AorPlay,
+  type DayBuy,
+  type MinesRound,
+} from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
 import { dayIndex, dayStart, scoreDay } from "./daily";
 import { priorSweepStreaks, recordMany, socialVerifiedOn, sweptOn } from "./store";
@@ -63,10 +73,12 @@ export interface TodayState {
   /** RON spent spinning today, by wallet — the settle event carries the total. */
   spinRon: Map<string, number>;
   aor: Map<string, AorPlay>;
+  /** RON spent buying $RONKE and $RONKESTR today, by wallet. */
+  buys: Map<string, DayBuy>;
   /** Marketplace side, read over GraphQL rather than the node. */
   floorRon: number;
   sales: Sale[];
-  /** The spin and Age of Ronke quests could not be read this pass. */
+  /** The spin, Age of Ronke and buy quests could not be read this pass. */
   logsMissing: boolean;
   /** 0-1: how much of the day's logs are accounted for. Climbs as slices land. */
   logCoverage: number;
@@ -83,8 +95,9 @@ interface Seed {
   spins: [string, number][];
   spinRon: [string, number][];
   aor: [string, { plays: number; labels: string[]; ronkeSpent: number }][];
-  /** True when the log scan failed and the spin / Age of Ronke quests are
-   *  therefore unread. The rest of the board is still good. */
+  buys: [string, DayBuy][];
+  /** True when the log scan failed and the spin / Age of Ronke / buy quests
+   *  are therefore unread. The rest of the board is still good. */
   logsMissing: boolean;
 }
 
@@ -127,13 +140,102 @@ function collect(
   }
 }
 
+const POOL_SIDE = new Map<string, keyof DayBuy>([
+  [POOLS.ronke.address, "ronke"],
+  [POOLS.ronkestr.address, "ronkestr"],
+]);
+
+/**
+ * The day's buys, from the pairs' own Swap events.
+ *
+ * Neither indexed address on a Swap is the buyer — both are normally the
+ * aggregator the player clicked through — so each swap costs one transaction
+ * lookup to attribute. At this pool's volume that is a few dozen requests a
+ * day, and several swaps in one transaction only pay for it once.
+ *
+ * What counts is the RON that went in, not the tokens that came out. That is
+ * what the quest asks for, and it is the only reading $RONKESTR's 10% tax
+ * cannot shrink below the bar a player actually cleared.
+ */
+async function collectBuys(swapLogs: Log[], buys: Map<string, DayBuy>) {
+  const senders = new Map<string, string | null>();
+
+  for (const log of swapLogs) {
+    const side = POOL_SIDE.get(log.address.toLowerCase());
+    if (!side) continue;
+
+    const w = words(log.data);
+    if (w.length < 4) continue;
+
+    // (amount0In, amount1In, amount0Out, amount1Out), and which of the pair is
+    // WRON is not the same in both pools.
+    const wronIsToken0 = POOLS[side].wronIsToken0;
+    const ronIn = toBigInt(wronIsToken0 ? w[0] : w[1]);
+    const tokenOut = toBigInt(wronIsToken0 ? w[3] : w[2]);
+    // RON in and tokens out is a buy. The other direction is somebody selling.
+    if (ronIn <= BigInt(0) || tokenOut <= BigInt(0)) continue;
+
+    const hash = log.transactionHash;
+    if (!senders.has(hash)) senders.set(hash, await transactionSender(hash));
+    const buyer = senders.get(hash);
+    if (!buyer || /^0x0+$/.test(buyer)) continue;
+
+    const entry = buys.get(buyer) ?? { ronke: 0, ronkestr: 0 };
+    entry[side] += fromWei(ronIn);
+    buys.set(buyer, entry);
+  }
+}
+
 async function scan(from: number, to: number) {
-  if (from > to) return { spinLogs: [], aorLogs: [] };
+  if (from > to) return { spinLogs: [], aorLogs: [], swapLogs: [] };
   // Sequential, not parallel: the throttle paces them either way, and one at a
   // time keeps a slow scan from starving the rest of the request.
   const spinLogs = await getLogsRange(FORTUNE_SPIN.pack, FORTUNE_SPIN.settleTopic, from, to);
   const aorLogs = await getLogsRange(AGE_OF_RONKE.play, AGE_OF_RONKE.playTopic, from, to);
-  return { spinLogs, aorLogs };
+  // Both pairs in one filter, so watching the market costs one scan, not two.
+  const swapLogs = await getLogsRange(
+    [POOLS.ronke.address, POOLS.ronkestr.address],
+    SWAP_TOPIC,
+    from,
+    to
+  );
+  return { spinLogs, aorLogs, swapLogs };
+}
+
+/**
+ * A pass over part of the day, sliced to what the endpoint will serve.
+ *
+ * The first ask of a process is deliberately optimistic — a dedicated node
+ * hands over the whole day in one request, and the only way to find that out
+ * is to ask for it. When the public node refuses instead, that answer arrives
+ * as LogWindowNarrowed, and the same pass is re-cut to a slice that fits.
+ * Without the re-cut the refusal would be paid for twice: once for the wasted
+ * request, and again walking a whole day in 200-block windows.
+ */
+async function scanSlice(to: number, floor: number) {
+  const from = sliceFrom(to, floor);
+  try {
+    return { from, ...(await scan(from, to)) };
+  } catch (error) {
+    if (!(error instanceof LogWindowNarrowed)) throw error;
+    const narrowed = sliceFrom(to, floor);
+    return { from: narrowed, ...(await scan(narrowed, to)) };
+  }
+}
+
+/**
+ * The pass that keeps up with the head of the chain. Its range is small and
+ * has to be covered exactly — the cursor moves to head afterwards, so a slice
+ * would leave a hole nothing goes back for. A narrowed window just means
+ * asking again, this time in windows the endpoint will serve.
+ */
+async function scanForward(from: number, to: number) {
+  try {
+    return await scan(from, to);
+  } catch (error) {
+    if (!(error instanceof LogWindowNarrowed)) throw error;
+    return await scan(from, to);
+  }
 }
 
 /** How much of the day's log range is behind us, 0 to 1. */
@@ -166,22 +268,23 @@ async function buildSeed(day: number): Promise<Seed> {
   const spins = new Map<string, number>();
   const spinRon = new Map<string, number>();
   const aor = new Map<string, AorPlay>();
+  const buys = new Map<string, DayBuy>();
 
   // Log scanning is the expensive half and the first thing a stingy node
-  // refuses. Losing it costs four quests; losing the whole board costs
+  // refuses. Losing it costs six quests; losing the whole board costs
   // eighteen, so it is allowed to fail on its own.
   // Newest slice first: whatever a player just did is the part they will look
-  // for, and the rest of the day fills in behind it.
-  const sliceStart = sliceFrom(atBlock, startBlock);
-  let logsMissing = false;
+  // for, and the rest of the day fills in behind it. A pass that fails covers
+  // nothing, which is what leaving the cursor above the head block says.
+  let coveredFrom = atBlock + 1;
   try {
-    const { spinLogs, aorLogs } = await scan(sliceStart, atBlock);
+    const { from, spinLogs, aorLogs, swapLogs } = await scanSlice(atBlock, startBlock);
     collect(spinLogs, aorLogs, spins, spinRon, aor);
+    await collectBuys(swapLogs, buys);
+    coveredFrom = from;
   } catch {
-    logsMissing = true;
+    // Nothing collected, nothing covered.
   }
-
-  const coveredFrom = logsMissing ? atBlock + 1 : sliceStart;
 
   return {
     atBlock,
@@ -197,6 +300,7 @@ async function buildSeed(day: number): Promise<Seed> {
       k,
       { plays: v.plays, labels: [...v.labels], ronkeSpent: v.ronkeSpent },
     ]),
+    buys: [...buys.entries()],
   };
 }
 
@@ -224,6 +328,11 @@ function hydrate(day: number, seed: Seed): Internal {
     seed.aor.map(([k, v]) => [k, { plays: v.plays, labels: new Set(v.labels), ronkeSpent: v.ronkeSpent }])
   );
 
+  // A seed cached by the build before buys existed has no buys on it, and a
+  // board that throws on a stale cache entry is worse than one that fills in
+  // on the next pass.
+  const buys = new Map<string, DayBuy>((seed.buys ?? []).map(([k, v]) => [k, { ...v }]));
+
   const minesCursor = new Map<string, number>();
   for (const table of MINES_TABLES) {
     const highest = seed.rounds
@@ -240,6 +349,7 @@ function hydrate(day: number, seed: Seed): Internal {
     spins,
     spinRon,
     aor,
+    buys,
     floorRon: 0,
     sales: [],
     logsMissing: seed.logsMissing,
@@ -336,18 +446,18 @@ async function stepForward(current: Internal) {
 
   try {
     // Forward to head first — new activity matters more than old.
-    const { spinLogs, aorLogs } = await scan(current.logBlock + 1, head);
+    const { spinLogs, aorLogs, swapLogs } = await scanForward(current.logBlock + 1, head);
     collect(spinLogs, aorLogs, current.spins, current.spinRon, current.aor);
+    await collectBuys(swapLogs, current.buys);
     current.logBlock = head;
     if (current.coveredFrom > head) current.coveredFrom = head + 1;
 
     // Then reclaim a slice of the day still behind us.
     if (current.coveredFrom > current.startBlock) {
-      const to = current.coveredFrom - 1;
-      const from = sliceFrom(to, current.startBlock);
-      const older = await scan(from, to);
+      const older = await scanSlice(current.coveredFrom - 1, current.startBlock);
       collect(older.spinLogs, older.aorLogs, current.spins, current.spinRon, current.aor);
-      current.coveredFrom = from;
+      await collectBuys(older.swapLogs, current.buys);
+      current.coveredFrom = older.from;
     }
 
     current.logsMissing = current.coveredFrom > current.startBlock;
@@ -403,6 +513,7 @@ export async function getToday(force = false): Promise<TodayState> {
       spins: new Map(),
       aor: new Map(),
       spinRon: new Map(),
+      buys: new Map(),
       floorRon: 0,
       sales: [],
       logsMissing: true,
@@ -439,6 +550,7 @@ function activeToday(today: TodayState): string[] {
   for (const [address, count] of today.spins) bump(address, count);
   for (const [address, play] of today.aor) bump(address, play.plays);
   for (const sale of today.sales) bump(sale.buyer);
+  for (const [address] of today.buys) bump(address);
 
   return [...actions.entries()].sort((a, b) => b[1] - a[1]).map(([address]) => address);
 }
@@ -486,7 +598,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           today.aor,
           today.spinRon,
           today.sales,
-          social
+          social,
+          today.buys
         );
         // Each wallet is scored against its own five, not a shared set.
         const score = scoreDay(

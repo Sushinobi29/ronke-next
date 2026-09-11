@@ -15,12 +15,10 @@
 import {
   CASINO,
   COLLECTIONS,
-  POOLS,
   FORTUNE_SPIN,
   MINES_STATUS,
   MINES_TABLES,
   SELECTORS,
-  TOKENS,
   VOTE,
 } from "./contracts";
 import {
@@ -205,7 +203,8 @@ export async function readDaily(
   aorToday: Map<string, AorPlay> = new Map(),
   spinRonToday: Map<string, number> = new Map(),
   salesToday: { buyer: string; ron: number }[] = [],
-  socialToday: Set<string> = new Set()
+  socialToday: Set<string> = new Set(),
+  buysToday: Map<string, DayBuy> = new Map()
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
@@ -217,10 +216,6 @@ export async function readDaily(
     balanceOf(COLLECTIONS.ronkeverse),
     balanceOf(COLLECTIONS.barracks),
     balanceOf(COLLECTIONS.trophies),
-    balanceOf(TOKENS.RONKE),
-    balanceOf(TOKENS.RONKESTR),
-    { target: POOLS.ronke.address, data: SELECTORS.getReserves },
-    { target: POOLS.ronkestr.address, data: SELECTORS.getReserves },
   ];
 
   const [now, then] = await Promise.all([
@@ -246,26 +241,7 @@ export async function readDaily(
   const monkesNow = word(now, 3);
   const monkesAtOpen = openedAt(3);
 
-  const tokenGain = (index: number) => {
-    const before = then[index] ? toBigInt(words(then[index]!)[0]) : toBigInt(words(now[index] ?? "0x")[0]);
-    const after = toBigInt(words(now[index] ?? "0x")[0]);
-    return after > before ? fromWei(after - before) : 0;
-  };
-
-  /**
-   * RON per token, from the pair's reserves. Buys route through an aggregator
-   * whose address is what the Swap event records, so the swap itself cannot be
-   * attributed to a player without a transaction lookup per swap — pricing the
-   * balance delta instead costs one call per pool and needs no log scanning.
-   */
-  const ronPerToken = (index: number, wronIsToken0: boolean) => {
-    const w = words(now[index] ?? "0x");
-    if (w.length < 2) return 0;
-    const reserve0 = fromWei(toBigInt(w[0]));
-    const reserve1 = fromWei(toBigInt(w[1]));
-    const [wron, token] = wronIsToken0 ? [reserve0, reserve1] : [reserve1, reserve0];
-    return token > 0 ? wron / token : 0;
-  };
+  const bought = buysToday.get(address.toLowerCase());
 
   return {
     ...EMPTY_DAILY,
@@ -280,8 +256,8 @@ export async function readDaily(
     monkes: Math.max(0, monkesNow - monkesAtOpen),
     barracks: gained(4),
     trophies: gained(5),
-    ronkeRon: tokenGain(6) * ronPerToken(8, POOLS.ronke.wronIsToken0),
-    ronkestrRon: tokenGain(7) * ronPerToken(9, POOLS.ronkestr.wronIsToken0),
+    ronkeRon: bought?.ronke ?? 0,
+    ronkestrRon: bought?.ronkestr ?? 0,
     spins: spinsToday.get(address.toLowerCase()) ?? 0,
     spinRon: spinRonToday.get(address.toLowerCase()) ?? 0,
     monkeRon: salesToday
@@ -296,6 +272,20 @@ export async function readDaily(
     heldTheLine: monkesAtOpen > 0 && monkesNow >= monkesAtOpen,
     heldBarracks: openedAt(4) > 0 && word(now, 4) >= openedAt(4),
   };
+}
+
+/**
+ * What one wallet bought today, in RON, per token.
+ *
+ * A buy is a swap, not a balance that went up. The two are not the same thing
+ * and the difference is the whole reason this exists: a casino payout, a
+ * friend's transfer and an airdrop all raise a balance without anybody
+ * spending a RON, and the first of those was quietly ticking off the buy
+ * quests for anyone who won at Mines.
+ */
+export interface DayBuy {
+  ronke: number;
+  ronkestr: number;
 }
 
 /** What one wallet did at Age of Ronke today. */

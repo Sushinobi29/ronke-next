@@ -110,7 +110,11 @@ async function rpc<T>(method: string, params: unknown[], attempt = 0): Promise<T
 
   const json = await res.json();
   if (json.error) {
-    const message = String(json.error.message ?? "");
+    // Ronin says "Invalid params" and puts the reason that matters in `data`
+    // — "requested block range 28801 exceeds the limit of 200" — so a message
+    // built from the message alone is unreadable to us and to anyone else.
+    const detail = json.error.data ? ` (${String(json.error.data)})` : "";
+    const message = String(json.error.message ?? "") + detail;
     if (/rate limit/i.test(message) && attempt < 3) {
       await sleep(400 * 2 ** attempt);
       return rpc<T>(method, params, attempt + 1);
@@ -161,6 +165,17 @@ export function getBalance(address: string): Promise<string> {
   return rpc<string>("eth_getBalance", [address, "latest"]);
 }
 
+/**
+ * Who sent a transaction. The only way to put a name to a swap: the pair
+ * records the router that called it, not the wallet that wanted the tokens.
+ * Null when the node cannot serve it, so one bad lookup drops one swap rather
+ * than crediting it to nobody or failing the scan.
+ */
+export async function transactionSender(hash: string): Promise<string | null> {
+  const tx = await rpc<{ from?: string } | null>("eth_getTransactionByHash", [hash]).catch(() => null);
+  return tx?.from ? tx.from.toLowerCase() : null;
+}
+
 export interface Log {
   address: string;
   topics: string[];
@@ -185,8 +200,24 @@ let logWindow = 50_000;
 /** How wide a single log scan can usefully be on the active endpoint. */
 export const currentLogWindow = () => logWindow;
 
+/**
+ * Raised when a wide scan has just taught us the endpoint's real ceiling.
+ *
+ * Nothing has gone wrong — the optimistic first ask is how the ceiling gets
+ * found — but the range asked for is now known to be too wide to serve in one
+ * request, and walking it here in 200-block windows would be a whole day of
+ * them. The caller knows what the range is for, so it re-slices and asks
+ * again against `currentLogWindow()`.
+ */
+export class LogWindowNarrowed extends Error {
+  constructor(readonly window: number) {
+    super(`log range narrowed to ${window} blocks`);
+    this.name = "LogWindowNarrowed";
+  }
+}
+
 export async function getLogsRange(
-  address: string,
+  address: string | string[],
   topic: string,
   fromBlock: number,
   toBlock: number,
@@ -204,8 +235,9 @@ export async function getLogsRange(
       ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (!/range|limit|exceed|too large|200/i.test(message)) throw error;
+      if (!/range|limit|exceed|too large|narrow/i.test(message)) throw error;
       logWindow = 200;
+      throw new LogWindowNarrowed(logWindow);
     }
   }
 

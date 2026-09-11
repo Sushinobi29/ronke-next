@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
       today.aor,
       today.spinRon,
       today.sales,
-      social
+      social,
+      today.buys
     );
 
     const day = dayIndex();
