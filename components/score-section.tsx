@@ -10,11 +10,11 @@ const FACTORS = [
   },
   {
     title: "How long you have held",
-    text: "Holding time compounds for up to 24 months. Top-ups dilute the clock; selling resets it.",
+    text: "Holding time compounds for up to 24 months. Top-ups dilute the clock; selling 10% or more in one go resets it.",
   },
   {
     title: "Diamond hands",
-    text: "Never selling multiplies your time points. Staking, bridging and game moves never count as selling.",
+    text: "Never selling multiplies your time points, and trims under 10% are forgiven. Staking, bridging and game moves never count as selling.",
   },
   {
     title: "Collector bonuses",
@@ -26,19 +26,27 @@ const BUCKETS = [
   {
     label: "Diamond",
     color: "var(--diamond)",
-    text: "30+ days held, never sold",
+    text: "30+ days held, never let go of a real chunk",
   },
-  { label: "Regular", color: "var(--regular)", text: "7+ days held" },
+  {
+    label: "Regular",
+    color: "var(--regular)",
+    text: "sold at some point, but not dumping",
+  },
   {
     label: "Paper",
     color: "var(--paper)",
-    text: "dumped within a day of buying",
+    text: "let go of half a position inside 30 days",
   },
 ];
 
 const BADGES = [
   { emoji: "🪙", name: "Bag Size", tiers: "Shrimp to Leviathan" },
-  { emoji: "💎", name: "Diamond Hands", tiers: "30+ days, never sold" },
+  {
+    emoji: "💎",
+    name: "Diamond Hands",
+    tiers: "30+ days, never sold 10%+ at once",
+  },
   { emoji: "🌱", name: "OG", tiers: "held since before the L2 migration" },
   { emoji: "🐋", name: "Whale", tiers: "top holder by supply share" },
   { emoji: "🏹", name: "Rarity Hunter", tiers: "holds a top-5% monke" },
@@ -66,8 +74,8 @@ export default function ScoreSection() {
             <p className="mt-3 max-w-xl text-muted-1">
               One number for how real your monke commitment is. Built so a
               committed mid-sized holder can out-rank a passive whale, and
-              behavioral by design: $RONKE has no oracle price, so diamond
-              hands means you genuinely never sold.
+              behavioral by design: $RONKE has no oracle price, so diamond hands
+              means you genuinely never sold.
             </p>
 
             <div className="mt-10 grid gap-x-8 gap-y-7 sm:grid-cols-2">
