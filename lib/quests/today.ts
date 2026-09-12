@@ -28,6 +28,7 @@ import {
   toAddress,
   toBigInt,
   toNumber,
+  transactionLogs,
   transactionSender,
   transactionValue,
   words,
@@ -41,6 +42,7 @@ import {
   POOLS,
   SELECTORS,
   SWAP_TOPIC,
+  TOKENS,
   TRANSFER_TOPIC,
 } from "./contracts";
 import {
@@ -237,6 +239,7 @@ async function collectBuys(swapLogs: Log[], buys: Map<string, DayBuy>) {
  */
 async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, number>) {
   const paid = new Map<string, number | null>();
+  const receipts = new Map<string, Log[]>();
 
   for (const log of transferLogs) {
     // ERC-721: [topic, from, to, tokenId]. A 20-byte Transfer with no tokenId
@@ -247,13 +250,38 @@ async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, numb
 
     const hash = log.transactionHash;
     if (!paid.has(hash)) paid.set(hash, await transactionValue(hash));
-    const ron = paid.get(hash);
-    if (!ron || ron <= 0) continue;
+    let ron = paid.get(hash) ?? 0;
+
+    /**
+     * Nothing on the transaction itself means either a gift or a sale settled
+     * in wrapped RON — an accepted offer is always the latter, because an
+     * offer has to be made in a token. Reading what the buyer sent tells the
+     * two apart, and only costs a receipt on the transfers that look free.
+     */
+    if (ron <= 0) {
+      if (!receipts.has(hash)) receipts.set(hash, await transactionLogs(hash));
+      ron = wronPaidBy(receipts.get(hash)!, to);
+    }
+    if (ron <= 0) continue;
 
     // Several monkes in one transaction share its value; the quest asks what
     // a purchase cost, so the largest single reading is the honest one.
     monkeBuys.set(to, Math.max(monkeBuys.get(to) ?? 0, ron));
   }
+}
+
+/** Wrapped RON leaving one wallet inside a transaction, in RON. */
+function wronPaidBy(logs: Log[], buyer: string): number {
+  let total = 0;
+  for (const log of logs) {
+    if (log.address.toLowerCase() !== TOKENS.WRON) continue;
+    // ERC-20 Transfer: [topic, from, to], value in data.
+    if (log.topics[0] !== TRANSFER_TOPIC || log.topics.length < 3) continue;
+    const from = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
+    if (from !== buyer) continue;
+    total += fromWei(toBigInt(log.data.replace(/^0x/, "")));
+  }
+  return total;
 }
 
 async function scan(from: number, to: number) {

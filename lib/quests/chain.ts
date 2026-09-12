@@ -187,6 +187,18 @@ export async function transactionValue(hash: string): Promise<number | null> {
   return fromWei(toBigInt(tx.value.replace(/^0x/, "")));
 }
 
+/**
+ * A transaction's logs. Only read when the transaction itself carries no
+ * value: a sale settled in wrapped RON moves tokens rather than paying the
+ * chain, so the price is in here or nowhere.
+ */
+export async function transactionLogs(hash: string): Promise<Log[]> {
+  const receipt = await rpc<{ logs?: Log[] } | null>("eth_getTransactionReceipt", [hash]).catch(
+    () => null
+  );
+  return receipt?.logs ?? [];
+}
+
 export interface Log {
   address: string;
   topics: string[];
