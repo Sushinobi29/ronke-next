@@ -245,7 +245,8 @@ export async function readDaily(
   spinRonToday: Map<string, number> = new Map(),
   salesToday: { buyer: string; ron: number }[] = [],
   socialToday: Set<string> = new Set(),
-  buysToday: Map<string, DayBuy> = new Map()
+  buysToday: Map<string, DayBuy> = new Map(),
+  monkeBuysToday: Map<string, number> = new Map()
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
@@ -301,9 +302,15 @@ export async function readDaily(
     ronkestrRon: bought?.ronkestr ?? 0,
     spins: spinsToday.get(address.toLowerCase()) ?? 0,
     spinRon: spinRonToday.get(address.toLowerCase()) ?? 0,
-    monkeRon: salesToday
-      .filter((sale) => sale.buyer === address.toLowerCase())
-      .reduce((most, sale) => Math.max(most, sale.ron), 0),
+    // Whichever venue saw it. The marketplace feed knows its own sales; the
+    // Transfer scan knows every sale, including the ones matched on Seaport,
+    // which the feed reports as never having happened at all.
+    monkeRon: Math.max(
+      salesToday
+        .filter((sale) => sale.buyer === address.toLowerCase())
+        .reduce((most, sale) => Math.max(most, sale.ron), 0),
+      monkeBuysToday.get(address.toLowerCase()) ?? 0
+    ),
     aorPlays: aor?.plays ?? 0,
     aorPaidPlays: paidLabels.length,
     aorBlocks: labels.filter((l) => l.startsWith("blocks")).length,

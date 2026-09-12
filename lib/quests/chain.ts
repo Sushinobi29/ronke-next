@@ -176,6 +176,17 @@ export async function transactionSender(hash: string): Promise<string | null> {
   return tx?.from ? tx.from.toLowerCase() : null;
 }
 
+/**
+ * What a transaction paid, in RON. A marketplace sale settled in native RON
+ * carries the price here; a gift carries nothing, which is exactly the
+ * difference a buy quest needs to see.
+ */
+export async function transactionValue(hash: string): Promise<number | null> {
+  const tx = await rpc<{ value?: string } | null>("eth_getTransactionByHash", [hash]).catch(() => null);
+  if (!tx?.value) return null;
+  return fromWei(toBigInt(tx.value.replace(/^0x/, "")));
+}
+
 export interface Log {
   address: string;
   topics: string[];

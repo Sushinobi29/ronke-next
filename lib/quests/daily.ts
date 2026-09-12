@@ -595,7 +595,11 @@ export const BASE_POOL: QuestDef[] = [
     title: "Take a barracks",
     // What counts is the NFT arriving, not a raid going well — a raid that
     // pays out loot and no barracks is a raid this quest cannot see.
-    task: "Get a Pew Pew Barracks into your wallet",
+    //
+    // Say the action, not the outcome: players read "get a barracks into your
+    // wallet" and went looking for somewhere to buy one, when the way you get
+    // one in Age of Ronke is to train a unit.
+    task: "Train a unit in the barracks",
     note: "Counts the moment the NFT lands — nothing to submit",
     game: "age-of-ronke",
     tier: "bonus",

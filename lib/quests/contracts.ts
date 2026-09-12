@@ -101,6 +101,13 @@ export const POOLS = {
  */
 export const SWAP_TOPIC = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822";
 
+/**
+ * topic0 of ERC-721 `Transfer`. On a 721 the three indexed fields are from,
+ * to and tokenId, so a filter on this topic over a collection is every monke
+ * that changed hands — whichever venue moved it.
+ */
+export const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
 /** Ronke Vote — v3 is the live contract; the older generations still hold RON. */
 export const VOTE = {
   current: "0xccdddadf9308c697889b473cce83dd9dbf56e0d4",

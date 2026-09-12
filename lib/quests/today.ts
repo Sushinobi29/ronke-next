@@ -29,10 +29,20 @@ import {
   toBigInt,
   toNumber,
   transactionSender,
+  transactionValue,
   words,
   type Log,
 } from "./chain";
-import { AGE_OF_RONKE, FORTUNE_SPIN, MINES_TABLES, POOLS, SELECTORS, SWAP_TOPIC } from "./contracts";
+import {
+  AGE_OF_RONKE,
+  COLLECTIONS,
+  FORTUNE_SPIN,
+  MINES_TABLES,
+  POOLS,
+  SELECTORS,
+  SWAP_TOPIC,
+  TRANSFER_TOPIC,
+} from "./contracts";
 import {
   blockAtSecond,
   readDaily,
@@ -89,6 +99,12 @@ export interface TodayState {
   aor: Map<string, AorPlay>;
   /** RON spent buying $RONKE and $RONKESTR today, by wallet. */
   buys: Map<string, DayBuy>;
+  /**
+   * RON paid for a Ronkeverse monke today, by wallet, read off the collection
+   * rather than the marketplace — a purchase is a purchase whichever venue
+   * matched it.
+   */
+  monkeBuys: Map<string, number>;
   /** Marketplace side, read over GraphQL rather than the node. */
   floorRon: number;
   sales: Sale[];
@@ -110,6 +126,8 @@ interface Seed {
   spinRon: [string, number][];
   aor: [string, { plays: number; labels: string[]; ronkeSpent: number }][];
   buys: [string, DayBuy][];
+  /** Monke purchases read off the collection, buyer -> RON paid. */
+  monkeBuys: [string, number][];
   /** Where each Mines table's id counter stood when the rounds were read. */
   minesLatest: [string, number][];
   /** True when the walk back ran out of pages before it reached midnight. */
@@ -204,8 +222,42 @@ async function collectBuys(swapLogs: Log[], buys: Map<string, DayBuy>) {
   }
 }
 
+/**
+ * The day's monke purchases, read off the collection itself.
+ *
+ * The marketplace feed only knows about sales made on the marketplace. A
+ * player who buys the same monke through Seaport is buying it just as much,
+ * and the board told them it did not count — the first day of the season had
+ * people posting transaction hashes in chat asking why.
+ *
+ * The chain does not care which venue moved it: one Transfer filter over the
+ * collection catches every one. Price comes from the transaction, which is
+ * also what keeps this honest — a monke handed between two wallets carries no
+ * value and stays under the quest's floor, so a gift cannot pay like a buy.
+ */
+async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, number>) {
+  const paid = new Map<string, number | null>();
+
+  for (const log of transferLogs) {
+    // ERC-721: [topic, from, to, tokenId]. A 20-byte Transfer with no tokenId
+    // is an ERC-20 sharing the signature, and not what this is looking for.
+    if (log.topics.length < 4) continue;
+    const to = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
+    if (!to || /^0x0+$/.test(to)) continue;
+
+    const hash = log.transactionHash;
+    if (!paid.has(hash)) paid.set(hash, await transactionValue(hash));
+    const ron = paid.get(hash);
+    if (!ron || ron <= 0) continue;
+
+    // Several monkes in one transaction share its value; the quest asks what
+    // a purchase cost, so the largest single reading is the honest one.
+    monkeBuys.set(to, Math.max(monkeBuys.get(to) ?? 0, ron));
+  }
+}
+
 async function scan(from: number, to: number) {
-  if (from > to) return { spinLogs: [], aorLogs: [], swapLogs: [] };
+  if (from > to) return { spinLogs: [], aorLogs: [], swapLogs: [], monkeLogs: [] };
   // Sequential, not parallel: the throttle paces them either way, and one at a
   // time keeps a slow scan from starving the rest of the request.
   const spinLogs = await getLogsRange(FORTUNE_SPIN.pack, FORTUNE_SPIN.settleTopic, from, to);
@@ -217,7 +269,8 @@ async function scan(from: number, to: number) {
     from,
     to
   );
-  return { spinLogs, aorLogs, swapLogs };
+  const monkeLogs = await getLogsRange(COLLECTIONS.ronkeverse, TRANSFER_TOPIC, from, to);
+  return { spinLogs, aorLogs, swapLogs, monkeLogs };
 }
 
 /**
@@ -287,6 +340,7 @@ async function buildSeed(day: number): Promise<Seed> {
   const spinRon = new Map<string, number>();
   const aor = new Map<string, AorPlay>();
   const buys = new Map<string, DayBuy>();
+  const monkeBuys = new Map<string, number>();
 
   // Log scanning is the expensive half and the first thing a stingy node
   // refuses. Losing it costs six quests; losing the whole board costs
@@ -296,9 +350,10 @@ async function buildSeed(day: number): Promise<Seed> {
   // nothing, which is what leaving the cursor above the head block says.
   let coveredFrom = atBlock + 1;
   try {
-    const { from, spinLogs, aorLogs, swapLogs } = await scanSlice(atBlock, startBlock);
+    const { from, spinLogs, aorLogs, swapLogs, monkeLogs } = await scanSlice(atBlock, startBlock);
     collect(spinLogs, aorLogs, spins, spinRon, aor);
     await collectBuys(swapLogs, buys);
+    await collectMonkeBuys(monkeLogs, monkeBuys);
     coveredFrom = from;
   } catch {
     // Nothing collected, nothing covered.
@@ -321,6 +376,7 @@ async function buildSeed(day: number): Promise<Seed> {
       { plays: v.plays, labels: [...v.labels], ronkeSpent: v.ronkeSpent },
     ]),
     buys: [...buys.entries()],
+    monkeBuys: [...monkeBuys.entries()],
   };
 }
 
@@ -352,6 +408,8 @@ function hydrate(day: number, seed: Seed): Internal {
   // board that throws on a stale cache entry is worse than one that fills in
   // on the next pass.
   const buys = new Map<string, DayBuy>((seed.buys ?? []).map(([k, v]) => [k, { ...v }]));
+  // A seed cached before monke buys were read has none; the next pass fills it.
+  const monkeBuys = new Map<string, number>(seed.monkeBuys ?? []);
 
   /**
    * Where the forward read picks up, per table.
@@ -381,6 +439,7 @@ function hydrate(day: number, seed: Seed): Internal {
     spinRon,
     aor,
     buys,
+    monkeBuys,
     floorRon: 0,
     sales: [],
     logsMissing: seed.logsMissing,
@@ -515,9 +574,10 @@ async function stepForward(current: Internal) {
 
   try {
     // Forward to head first — new activity matters more than old.
-    const { spinLogs, aorLogs, swapLogs } = await scanForward(current.logBlock + 1, head);
+    const { spinLogs, aorLogs, swapLogs, monkeLogs } = await scanForward(current.logBlock + 1, head);
     collect(spinLogs, aorLogs, current.spins, current.spinRon, current.aor);
     await collectBuys(swapLogs, current.buys);
+    await collectMonkeBuys(monkeLogs, current.monkeBuys);
     current.logBlock = head;
     if (current.coveredFrom > head) current.coveredFrom = head + 1;
 
@@ -526,6 +586,7 @@ async function stepForward(current: Internal) {
       const older = await scanSlice(current.coveredFrom - 1, current.startBlock);
       collect(older.spinLogs, older.aorLogs, current.spins, current.spinRon, current.aor);
       await collectBuys(older.swapLogs, current.buys);
+      await collectMonkeBuys(older.monkeLogs, current.monkeBuys);
       current.coveredFrom = older.from;
     }
 
@@ -582,6 +643,7 @@ export async function getToday(force = false): Promise<TodayState> {
       spins: new Map(),
       aor: new Map(),
       spinRon: new Map(),
+      monkeBuys: new Map(),
       buys: new Map(),
       floorRon: 0,
       sales: [],
@@ -682,7 +744,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           today.spinRon,
           today.sales,
           social,
-          today.buys
+          today.buys,
+          today.monkeBuys
         );
         // Each wallet is scored against its own five, not a shared set.
         const score = scoreDay(
