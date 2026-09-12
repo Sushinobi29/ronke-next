@@ -996,6 +996,29 @@ export interface DailyScore {
   maxPoints: number;
 }
 
+/**
+ * The day's board flattened to one row per quest, for the record.
+ *
+ * The scorer works all of this out and the day's totals throw it away; this
+ * is the same numbers, kept. Pinned quests are marked rather than dropped —
+ * they pay like any other quest and a completion rate that silently mixed
+ * them with the drawn five would be reading two different things at once.
+ */
+export function questResults(score: DailyScore) {
+  const row = (quest: ScoredQuest, pinned: boolean) => ({
+    id: quest.id,
+    done: quest.done,
+    points: quest.done ? quest.points : 0,
+    progress: quest.value,
+    target: quest.target,
+    pinned,
+  });
+  return [
+    ...score.quests.map((quest) => row(quest, false)),
+    ...score.extra.map((quest) => row(quest, true)),
+  ];
+}
+
 export function scoreDay(
   stats: DailyStats,
   day: number = dayIndex(),

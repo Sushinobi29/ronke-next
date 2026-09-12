@@ -54,7 +54,7 @@ import {
   type MinesRound,
 } from "./read";
 import { fetchFloorRon, fetchSales, type Sale } from "./market";
-import { dayIndex, dayStart, scoreDay } from "./daily";
+import { dayIndex, dayStart, questResults, scoreDay } from "./daily";
 import {
   priorSweepStreaks,
   readFeatured,
@@ -791,6 +791,9 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           bonus: score.bonus,
           streak: score.streak,
           actions: score.done,
+          // Kept for the record, not for the board — stripped before this
+          // goes out as the day's leaderboard.
+          quests: questResults(score),
         };
       } catch {
         return null;
@@ -798,13 +801,26 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
     })
   );
 
-  const scored = rows.filter((row): row is BoardEntry => row !== null && row.points > 0);
+  const scored = rows.filter(
+    (row): row is NonNullable<(typeof rows)[number]> => row !== null && row.points > 0
+  );
 
   // The season is the sum of its days, and a day is only knowable while it is
   // today — so every rebuild writes what it just worked out.
   await recordMany(day, scored);
 
-  return scored.sort((a, b) => b.points - a.points || b.done - a.done).slice(0, 15);
+  // The detail went to the store; the board only needs the totals.
+  return scored
+    .map((row): BoardEntry => ({
+      address: row.address,
+      points: row.points,
+      done: row.done,
+      bonus: row.bonus,
+      streak: row.streak,
+      actions: row.actions,
+    }))
+    .sort((a, b) => b.points - a.points || b.done - a.done)
+    .slice(0, 15);
 }
 
 /**

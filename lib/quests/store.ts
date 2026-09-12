@@ -48,6 +48,8 @@ const SCHEMA = [
   "quest_x_links",
   "quest_social",
   "quest_social_post_id",
+  "quest_results",
+  "quest_results_day_quest_idx",
 ] as const;
 
 /**
@@ -95,6 +97,39 @@ async function migrate(sql: Sql): Promise<void> {
     )
   `;
   await sql`create index if not exists quest_days_day_idx on quest_days (day)`;
+
+  /**
+   * One row per quest per wallet per day — what quest_days only counts.
+   *
+   * A day's row says somebody finished three of five. It cannot say which
+   * three, so it cannot answer the question worth asking: which quests nobody
+   * ever finishes. Two bugs in the first two days of Season 1 — Mines rounds
+   * going unread, and NFT purchases made anywhere but one marketplace — both
+   * looked identical here, a slightly lower score, and both were found by
+   * players complaining rather than by anyone reading the table. A quest
+   * sitting at nought percent across everyone who drew it is obvious.
+   *
+   * Written beside the day's row and under the same rule: only when that row
+   * improved, so both tables hold the same reading of the day.
+   */
+  await sql`
+    create table if not exists quest_results (
+      day      integer not null,
+      address  text    not null,
+      quest_id text    not null,
+      done     boolean not null,
+      points   integer not null,
+      progress real    not null,
+      target   real    not null,
+      -- Pinned onto the day for everyone rather than drawn into the five.
+      pinned   boolean not null default false,
+      primary key (day, address, quest_id)
+    )
+  `;
+  // Completion rates are read per quest across a day, not per wallet.
+  await sql`
+    create index if not exists quest_results_day_quest_idx on quest_results (day, quest_id)
+  `;
 
   // One X account per wallet, and one wallet per X account — without the
   // second half, a single account could sign up every wallet on the board.
@@ -170,11 +205,25 @@ function db(): Promise<Sql | null> {
   return ready;
 }
 
+export interface QuestResult {
+  id: string;
+  done: boolean;
+  /** What it paid, so nothing has to re-derive it. Zero when unfinished. */
+  points: number;
+  progress: number;
+  target: number;
+  /** True for a quest pinned onto the day rather than drawn into the five. */
+  pinned?: boolean;
+}
+
 export interface DayResult {
   address: string;
   points: number;
   done: number;
   bonus: number;
+  /** The five (and any pinned extra) as they stood. Optional: a caller that
+   *  has only the totals still writes a correct day row. */
+  quests?: QuestResult[];
 }
 
 /**
@@ -204,7 +253,7 @@ export async function recordDay(day: number, result: DayResult): Promise<void> {
      * correction downward has to be deliberate, not a side effect of a bad
      * network day.
      */
-    await sql`
+    const applied = await sql`
       insert into quest_days (day, address, points, done, bonus, updated_at)
       values (${day}, ${result.address.toLowerCase()}, ${result.points}, ${result.done}, ${result.bonus}, now())
       on conflict (day, address) do update
@@ -213,6 +262,33 @@ export async function recordDay(day: number, result: DayResult): Promise<void> {
             bonus = excluded.bonus,
             updated_at = now()
       where excluded.points > quest_days.points
+      returning day
+    `;
+
+    // Nothing came back: this reading was not better than what is banked, so
+    // the detail behind it is not better either. Leaving both alone keeps the
+    // two tables telling the same story about the day.
+    if (applied.length === 0 || !result.quests?.length) return;
+
+    const rows = result.quests.map((quest) => ({
+      day,
+      address: result.address.toLowerCase(),
+      quest_id: quest.id,
+      done: quest.done,
+      points: quest.done ? Math.round(quest.points) : 0,
+      progress: quest.progress,
+      target: quest.target,
+      pinned: quest.pinned ?? false,
+    }));
+
+    await sql`
+      insert into quest_results ${sql(rows, "day", "address", "quest_id", "done", "points", "progress", "target", "pinned")}
+      on conflict (day, address, quest_id) do update
+        set done = excluded.done,
+            points = excluded.points,
+            progress = excluded.progress,
+            target = excluded.target,
+            pinned = excluded.pinned
     `;
   } catch {
     // A board that cannot write is still a board that works today.

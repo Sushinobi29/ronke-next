@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { poolOnDay } from "@/lib/quests/pool";
 import { isAddress, readDaily } from "@/lib/quests/read";
 import { getToday } from "@/lib/quests/today";
-import { dayIndex, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
+import { dayIndex, questResults, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
 import { seasonAt, seasonDays } from "@/lib/quests/season";
 import {
   priorSweepStreak,
@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
       points: score.total,
       done: score.done,
       bonus: score.bonus,
+      quests: questResults(score),
     });
     const seasonTotal = await walletSeason(wallet, fromDay, toDay);
     const place = await seasonPlace(seasonTotal?.points ?? null, fromDay, toDay);
