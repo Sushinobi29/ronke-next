@@ -327,7 +327,21 @@ export async function readDaily(
     aorHighStakes: labels.filter((l) => l === "blocks_69").length,
     unitsTrained: trainingToday.get(address.toLowerCase()) ?? 0,
     socialVerified: socialToday.has(address.toLowerCase()),
-    heldTheLine: monkesAtOpen > 0 && monkesNow >= monkesAtOpen,
+    /**
+     * Ending the day holding monkes, and no fewer than it opened with.
+     *
+     * It used to ask what you held at midnight instead, which decided the
+     * quest before the day began: a wallet holding nothing drew "do not sell
+     * a single monke today", could not finish it by any action available to
+     * it, and lost the clean sweep with it. One player drew it two days
+     * running, bought a monke on the second, held it, and still failed —
+     * having done precisely what the card asked.
+     *
+     * Holding something is still required, so nobody is paid for owning
+     * nothing; what changed is that acquiring one during the day now counts
+     * as holding it.
+     */
+    heldTheLine: monkesNow > 0 && monkesNow >= monkesAtOpen,
     heldBarracks: openedAt(4) > 0 && word(now, 4) >= openedAt(4),
   };
 }
