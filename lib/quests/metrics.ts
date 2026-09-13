@@ -38,7 +38,14 @@ export const METRICS: Metric[] = [
   { key: "unitsTrained", label: "Units sent to train", kind: "count", unit: "units", needsLogs: true },
   { key: "votes", label: "Votes cast", kind: "count", unit: "votes" },
   { key: "citizens", label: "Citizens founded", kind: "count", unit: "citizens" },
-  { key: "barracks", label: "Barracks gained", kind: "count", unit: "barracks" },
+  {
+    key: "barracks",
+    label: "Barracks gained or units trained",
+    kind: "count",
+    unit: "barracks",
+    // Half of it is a balance and half is an event, so it reads the logs.
+    needsLogs: true,
+  },
   { key: "trophies", label: "Trophies claimed", kind: "count", unit: "trophies" },
   { key: "monkes", label: "Monkes gained", kind: "count", unit: "monkes" },
   { key: "ronkeRon", label: "RON spent on $RONKE", kind: "ron", unit: "RON", needsLogs: true },

@@ -605,8 +605,8 @@ export const BASE_POOL: QuestDef[] = [
     // and sixty-one when they asked. Training one does not mint one. Until
     // somebody who knows the game says what does, this describes the outcome
     // it actually measures rather than an action it cannot see.
-    task: "Get a Pew Pew Barracks into your wallet",
-    note: "Counts the moment the NFT lands — nothing to submit",
+    task: "Mint or train a unit in the barracks",
+    note: "Counts as soon as it lands or training starts — nothing to submit",
     game: "age-of-ronke",
     tier: "bonus",
     group: "barracks",
@@ -625,7 +625,9 @@ export const BASE_POOL: QuestDef[] = [
     note: "Counts when training starts — no need to wait for it to finish",
     game: "age-of-ronke",
     tier: "core",
-    group: "barracks-train",
+    // Same group as barracks.take on purpose: that quest now counts training
+    // too, so drawing both would hand a player two quests for one action.
+    group: "barracks",
     cost: "tokens",
     target: 1,
     points: 150,

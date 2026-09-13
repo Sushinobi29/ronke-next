@@ -297,7 +297,15 @@ export async function readDaily(
     votes: gained(1, 0),
     citizens: gained(2),
     monkes: Math.max(0, monkesNow - monkesAtOpen),
-    barracks: gained(4),
+    /**
+     * Either half of what a player calls "doing the barracks quest": one
+     * arriving, or one of theirs being put to work. Training spends $RONKE
+     * against a barracks already held, so it moves no balance and the
+     * acquisition reading alone called it nothing. Counting both here rather
+     * than in a new metric keeps the live pool — which names this one —
+     * working the moment this deploys, with no edit to make first.
+     */
+    barracks: gained(4) + (trainingToday.get(address.toLowerCase()) ?? 0),
     trophies: gained(5),
     ronkeRon: bought?.ronke ?? 0,
     ronkestrRon: bought?.ronkestr ?? 0,
