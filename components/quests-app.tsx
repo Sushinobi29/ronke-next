@@ -686,7 +686,11 @@ export default function QuestsApp() {
                 <th className="px-5 py-2 text-left font-bold">#</th>
                 <th className="px-3 py-2 text-left font-bold">Wallet</th>
                 <th className="px-3 py-2 text-right font-bold">Days</th>
-                <th className="px-3 py-2 text-right font-bold">Streak</th>
+                {/* Clean sweeps this season, which is not a streak: a player
+                    who sweeps, misses a day, then sweeps again has two of
+                    these and a streak of one. The column said "Streak" and
+                    was read as one. */}
+                <th className="px-3 py-2 text-right font-bold">Sweeps</th>
                 <th className="px-5 py-2 text-right font-bold">Points</th>
               </tr>
             </thead>
