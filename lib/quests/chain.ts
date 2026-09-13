@@ -182,9 +182,23 @@ export async function transactionSender(hash: string): Promise<string | null> {
  * difference a buy quest needs to see.
  */
 export async function transactionValue(hash: string): Promise<number | null> {
-  const tx = await rpc<{ value?: string } | null>("eth_getTransactionByHash", [hash]).catch(() => null);
-  if (!tx?.value) return null;
-  return fromWei(toBigInt(tx.value.replace(/^0x/, "")));
+  const tx = await transactionPayment(hash);
+  return tx ? tx.value : null;
+}
+
+/**
+ * Who sent a transaction and what it carried in RON. Both together, because
+ * pricing a purchase needs to know the money moved *and* that the buyer is
+ * the one who moved it.
+ */
+export async function transactionPayment(
+  hash: string
+): Promise<{ from: string; value: number } | null> {
+  const tx = await rpc<{ from?: string; value?: string } | null>("eth_getTransactionByHash", [
+    hash,
+  ]).catch(() => null);
+  if (!tx?.from) return null;
+  return { from: tx.from.toLowerCase(), value: tx.value ? fromWei(toBigInt(tx.value.replace(/^0x/, ""))) : 0 };
 }
 
 /**

@@ -29,8 +29,8 @@ import {
   toBigInt,
   toNumber,
   transactionLogs,
+  transactionPayment,
   transactionSender,
-  transactionValue,
   words,
   type Log,
 } from "./chain";
@@ -243,7 +243,7 @@ async function collectBuys(swapLogs: Log[], buys: Map<string, DayBuy>) {
  * value and stays under the quest's floor, so a gift cannot pay like a buy.
  */
 async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, number>) {
-  const paid = new Map<string, number | null>();
+  const paid = new Map<string, { from: string; value: number } | null>();
   const receipts = new Map<string, Log[]>();
 
   for (const log of transferLogs) {
@@ -254,18 +254,27 @@ async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, numb
     if (!to || /^0x0+$/.test(to)) continue;
 
     const hash = log.transactionHash;
-    if (!paid.has(hash)) paid.set(hash, await transactionValue(hash));
-    let ron = paid.get(hash) ?? 0;
+    if (!paid.has(hash)) paid.set(hash, await transactionPayment(hash));
+    const tx = paid.get(hash);
+    let ron = tx?.value ?? 0;
 
     /**
-     * Nothing on the transaction itself means either a gift or a sale settled
-     * in wrapped RON — an accepted offer is always the latter, because an
-     * offer has to be made in a token. Reading what the buyer sent tells the
-     * two apart, and only costs a receipt on the transfers that look free.
+     * Nothing on the transaction itself means one of three things: a gift, a
+     * sale settled in wrapped RON, or a purchase routed through an aggregator
+     * that swapped something else first. The last is not exotic — a player
+     * paying with $RONKE goes through one, and the wrapped RON then moves
+     * between contracts without ever touching either the buyer's wallet or
+     * the seller's.
+     *
+     * What separates all three is who sent the transaction. A buyer buys from
+     * their own wallet; a gift arrives in a transaction somebody else sent.
+     * So when the wallet receiving the monke is also the wallet that asked
+     * for it, the wrapped RON that moved on inside it is what the purchase
+     * cost. Only transfers that look free are read this way.
      */
-    if (ron <= 0) {
+    if (ron <= 0 && tx?.from === to) {
       if (!receipts.has(hash)) receipts.set(hash, await transactionLogs(hash));
-      ron = wronPaidBy(receipts.get(hash)!, to);
+      ron = wronSpent(receipts.get(hash)!, to);
     }
     if (ron <= 0) continue;
 
@@ -287,18 +296,24 @@ function collectTraining(trainLogs: Log[], training: Map<string, number>) {
   }
 }
 
-/** Wrapped RON leaving one wallet inside a transaction, in RON. */
-function wronPaidBy(logs: Log[], buyer: string): number {
-  let total = 0;
+/**
+ * What a purchase cost, read from the wrapped RON moving inside its
+ * transaction: the largest single amount that ends up somewhere other than
+ * the buyer. Largest rather than total because a route through an aggregator
+ * leaves a trail of dust either side of the real number, and anything coming
+ * back to the buyer is change, not price.
+ */
+function wronSpent(logs: Log[], buyer: string): number {
+  let most = 0;
   for (const log of logs) {
     if (log.address.toLowerCase() !== TOKENS.WRON) continue;
     // ERC-20 Transfer: [topic, from, to], value in data.
     if (log.topics[0] !== TRANSFER_TOPIC || log.topics.length < 3) continue;
-    const from = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
-    if (from !== buyer) continue;
-    total += fromWei(toBigInt(log.data.replace(/^0x/, "")));
+    const to = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
+    if (to === buyer) continue;
+    most = Math.max(most, fromWei(toBigInt(log.data.replace(/^0x/, ""))));
   }
-  return total;
+  return most;
 }
 
 async function scan(from: number, to: number) {
