@@ -596,10 +596,13 @@ export const BASE_POOL: QuestDef[] = [
     // What counts is the NFT arriving, not a raid going well — a raid that
     // pays out loot and no barracks is a raid this quest cannot see.
     //
-    // Say the action, not the outcome: players read "get a barracks into your
-    // wallet" and went looking for somewhere to buy one, when the way you get
-    // one in Age of Ronke is to train a unit.
-    task: "Train a unit in the barracks",
+    // It said "train a unit in the barracks" for a day, on the strength of a
+    // guess in chat. The chain disagrees: a player who trained a unit and
+    // asked why the quest had not moved held sixty-one barracks at midnight
+    // and sixty-one when they asked. Training one does not mint one. Until
+    // somebody who knows the game says what does, this describes the outcome
+    // it actually measures rather than an action it cannot see.
+    task: "Get a Pew Pew Barracks into your wallet",
     note: "Counts the moment the NFT lands — nothing to submit",
     game: "age-of-ronke",
     tier: "bonus",
