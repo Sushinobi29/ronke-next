@@ -40,6 +40,7 @@ import {
   FORTUNE_SPIN,
   MINES_TABLES,
   POOLS,
+  BARRACKS_TRAINING,
   SELECTORS,
   SWAP_TOPIC,
   TOKENS,
@@ -107,6 +108,8 @@ export interface TodayState {
    * matched it.
    */
   monkeBuys: Map<string, number>;
+  /** Units sent to train in a barracks today, by wallet. */
+  training: Map<string, number>;
   /** Marketplace side, read over GraphQL rather than the node. */
   floorRon: number;
   sales: Sale[];
@@ -130,6 +133,8 @@ interface Seed {
   buys: [string, DayBuy][];
   /** Monke purchases read off the collection, buyer -> RON paid. */
   monkeBuys: [string, number][];
+  /** Units sent to train today, by wallet. */
+  training: [string, number][];
   /** Where each Mines table's id counter stood when the rounds were read. */
   minesLatest: [string, number][];
   /** True when the walk back ran out of pages before it reached midnight. */
@@ -270,6 +275,18 @@ async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, numb
   }
 }
 
+/** Units sent to train today, by wallet. The player is indexed on the event. */
+function collectTraining(trainLogs: Log[], training: Map<string, number>) {
+  for (const log of trainLogs) {
+    const player = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
+    if (!player || /^0x0+$/.test(player)) continue;
+    // data is (barracksId, units, amount); one event can train several.
+    const w = words(log.data);
+    const units = w.length > 1 ? Math.max(1, toNumber(w[1])) : 1;
+    training.set(player, (training.get(player) ?? 0) + units);
+  }
+}
+
 /** Wrapped RON leaving one wallet inside a transaction, in RON. */
 function wronPaidBy(logs: Log[], buyer: string): number {
   let total = 0;
@@ -285,7 +302,7 @@ function wronPaidBy(logs: Log[], buyer: string): number {
 }
 
 async function scan(from: number, to: number) {
-  if (from > to) return { spinLogs: [], aorLogs: [], swapLogs: [], monkeLogs: [] };
+  if (from > to) return { spinLogs: [], aorLogs: [], swapLogs: [], monkeLogs: [], trainLogs: [] };
   // Sequential, not parallel: the throttle paces them either way, and one at a
   // time keeps a slow scan from starving the rest of the request.
   const spinLogs = await getLogsRange(FORTUNE_SPIN.pack, FORTUNE_SPIN.settleTopic, from, to);
@@ -298,7 +315,13 @@ async function scan(from: number, to: number) {
     to
   );
   const monkeLogs = await getLogsRange(COLLECTIONS.ronkeverse, TRANSFER_TOPIC, from, to);
-  return { spinLogs, aorLogs, swapLogs, monkeLogs };
+  const trainLogs = await getLogsRange(
+    BARRACKS_TRAINING.contract,
+    BARRACKS_TRAINING.startTopic,
+    from,
+    to
+  );
+  return { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs };
 }
 
 /**
@@ -369,6 +392,7 @@ async function buildSeed(day: number): Promise<Seed> {
   const aor = new Map<string, AorPlay>();
   const buys = new Map<string, DayBuy>();
   const monkeBuys = new Map<string, number>();
+  const training = new Map<string, number>();
 
   // Log scanning is the expensive half and the first thing a stingy node
   // refuses. Losing it costs six quests; losing the whole board costs
@@ -378,10 +402,14 @@ async function buildSeed(day: number): Promise<Seed> {
   // nothing, which is what leaving the cursor above the head block says.
   let coveredFrom = atBlock + 1;
   try {
-    const { from, spinLogs, aorLogs, swapLogs, monkeLogs } = await scanSlice(atBlock, startBlock);
+    const { from, spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs } = await scanSlice(
+      atBlock,
+      startBlock
+    );
     collect(spinLogs, aorLogs, spins, spinRon, aor);
     await collectBuys(swapLogs, buys);
     await collectMonkeBuys(monkeLogs, monkeBuys);
+    collectTraining(trainLogs, training);
     coveredFrom = from;
   } catch {
     // Nothing collected, nothing covered.
@@ -405,6 +433,7 @@ async function buildSeed(day: number): Promise<Seed> {
     ]),
     buys: [...buys.entries()],
     monkeBuys: [...monkeBuys.entries()],
+    training: [...training.entries()],
   };
 }
 
@@ -438,6 +467,7 @@ function hydrate(day: number, seed: Seed): Internal {
   const buys = new Map<string, DayBuy>((seed.buys ?? []).map(([k, v]) => [k, { ...v }]));
   // A seed cached before monke buys were read has none; the next pass fills it.
   const monkeBuys = new Map<string, number>(seed.monkeBuys ?? []);
+  const training = new Map<string, number>(seed.training ?? []);
 
   /**
    * Where the forward read picks up, per table.
@@ -468,6 +498,7 @@ function hydrate(day: number, seed: Seed): Internal {
     aor,
     buys,
     monkeBuys,
+    training,
     floorRon: 0,
     sales: [],
     logsMissing: seed.logsMissing,
@@ -602,10 +633,14 @@ async function stepForward(current: Internal) {
 
   try {
     // Forward to head first — new activity matters more than old.
-    const { spinLogs, aorLogs, swapLogs, monkeLogs } = await scanForward(current.logBlock + 1, head);
+    const { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs } = await scanForward(
+      current.logBlock + 1,
+      head
+    );
     collect(spinLogs, aorLogs, current.spins, current.spinRon, current.aor);
     await collectBuys(swapLogs, current.buys);
     await collectMonkeBuys(monkeLogs, current.monkeBuys);
+    collectTraining(trainLogs, current.training);
     current.logBlock = head;
     if (current.coveredFrom > head) current.coveredFrom = head + 1;
 
@@ -615,6 +650,7 @@ async function stepForward(current: Internal) {
       collect(older.spinLogs, older.aorLogs, current.spins, current.spinRon, current.aor);
       await collectBuys(older.swapLogs, current.buys);
       await collectMonkeBuys(older.monkeLogs, current.monkeBuys);
+      collectTraining(older.trainLogs, current.training);
       current.coveredFrom = older.from;
     }
 
@@ -672,6 +708,7 @@ export async function getToday(force = false): Promise<TodayState> {
       aor: new Map(),
       spinRon: new Map(),
       monkeBuys: new Map(),
+      training: new Map(),
       buys: new Map(),
       floorRon: 0,
       sales: [],
@@ -773,7 +810,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           today.sales,
           social,
           today.buys,
-          today.monkeBuys
+          today.monkeBuys,
+          today.training
         );
         // Each wallet is scored against its own five, not a shared set.
         const score = scoreDay(

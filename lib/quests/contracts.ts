@@ -127,6 +127,28 @@ export const AGE_OF_RONKE = {
   playTopic: "0x8f81770bb1772fcb8f438b882033de596292cd1187c4e658fc3c5ba705a3168e",
 } as const;
 
+/**
+ * Training a unit, which happens on the barracks NFT itself rather than the
+ * play contract — the arcade games and the barracks are separate machines,
+ * and the play contract only ever emits the games.
+ *
+ * A player asked why "get a barracks" had not moved after they trained a
+ * unit: training spends $RONKE against a barracks they already hold, so
+ * nothing arrives and the acquisition quest cannot see it. These are the
+ * events that can.
+ *
+ * Both carry the player in topic1, and data of (barracksId, units, amount).
+ * Topics taken from live transactions rather than an ABI, which is not
+ * published.
+ */
+export const BARRACKS_TRAINING = {
+  contract: COLLECTIONS.barracks,
+  /** Training begun — the moment the player spends, and so the moment it counts. */
+  startTopic: "0x4e762cce3d29e0871194477ca54aa7704b15ac661ea5ec457cfe40977fa42f51",
+  /** Training collected, some hours later. */
+  claimTopic: "0xaeb35e1b222adf370d8283d5d4144cd6e65598878bf39a43038b066a9094e8b1",
+} as const;
+
 /** Fortune Spin — the gacha. A beacon proxy holding the RON people spin with. */
 export const FORTUNE_SPIN = {
   pack: "0x7962c19767f10df016f1f7154b5fe286e502e023",

@@ -225,6 +225,8 @@ export interface DailyStats {
   aorBlocks: number;
   aorPinball: number;
   aorHighStakes: number;
+  /** Units sent to train in a barracks today. */
+  unitsTrained: number;
   /** A post about the Ronkeverse, verified against X today. */
   socialVerified: boolean;
   /** Held every monke they woke up with, and woke up with at least one. */
@@ -255,6 +257,7 @@ export const EMPTY_DAILY: DailyStats = {
   aorBlocks: 0,
   aorPinball: 0,
   aorHighStakes: 0,
+  unitsTrained: 0,
   socialVerified: false,
   heldTheLine: false,
   heldBarracks: false,
@@ -611,6 +614,22 @@ export const BASE_POOL: QuestDef[] = [
     target: 1,
     points: 400,
     metric: "barracks",
+  },
+  {
+    id: "barracks.train",
+    title: "Train a unit",
+    // The action players kept trying to get credit for. It spends $RONKE
+    // against a barracks they already hold, so it is nothing like acquiring
+    // one and deserves its own quest rather than a looser reading of that one.
+    task: "Train a unit in one of your barracks",
+    note: "Counts when training starts — no need to wait for it to finish",
+    game: "age-of-ronke",
+    tier: "core",
+    group: "barracks-train",
+    cost: "tokens",
+    target: 1,
+    points: 150,
+    metric: "unitsTrained",
   },
   {
     id: "vote.found",
