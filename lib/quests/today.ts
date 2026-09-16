@@ -272,9 +272,20 @@ async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, numb
      * for it, the wrapped RON that moved on inside it is what the purchase
      * cost. Only transfers that look free are read this way.
      */
-    if (ron <= 0 && tx?.from === to) {
+    if (ron <= 0) {
       if (!receipts.has(hash)) receipts.set(hash, await transactionLogs(hash));
-      ron = wronSpent(receipts.get(hash)!, to);
+      const inside = receipts.get(hash)!;
+      /**
+       * Who sent the transaction says which shape this is.
+       *
+       * A buyer who clicks buy sends it themselves, and the wrapped RON moves
+       * on through whatever router they went via — possibly never touching
+       * their own address. An accepted offer is the other way round: the
+       * seller sends it, and the buyer's wrapped RON is pulled out of their
+       * wallet inside it. Reading the wrong side of that gets a real purchase
+       * priced at nothing, which is how offers came to not count at all.
+       */
+      ron = tx?.from === to ? wronSpent(inside, to) : wronPaidBy(inside, to);
     }
     if (ron <= 0) continue;
 
@@ -294,6 +305,23 @@ function collectTraining(trainLogs: Log[], training: Map<string, number>) {
     const units = w.length > 1 ? Math.max(1, toNumber(w[1])) : 1;
     training.set(player, (training.get(player) ?? 0) + units);
   }
+}
+
+/**
+ * Wrapped RON leaving the buyer's own wallet, in RON. What an accepted offer
+ * looks like: the seller sends the transaction and the buyer's tokens are
+ * pulled out of their wallet inside it.
+ */
+function wronPaidBy(logs: Log[], buyer: string): number {
+  let total = 0;
+  for (const log of logs) {
+    if (log.address.toLowerCase() !== TOKENS.WRON) continue;
+    if (log.topics[0] !== TRANSFER_TOPIC || log.topics.length < 3) continue;
+    const from = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
+    if (from !== buyer) continue;
+    total += fromWei(toBigInt(log.data.replace(/^0x/, "")));
+  }
+  return total;
 }
 
 /**

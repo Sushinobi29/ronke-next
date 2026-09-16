@@ -398,7 +398,11 @@ export const BASE_POOL: QuestDef[] = [
   {
     id: "aor.pinball",
     title: "Tilt the table",
-    task: "Play a round of Ronke Pinball",
+    // The game reports a free trial as its own kind of play, not as pinball,
+    // so a trial round cannot count however it is worded — and players were
+    // playing one, seeing nothing, and asking why. Say so on the card.
+    task: "Play a paid round of Ronke Pinball",
+    note: "The free trial game does not count — it has to be a paid round",
     game: "age-of-ronke",
     tier: "core",
     group: "aor-pinball",
@@ -437,7 +441,10 @@ export const BASE_POOL: QuestDef[] = [
   {
     id: "aor.blocks",
     title: "Stack the blocks",
-    task: "Play a round of Ronke Blocks",
+    // Same as pinball: a free trial is reported as a trial, not as a round of
+    // this game, so it cannot count.
+    task: "Play a paid round of Ronke Blocks",
+    note: "The free trial game does not count — it has to be a paid round",
     game: "age-of-ronke",
     tier: "core",
     group: "aor-blocks",
