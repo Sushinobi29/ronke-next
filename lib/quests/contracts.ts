@@ -108,6 +108,37 @@ export const SWAP_TOPIC = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d
  */
 export const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
+/**
+ * Where $RONKE and $RONKESTR go that is not a player.
+ *
+ * Token buys are read from tokens arriving, which means every transfer is a
+ * candidate — and most of them are fees flowing into the game. Skipping these
+ * costs nothing in correctness (a fee lands in a transaction the recipient
+ * did not send, so it would price at nothing anyway) and saves a transaction
+ * lookup on each: over an hour, dozens of transfers go to a handful of these.
+ * A contract missing from here is just a lookup wasted, never a false credit.
+ */
+export const TOKEN_SINKS = new Set<string>([
+  "0x0000000000000000000000000000000000000000",
+  "0xff0a2d76e6156bc1c0c689fe4029f6f1a566e92e", // Age of Ronke treasury
+  "0x33b93f6eb104d32c516a1eea9bd6f704cc9601ae", // Age of Ronke play
+  "0xccf604511c5d2b5c3fd61adfba3950d0d2890862", // barracks (training fees)
+  "0x744b467ce265dbc5078b43036271aec378821b2d", // casino coinflip
+  "0x22e8ecccbc419cda1a6b2c6fca72ee2cb239f506", // NFT coinflip
+  "0xb6abe8cd26f255245782a609089f8094885715fe", // mines RON
+  "0xa9b7d87df126ae0b80b90ded3d481209e20eb3bf", // mines RONKE
+  "0x2846307caac69141520a7eb281bd4b9210e57b2f", // mines RICE
+  "0xb60f456ade104656829344d9a8e7e319d197a1ff", // mines RONKESTR
+  "0x16bb753b48fbeac599a1a7a291b3f87aa3dbdf19", // Ronke Strategy
+  "0x75ae353997242927c701d4d6c2722ebef43fd2d3", // RONKE/WRON V2
+  "0x87b0acb34aa54cb51451050be73e9e31921154c2", // RONKESTR/WRON V2
+  "0x5489ad0bbd828e2e3b5aacdc1641ca583b7d6467", // RONKE/WRON V3 0.01%
+  "0x14bb374eff7d8cba7e2df7985c0d5f36019582e2", // RONKE/WRON V3 0.3%
+  "0xca5621172f2e176031d699e0a0f701c029d7bac1", // RONKE/WRON V3 1%
+  "0x807745d6986b8a74ababe381a71e5923ca2b97bb", // RONKESTR/WRON V3 0.3%
+  "0xecd37abf7fbeabc5894ed7c18c18fb4cd75497e8", // RONKESTR/WRON V3 1%
+]);
+
 /** Ronke Vote — v3 is the live contract; the older generations still hold RON. */
 export const VOTE = {
   current: "0xccdddadf9308c697889b473cce83dd9dbf56e0d4",

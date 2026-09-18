@@ -43,6 +43,7 @@ import {
   BARRACKS_TRAINING,
   SELECTORS,
   SWAP_TOPIC,
+  TOKEN_SINKS,
   TOKENS,
   TRANSFER_TOPIC,
 } from "./contracts";
@@ -110,6 +111,8 @@ export interface TodayState {
   monkeBuys: Map<string, number>;
   /** Units sent to train in a barracks today, by wallet. */
   training: Map<string, number>;
+  /** RON spent on each token today, read from the tokens arriving. */
+  tokenBuys: Map<string, DayBuy>;
   /** Marketplace side, read over GraphQL rather than the node. */
   floorRon: number;
   sales: Sale[];
@@ -135,6 +138,8 @@ interface Seed {
   monkeBuys: [string, number][];
   /** Units sent to train today, by wallet. */
   training: [string, number][];
+  /** Token buys read from tokens arriving, whatever the route. */
+  tokenBuys: [string, DayBuy][];
   /** Where each Mines table's id counter stood when the rounds were read. */
   minesLatest: [string, number][];
   /** True when the walk back ran out of pages before it reached midnight. */
@@ -295,6 +300,58 @@ async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, numb
   }
 }
 
+/**
+ * The day's token buys, read from the tokens arriving rather than from a pool.
+ *
+ * The pair's Swap event only sees buys routed through that pair, and the
+ * router does not promise that. A player paid 127 RON for $RONKE and it went
+ * WRON to one token to another to $RONKE through two concentrated-liquidity
+ * pools, touching none of the pairs this watched — so the quest said nothing
+ * happened, to a player holding the tokens. Watching more pools only moves
+ * the edge: the route is whatever priced best at that moment.
+ *
+ * So a buy is what it is from the buyer's side: tokens arriving, in a
+ * transaction the buyer sent, that paid RON. Rewards and gifts arrive in a
+ * transaction somebody else sent, or one that paid nothing, and price at zero.
+ * One count per transaction per token, however many hops delivered it.
+ */
+async function collectTokenBuys(tokenLogs: Log[], tokenBuys: Map<string, DayBuy>) {
+  // A transaction lives in one block, so it only ever arrives in one pass;
+  // this only has to stop a multi-hop route that delivered twice counting twice.
+  const counted = new Set<string>();
+  const txs = new Map<string, { from: string; value: number } | null>();
+  const receipts = new Map<string, Log[]>();
+
+  for (const log of tokenLogs) {
+    // ERC-20: [topic, from, to]. Anything with a tokenId is not these tokens.
+    if (log.topics.length !== 3) continue;
+    const side = log.address.toLowerCase() === TOKENS.RONKE ? "ronke" : "ronkestr";
+    const to = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
+    if (!to || TOKEN_SINKS.has(to)) continue;
+
+    const hash = log.transactionHash;
+    const key = `${hash}|${to}|${side}`;
+    if (counted.has(key)) continue;
+
+    if (!txs.has(hash)) txs.set(hash, await transactionPayment(hash));
+    const tx = txs.get(hash);
+    // Tokens that arrived in somebody else's transaction were sent, not bought.
+    if (!tx || tx.from !== to) continue;
+
+    let ron = tx.value;
+    if (ron <= 0) {
+      if (!receipts.has(hash)) receipts.set(hash, await transactionLogs(hash));
+      ron = wronSpent(receipts.get(hash)!, to);
+    }
+    counted.add(key);
+    if (ron <= 0) continue;
+
+    const entry = tokenBuys.get(to) ?? { ronke: 0, ronkestr: 0 };
+    entry[side] += ron;
+    tokenBuys.set(to, entry);
+  }
+}
+
 /** Units sent to train today, by wallet. The player is indexed on the event. */
 function collectTraining(trainLogs: Log[], training: Map<string, number>) {
   for (const log of trainLogs) {
@@ -345,7 +402,8 @@ function wronSpent(logs: Log[], buyer: string): number {
 }
 
 async function scan(from: number, to: number) {
-  if (from > to) return { spinLogs: [], aorLogs: [], swapLogs: [], monkeLogs: [], trainLogs: [] };
+  if (from > to)
+    return { spinLogs: [], aorLogs: [], swapLogs: [], monkeLogs: [], trainLogs: [], tokenLogs: [] };
   // Sequential, not parallel: the throttle paces them either way, and one at a
   // time keeps a slow scan from starving the rest of the request.
   const spinLogs = await getLogsRange(FORTUNE_SPIN.pack, FORTUNE_SPIN.settleTopic, from, to);
@@ -364,7 +422,9 @@ async function scan(from: number, to: number) {
     from,
     to
   );
-  return { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs };
+  // Both tokens in one filter, the way the pairs share one above.
+  const tokenLogs = await getLogsRange([TOKENS.RONKE, TOKENS.RONKESTR], TRANSFER_TOPIC, from, to);
+  return { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs };
 }
 
 /**
@@ -436,6 +496,7 @@ async function buildSeed(day: number): Promise<Seed> {
   const buys = new Map<string, DayBuy>();
   const monkeBuys = new Map<string, number>();
   const training = new Map<string, number>();
+  const tokenBuys = new Map<string, DayBuy>();
 
   // Log scanning is the expensive half and the first thing a stingy node
   // refuses. Losing it costs six quests; losing the whole board costs
@@ -445,7 +506,7 @@ async function buildSeed(day: number): Promise<Seed> {
   // nothing, which is what leaving the cursor above the head block says.
   let coveredFrom = atBlock + 1;
   try {
-    const { from, spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs } = await scanSlice(
+    const { from, spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs } = await scanSlice(
       atBlock,
       startBlock
     );
@@ -453,6 +514,7 @@ async function buildSeed(day: number): Promise<Seed> {
     await collectBuys(swapLogs, buys);
     await collectMonkeBuys(monkeLogs, monkeBuys);
     collectTraining(trainLogs, training);
+    await collectTokenBuys(tokenLogs, tokenBuys);
     coveredFrom = from;
   } catch {
     // Nothing collected, nothing covered.
@@ -477,6 +539,7 @@ async function buildSeed(day: number): Promise<Seed> {
     buys: [...buys.entries()],
     monkeBuys: [...monkeBuys.entries()],
     training: [...training.entries()],
+    tokenBuys: [...tokenBuys.entries()],
   };
 }
 
@@ -511,6 +574,7 @@ function hydrate(day: number, seed: Seed): Internal {
   // A seed cached before monke buys were read has none; the next pass fills it.
   const monkeBuys = new Map<string, number>(seed.monkeBuys ?? []);
   const training = new Map<string, number>(seed.training ?? []);
+  const tokenBuys = new Map<string, DayBuy>((seed.tokenBuys ?? []).map(([k, v]) => [k, { ...v }]));
 
   /**
    * Where the forward read picks up, per table.
@@ -542,6 +606,7 @@ function hydrate(day: number, seed: Seed): Internal {
     buys,
     monkeBuys,
     training,
+    tokenBuys,
     floorRon: 0,
     sales: [],
     logsMissing: seed.logsMissing,
@@ -676,7 +741,7 @@ async function stepForward(current: Internal) {
 
   try {
     // Forward to head first — new activity matters more than old.
-    const { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs } = await scanForward(
+    const { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs } = await scanForward(
       current.logBlock + 1,
       head
     );
@@ -684,6 +749,7 @@ async function stepForward(current: Internal) {
     await collectBuys(swapLogs, current.buys);
     await collectMonkeBuys(monkeLogs, current.monkeBuys);
     collectTraining(trainLogs, current.training);
+    await collectTokenBuys(tokenLogs, current.tokenBuys);
     current.logBlock = head;
     if (current.coveredFrom > head) current.coveredFrom = head + 1;
 
@@ -694,6 +760,7 @@ async function stepForward(current: Internal) {
       await collectBuys(older.swapLogs, current.buys);
       await collectMonkeBuys(older.monkeLogs, current.monkeBuys);
       collectTraining(older.trainLogs, current.training);
+      await collectTokenBuys(older.tokenLogs, current.tokenBuys);
       current.coveredFrom = older.from;
     }
 
@@ -752,6 +819,7 @@ export async function getToday(force = false): Promise<TodayState> {
       spinRon: new Map(),
       monkeBuys: new Map(),
       training: new Map(),
+      tokenBuys: new Map(),
       buys: new Map(),
       floorRon: 0,
       sales: [],
@@ -854,7 +922,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           social,
           today.buys,
           today.monkeBuys,
-          today.training
+          today.training,
+          today.tokenBuys
         );
         // Each wallet is scored against its own five, not a shared set.
         const score = scoreDay(

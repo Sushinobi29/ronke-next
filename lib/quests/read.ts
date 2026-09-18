@@ -247,7 +247,8 @@ export async function readDaily(
   socialToday: Set<string> = new Set(),
   buysToday: Map<string, DayBuy> = new Map(),
   monkeBuysToday: Map<string, number> = new Map(),
-  trainingToday: Map<string, number> = new Map()
+  trainingToday: Map<string, number> = new Map(),
+  tokenBuysToday: Map<string, DayBuy> = new Map()
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
@@ -307,8 +308,14 @@ export async function readDaily(
      */
     barracks: gained(4) + (trainingToday.get(address.toLowerCase()) ?? 0),
     trophies: gained(5),
-    ronkeRon: bought?.ronke ?? 0,
-    ronkestrRon: bought?.ronkestr ?? 0,
+    // The better of two readings: the pair's own Swap events, and the tokens
+    // arriving by any route. The second sees everything the first does and
+    // more, but taking the larger means nothing that counted before can stop.
+    ronkeRon: Math.max(bought?.ronke ?? 0, tokenBuysToday.get(address.toLowerCase())?.ronke ?? 0),
+    ronkestrRon: Math.max(
+      bought?.ronkestr ?? 0,
+      tokenBuysToday.get(address.toLowerCase())?.ronkestr ?? 0
+    ),
     spins: spinsToday.get(address.toLowerCase()) ?? 0,
     spinRon: spinRonToday.get(address.toLowerCase()) ?? 0,
     // Whichever venue saw it. The marketplace feed knows its own sales; the
