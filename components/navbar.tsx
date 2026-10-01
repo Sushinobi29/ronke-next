@@ -18,6 +18,8 @@ const NAV_ITEMS = [
 const EXTERNAL_ITEMS = [
   { href: "/quests", label: "QUESTS" },
   { href: "/passport", label: "PASSPORT" },
+  // Another site, so it opens in its own tab rather than taking this one.
+  { href: "https://ronkeverse.fun", label: "LAUNCHPAD", away: true },
 ];
 
 export default function Navbar() {
@@ -137,6 +139,8 @@ export default function Navbar() {
                 <a
                   key={item.href}
                   href={item.href}
+                  target={item.away ? "_blank" : undefined}
+                  rel={item.away ? "noopener noreferrer" : undefined}
                   className="text-[13px] font-medium tracking-wide text-muted-1 transition-colors hover:text-foreground"
                 >
                   {item.label}
@@ -222,6 +226,8 @@ export default function Navbar() {
                 <a
                   key={item.href}
                   href={item.href}
+                  target={item.away ? "_blank" : undefined}
+                  rel={item.away ? "noopener noreferrer" : undefined}
                   className="block rounded-md px-3 py-2 text-sm font-medium text-muted-1 hover:bg-card hover:text-foreground"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >

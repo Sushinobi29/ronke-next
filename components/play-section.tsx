@@ -12,6 +12,12 @@ const CARDS = {
     href: "https://games.ronkeverse.com",
     linkLabel: "Play now",
   },
+  launchpad: {
+    title: "Ronkeverse.fun",
+    text: "The launchpad. Every coin pairs against $RONKE, every trade after graduation burns supply, and holders are airdropped by Ronke Score.",
+    href: "https://ronkeverse.fun",
+    linkLabel: "Launch a coin",
+  },
   vote: {
     title: "Ronke Vote",
     text: "Seasonal votes settled on Ronin. Climb the top-voter board and earn PoD rewards.",
@@ -39,33 +45,68 @@ export default function PlaySection() {
         viewport={{ once: true, amount: 0.2 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       >
+        {/* Split like the casino card: the art carries its own wordmark, so
+            laying copy over it fights the lettering. It gets its own half. */}
+        <a
+          href={CARDS.launchpad.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rv-card rv-hover group overflow-hidden md:col-span-2"
+        >
+          <div className="grid md:grid-cols-2">
+            <div className="relative min-h-56 overflow-hidden bg-[#0a0d16]">
+              <Image
+                src="/ronkeversefun-card.webp"
+                alt="Ronkes loading coins onto rockets at a launchpad"
+                fill
+                sizes="(min-width: 768px) 50vw, 100vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              />
+            </div>
+            <div className="flex flex-col justify-center p-8">
+              <span className="mono inline-block w-fit rounded-full border border-accent/40 bg-card-2/80 px-3 py-1 text-xs font-bold text-accent">
+                Live
+              </span>
+              <div className="mt-3 text-xl font-semibold">{CARDS.launchpad.title}</div>
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-1">
+                {CARDS.launchpad.text}
+              </p>
+              <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-accent">
+                {CARDS.launchpad.linkLabel}
+                <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
+              </span>
+            </div>
+          </div>
+        </a>
+
         <Link
           href="/quests"
-          className="rv-card rv-hover group relative overflow-hidden border-accent/30 md:col-span-2"
+          className="rv-card rv-hover group overflow-hidden border-accent/30 md:col-span-2"
         >
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(680px 220px at 8% 0%, rgba(39,185,252,0.16), transparent 68%)",
-            }}
-          />
-          <div className="relative flex flex-wrap items-center justify-between gap-6 p-8">
-            <div>
-              <span className="mono inline-block rounded-full border border-accent/40 bg-card-2/80 px-3 py-1 text-xs font-bold text-accent">
+          <div className="grid md:grid-cols-2">
+            <div className="relative min-h-56 overflow-hidden bg-[#0a0d16]">
+              <Image
+                src="/quests-card.webp"
+                alt="Ronke setting out with a backpack under the Ronke Quest wordmark"
+                fill
+                sizes="(min-width: 768px) 50vw, 100vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              />
+            </div>
+            <div className="flex flex-col justify-center p-8">
+              <span className="mono inline-block w-fit rounded-full border border-accent/40 bg-card-2/80 px-3 py-1 text-xs font-bold text-accent">
                 New
               </span>
               <div className="mt-3 text-xl font-semibold">Ronke Quests</div>
-              <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-1">
-                Twelve quests across the casino, the vote, Age of Ronke and your own wallet — all
-                scored live from Ronin. Paste an address and see where you stand.
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-1">
+                Five quests a day across the casino, the vote, Age of Ronke and your own wallet —
+                all scored live from Ronin. Clear all five for a bonus.
               </p>
+              <span className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-accent">
+                Open the board
+                <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
+              </span>
             </div>
-            <span className="inline-flex items-center gap-1 text-sm font-semibold text-accent">
-              Open the board
-              <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
-            </span>
           </div>
         </Link>
 

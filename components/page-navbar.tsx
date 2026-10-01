@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/", label: "HOME" },
   { href: "/quests", label: "QUESTS" },
   { href: "/passport", label: "PASSPORT" },
+  { href: "https://ronkeverse.fun", label: "LAUNCHPAD", away: true },
 ];
 
 function ScoreMenu() {
@@ -96,15 +97,27 @@ export default function PageNavbar() {
               >
                 <ScoreMenu />
               </Suspense>
-              {NAV_ITEMS.slice(1).map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-[13px] font-medium tracking-wide text-muted-1 transition-colors hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {NAV_ITEMS.slice(1).map((item) =>
+                item.away ? (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[13px] font-medium tracking-wide text-muted-1 transition-colors hover:text-foreground"
+                  >
+                    {item.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="text-[13px] font-medium tracking-wide text-muted-1 transition-colors hover:text-foreground"
+                  >
+                    {item.label}
+                  </Link>
+                )
+              )}
             </div>
           </div>
         </div>
