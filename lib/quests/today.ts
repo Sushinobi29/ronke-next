@@ -70,6 +70,13 @@ import { poolOnDay } from "./pool";
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
 /**
+ * How long the seed may spend walking the day's logs back. It is built once
+ * every five minutes and shared by every visitor, so this is the cheapest
+ * time on the board — and the difference between everyone starting the day
+ * mostly covered and everyone starting it at one slice.
+ */
+const SEED_SCAN_BUDGET_MS = 25_000;
+/**
  * Windows of 200 blocks to scan per pass, per contract.
  *
  * The public node enforces a sustained quota, not just a burst cap: a single
@@ -498,26 +505,39 @@ async function buildSeed(day: number): Promise<Seed> {
   const training = new Map<string, number>();
   const tokenBuys = new Map<string, DayBuy>();
 
-  // Log scanning is the expensive half and the first thing a stingy node
-  // refuses. Losing it costs six quests; losing the whole board costs
-  // eighteen, so it is allowed to fail on its own.
-  // Newest slice first: whatever a player just did is the part they will look
-  // for, and the rest of the day fills in behind it. A pass that fails covers
-  // nothing, which is what leaving the cursor above the head block says.
+  /**
+   * Log scanning is the expensive half and the first thing a stingy node
+   * refuses. Losing it costs six quests; losing the whole board costs
+   * eighteen, so it is allowed to fail on its own.
+   *
+   * Newest slice first, then back toward midnight for as long as the budget
+   * allows. Taking only one slice was the old behaviour and it showed: on an
+   * endpoint serving 200 blocks a request a slice is 2,400 blocks, so by
+   * mid-afternoon a fresh seed held about seven per cent of the day — and
+   * since every instance starts from the seed, and the seed is rebuilt every
+   * five minutes, the walk-back kept starting over. Players watched "reading
+   * today's history · 7%" sit on a quest they had already finished.
+   *
+   * This is the one place worth spending time: it runs once per seed, shared
+   * by everyone, rather than once per visitor.
+   */
   let coveredFrom = atBlock + 1;
+  const until = Date.now() + SEED_SCAN_BUDGET_MS;
   try {
-    const { from, spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs } = await scanSlice(
-      atBlock,
-      startBlock
-    );
-    collect(spinLogs, aorLogs, spins, spinRon, aor);
-    await collectBuys(swapLogs, buys);
-    await collectMonkeBuys(monkeLogs, monkeBuys);
-    collectTraining(trainLogs, training);
-    await collectTokenBuys(tokenLogs, tokenBuys);
-    coveredFrom = from;
+    let cursor = atBlock;
+    do {
+      const slice = await scanSlice(cursor, startBlock);
+      collect(slice.spinLogs, slice.aorLogs, spins, spinRon, aor);
+      await collectBuys(slice.swapLogs, buys);
+      await collectMonkeBuys(slice.monkeLogs, monkeBuys);
+      collectTraining(slice.trainLogs, training);
+      await collectTokenBuys(slice.tokenLogs, tokenBuys);
+      coveredFrom = slice.from;
+      cursor = slice.from - 1;
+    } while (coveredFrom > startBlock && Date.now() < until);
   } catch {
-    // Nothing collected, nothing covered.
+    // Whatever slices landed before the failure are kept; the cursor says how
+    // far back that reached, and later passes carry on from there.
   }
 
   return {

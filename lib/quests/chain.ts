@@ -233,9 +233,26 @@ export interface Log {
  * the process, so the cost of guessing wrong is one wasted request.
  */
 let logWindow = 50_000;
+const WIDE_WINDOW = 50_000;
+const NARROW_WINDOW = 200;
+/** When the width was last dropped, so the guess can be made again later. */
+let narrowedAt = 0;
+/**
+ * How long a refusal stands for. A dedicated endpoint that refused once —
+ * because a filter happened to match too much, or it was briefly unhappy —
+ * used to spend the rest of the process serving 200 blocks a request, which
+ * is the difference between covering a day in one call and in two hundred.
+ * The guess costs one wasted request to make, so it is worth making again.
+ */
+const NARROW_HOLDS_MS = 10 * 60_000;
 
 /** How wide a single log scan can usefully be on the active endpoint. */
-export const currentLogWindow = () => logWindow;
+export const currentLogWindow = () => {
+  if (logWindow < WIDE_WINDOW && Date.now() - narrowedAt > NARROW_HOLDS_MS) {
+    logWindow = WIDE_WINDOW;
+  }
+  return logWindow;
+};
 
 /**
  * Raised when a wide scan has just taught us the endpoint's real ceiling.
@@ -260,7 +277,7 @@ export async function getLogsRange(
   toBlock: number,
   concurrency = 4
 ): Promise<Log[]> {
-  if (toBlock - fromBlock < logWindow) {
+  if (toBlock - fromBlock < currentLogWindow()) {
     try {
       return await rpc<Log[]>("eth_getLogs", [
         {
@@ -273,12 +290,13 @@ export async function getLogsRange(
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (!/range|limit|exceed|too large|narrow/i.test(message)) throw error;
-      logWindow = 200;
+      logWindow = NARROW_WINDOW;
+      narrowedAt = Date.now();
       throw new LogWindowNarrowed(logWindow);
     }
   }
 
-  const WINDOW = Math.min(logWindow, 200);
+  const WINDOW = Math.min(currentLogWindow(), NARROW_WINDOW);
   const windows: [number, number][] = [];
   for (let start = fromBlock; start <= toBlock; start += WINDOW) {
     windows.push([start, Math.min(start + WINDOW - 1, toBlock)]);
