@@ -44,6 +44,8 @@ export const TOKENS = {
   RONKE: "0xf988f63bf26c3ed3fbf39922149e3e7b1e5c27cb",
   RONKESTR: "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc",
   RICE: "0x9049ca10dd4cba0248226b4581443201f8f225c6",
+  /** Ronka — newer, and bought on its own quest at a lower bar than the rest. */
+  RONKA: "0x885c4e7c864a632ce741aeba2c688b139bbbf835",
   WRON: "0xe514d9deb7966c8be0ca922de8a064264ea6bcd4",
 } as const;
 

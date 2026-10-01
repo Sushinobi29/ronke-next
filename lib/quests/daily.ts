@@ -34,6 +34,12 @@ export const QUESTS_PER_DAY = 5;
 /** What a token buy has to be worth to count. Keeps a one-RON tap off the board. */
 export const MIN_BUY_RON = 100;
 /**
+ * The same, for Ronka. Lower on purpose: it is a younger token and the quest
+ * is meant to be reachable rather than a second hundred-RON ask on a board
+ * that may already carry one.
+ */
+export const MIN_BUY_RON_RONKA = 50;
+/**
  * The bar a monke purchase has to clear to count at all, against the live
  * floor rather than a fixed number, because the floor moves.
  *
@@ -185,6 +191,7 @@ export const LINKS = {
    * the tax on screen, which is the part people were missing.
    */
   buyRonkestr: `https://roninstrategy.fun/strategy/${TOKENS.RONKESTR}`,
+  buyRonka: "https://wallet.roninchain.com/app/swap",
 } as const;
 
 export const GAME_ART: Record<QuestGame, string> = {
@@ -214,6 +221,8 @@ export interface DailyStats {
    *  a RON minimum does not. */
   ronkeRon: number;
   ronkestrRon: number;
+  /** RON spent buying $RONKA today. */
+  ronkaRon: number;
   /** Pulls on the Fortune Spin machine today, and what they cost. */
   spins: number;
   spinRon: number;
@@ -249,6 +258,7 @@ export const EMPTY_DAILY: DailyStats = {
   trophies: 0,
   ronkeRon: 0,
   ronkestrRon: 0,
+  ronkaRon: 0,
   spins: 0,
   spinRon: 0,
   monkeRon: 0,
@@ -639,6 +649,27 @@ export const BASE_POOL: QuestDef[] = [
     target: 1,
     points: 150,
     metric: "unitsTrained",
+  },
+  {
+    id: "token.ronka",
+    title: "Back the new money",
+    task: `Buy at least ${MIN_BUY_RON_RONKA} RON of $RONKA`,
+    note: "Wallet Swap will not find $RONKA by name — paste the contract",
+    copy: TOKENS.RONKA,
+    copyLabel: "$RONKA contract",
+    game: "ronkeverse",
+    tier: "bonus",
+    // Same group as the other two token buys: one buy quest on a board is an
+    // ask, three is a shopping list.
+    group: "tokens",
+    cost: "ron",
+    art: "/quests/ronka.webp",
+    link: LINKS.buyRonka,
+    target: MIN_BUY_RON_RONKA,
+    unit: "RON",
+    // Priced off the same curve as every other spend: fifty RON is worth 450.
+    points: 450,
+    metric: "ronkaRon",
   },
   {
     id: "vote.found",

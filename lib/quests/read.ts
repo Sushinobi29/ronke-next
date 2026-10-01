@@ -316,6 +316,9 @@ export async function readDaily(
       bought?.ronkestr ?? 0,
       tokenBuysToday.get(address.toLowerCase())?.ronkestr ?? 0
     ),
+    // Ronka has no pair of its own in the swap scan, so this is the only
+    // reading of it — which is fine, since it sees every route anyway.
+    ronkaRon: tokenBuysToday.get(address.toLowerCase())?.ronka ?? 0,
     spins: spinsToday.get(address.toLowerCase()) ?? 0,
     spinRon: spinRonToday.get(address.toLowerCase()) ?? 0,
     // Whichever venue saw it. The marketplace feed knows its own sales; the
@@ -365,6 +368,7 @@ export async function readDaily(
 export interface DayBuy {
   ronke: number;
   ronkestr: number;
+  ronka: number;
 }
 
 /** What one wallet did at Age of Ronke today. */

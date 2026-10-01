@@ -195,7 +195,11 @@ function collect(
   }
 }
 
-const POOL_SIDE = new Map<string, keyof DayBuy>([
+/**
+ * The two tokens with a pair in this scan. Ronka has none here — it is read
+ * from the tokens arriving instead, which sees every route and needs no pool.
+ */
+const POOL_SIDE = new Map<string, keyof typeof POOLS>([
   [POOLS.ronke.address, "ronke"],
   [POOLS.ronkestr.address, "ronkestr"],
 ]);
@@ -235,7 +239,7 @@ async function collectBuys(swapLogs: Log[], buys: Map<string, DayBuy>) {
     const buyer = senders.get(hash);
     if (!buyer || /^0x0+$/.test(buyer)) continue;
 
-    const entry = buys.get(buyer) ?? { ronke: 0, ronkestr: 0 };
+    const entry: DayBuy = buys.get(buyer) ?? { ronke: 0, ronkestr: 0, ronka: 0 };
     entry[side] += fromWei(ronIn);
     buys.set(buyer, entry);
   }
@@ -332,7 +336,9 @@ async function collectTokenBuys(tokenLogs: Log[], tokenBuys: Map<string, DayBuy>
   for (const log of tokenLogs) {
     // ERC-20: [topic, from, to]. Anything with a tokenId is not these tokens.
     if (log.topics.length !== 3) continue;
-    const side = log.address.toLowerCase() === TOKENS.RONKE ? "ronke" : "ronkestr";
+    const which = log.address.toLowerCase();
+    const side =
+      which === TOKENS.RONKE ? "ronke" : which === TOKENS.RONKESTR ? "ronkestr" : "ronka";
     const to = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
     if (!to || TOKEN_SINKS.has(to)) continue;
 
@@ -353,7 +359,7 @@ async function collectTokenBuys(tokenLogs: Log[], tokenBuys: Map<string, DayBuy>
     counted.add(key);
     if (ron <= 0) continue;
 
-    const entry = tokenBuys.get(to) ?? { ronke: 0, ronkestr: 0 };
+    const entry: DayBuy = tokenBuys.get(to) ?? { ronke: 0, ronkestr: 0, ronka: 0 };
     entry[side] += ron;
     tokenBuys.set(to, entry);
   }
@@ -430,7 +436,12 @@ async function scan(from: number, to: number) {
     to
   );
   // Both tokens in one filter, the way the pairs share one above.
-  const tokenLogs = await getLogsRange([TOKENS.RONKE, TOKENS.RONKESTR], TRANSFER_TOPIC, from, to);
+  const tokenLogs = await getLogsRange(
+    [TOKENS.RONKE, TOKENS.RONKESTR, TOKENS.RONKA],
+    TRANSFER_TOPIC,
+    from,
+    to
+  );
   return { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs };
 }
 

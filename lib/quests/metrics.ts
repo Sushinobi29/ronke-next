@@ -36,6 +36,7 @@ export const METRICS: Metric[] = [
   { key: "minesTables", label: "Different Mines tables played", kind: "count", unit: "tables" },
   { key: "minesStakedRon", label: "RON staked on Mines", kind: "ron", unit: "RON" },
   { key: "unitsTrained", label: "Units sent to train", kind: "count", unit: "units", needsLogs: true },
+  { key: "ronkaRon", label: "RON spent on $RONKA", kind: "ron", unit: "RON", needsLogs: true },
   { key: "votes", label: "Votes cast", kind: "count", unit: "votes" },
   { key: "citizens", label: "Citizens founded", kind: "count", unit: "citizens" },
   {
