@@ -47,6 +47,10 @@ export async function GET(request: Request) {
         config?.showShares
           ? previewRewards(standings, config).filter((row) => row.shares.length)
           : null,
+    }, {
+      // The whole table, identical for everyone, and it only moves when a
+      // scoring pass writes. A minute of sharing costs nothing.
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180" },
     });
   } catch (error) {
     return NextResponse.json(

@@ -104,6 +104,20 @@ export async function GET(request: NextRequest) {
       logsMissing: today.logsMissing,
       logCoverage: today.logCoverage,
       resetsIn: secondsUntilReset(),
+    }, {
+      headers: {
+        /**
+         * Keyed by the address in the query, so one wallet's answer is only
+         * ever reused for that wallet. Short, because a player who has just
+         * done something wants to see it — but not zero, because the state
+         * behind this only moves every thirty seconds, so a row of refreshes
+         * was paying for the same reading several times over. `fresh` skips
+         * it, which is what the refresh button sends.
+         */
+        "Cache-Control": force
+          ? "no-store"
+          : "public, s-maxage=30, stale-while-revalidate=90",
+      },
     });
   } catch (error) {
     return NextResponse.json(

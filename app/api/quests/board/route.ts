@@ -33,6 +33,26 @@ export const maxDuration = 60;
 const LEADERBOARD_ROWS = 50;
 
 /**
+ * This answer is the same for everybody.
+ *
+ * Nothing here depends on who is asking — it is the day's five, the day's
+ * standings and the day's chain state — but it was served uncached, so every
+ * open page paid for its own walk of Ronin every minute. Forty people on the
+ * board meant forty chain reads a minute to produce forty identical replies,
+ * and the bill said so: function time was all but the whole of it.
+ *
+ * Thirty seconds costs nothing in freshness. The state behind it only
+ * refreshes on that cadence anyway, and the page polls slower than that.
+ * The refresh button asks for `fresh`, which must never be served from a
+ * cache or the button does nothing.
+ */
+const shared = (fresh: boolean) => ({
+  "Cache-Control": fresh
+    ? "no-store"
+    : "public, s-maxage=30, stale-while-revalidate=120",
+});
+
+/**
  * Today's five quests and what the tables have seen since midnight. The chain
  * half is shared with every other visitor, so this costs one incremental read
  * a minute however many people are on the page.
@@ -153,7 +173,7 @@ export async function GET(request: Request) {
       logCoverage: today.logCoverage,
       resetsIn: secondsUntilReset(),
       updatedAt: Date.now(),
-    });
+    }, { headers: shared(force) });
   } catch (error) {
     return NextResponse.json(
       { error: `Could not reach Ronin: ${error instanceof Error ? error.message : error}` },
