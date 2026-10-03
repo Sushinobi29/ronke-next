@@ -32,11 +32,15 @@ export const maxDuration = 120;
  * checked as well, so the job cannot be triggered by anyone who finds the URL.
  */
 export async function GET(request: Request) {
+  /**
+   * When CRON_SECRET is set, Vercel sends it as a bearer token on its own
+   * scheduled runs, so that is the only thing worth checking. An earlier
+   * version also accepted the x-vercel-cron header, which any caller can
+   * simply type — and since each run reads the chain, a stranger holding the
+   * URL could have spent real money on repeat.
+   */
   const secret = process.env.CRON_SECRET;
-  const auth = request.headers.get("authorization");
-  const fromVercel = request.headers.get("x-vercel-cron") !== null;
-
-  if (secret && !fromVercel && auth !== `Bearer ${secret}`) {
+  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "not yours to run" }, { status: 401 });
   }
 
