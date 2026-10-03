@@ -191,7 +191,9 @@ export const LINKS = {
    * the tax on screen, which is the part people were missing.
    */
   buyRonkestr: `https://roninstrategy.fun/strategy/${TOKENS.RONKESTR}`,
-  buyRonka: "https://wallet.roninchain.com/app/swap",
+  // Straight to the coin on the launchpad, rather than a swap screen that
+  // cannot find it by name.
+  buyRonka: `https://ronkeverse.fun/?stack=v41&coin=${TOKENS.RONKA}`,
 } as const;
 
 export const GAME_ART: Record<QuestGame, string> = {
@@ -654,7 +656,9 @@ export const BASE_POOL: QuestDef[] = [
     id: "token.ronka",
     title: "Back the new money",
     task: `Buy at least ${MIN_BUY_RON_RONKA} RON of $RONKA`,
-    note: "Wallet Swap will not find $RONKA by name — paste the contract",
+    // The link lands on the coin, so the contract is the fallback for anyone
+    // buying somewhere else rather than the main instruction.
+    note: "Opens Ronkeverse.fun on $RONKA — buying elsewhere, paste the contract",
     copy: TOKENS.RONKA,
     copyLabel: "$RONKA contract",
     game: "ronkeverse",
