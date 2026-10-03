@@ -885,14 +885,21 @@ export async function getToday(force = false, work = false): Promise<TodayState>
    * cold request measured forty-six seconds doing it. Reading the row the
    * writer left is one query.
    */
-  if (!work) {
+  if (!state) {
     const saved = await readDayState<Handover>(day);
-    if (saved && Date.now() - saved.at < WRITER_GRACE_MS) {
+    if (saved) {
       state = hydrate(day, saved.state);
       state.floorRon = saved.state.floorRon ?? 0;
       state.sales = saved.state.sales ?? [];
       state.at = saved.state.at ?? saved.at;
-      return state;
+      /**
+       * A reader stops here and serves it. The writer carries on from it,
+       * which is the point: each run of the job is a fresh instance, and
+       * without somewhere to pick the day up it would rebuild from the seed
+       * every minute and walk the same logs again — the thing this was built
+       * to stop.
+       */
+      if (!work && Date.now() - saved.at < WRITER_GRACE_MS) return state;
     }
   }
 
@@ -1128,4 +1135,18 @@ export function getLeaderboard(today: TodayState, work = false): BoardEntry[] {
   }
 
   return cached?.day === day ? cached.rows : [];
+}
+
+/**
+ * Scoring, waited for.
+ *
+ * getLeaderboard hands back what it has and rebuilds behind the response,
+ * which is right for a page that polls. It is wrong for a job: the job
+ * returns, the instance is frozen, and the pass writing everyone's day never
+ * finishes. The writer waits.
+ */
+export async function settleLeaderboard(today: TodayState): Promise<BoardEntry[]> {
+  getLeaderboard(today, true);
+  if (building) return building;
+  return cached?.day === dayIndex() ? cached.rows : [];
 }

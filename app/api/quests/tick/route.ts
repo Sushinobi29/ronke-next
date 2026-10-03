@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { dayIndex } from "@/lib/quests/daily";
-import { getLeaderboard, getToday } from "@/lib/quests/today";
+import { getToday, settleLeaderboard } from "@/lib/quests/today";
 
 export const dynamic = "force-dynamic";
 /**
@@ -49,7 +49,9 @@ export async function GET(request: Request) {
     // `work` is this job saying it is its turn: read the chain, move the day
     // forward, and let the scoring pass run.
     const today = await getToday(false, true);
-    const leaderboard = getLeaderboard(today, true);
+    // Waited for, not left running: the instance is frozen the moment this
+    // responds, and the pass is what writes everyone's day.
+    const leaderboard = await settleLeaderboard(today);
 
     return NextResponse.json(
       {
