@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLeaderboard, getToday } from "@/lib/quests/today";
+import { getToday } from "@/lib/quests/today";
 import {
   dayIndex,
   needsLogs,
@@ -12,6 +12,7 @@ import { poolOnDay } from "@/lib/quests/pool";
 import { previewRewards } from "@/lib/quests/rewards";
 import { seasonAt, seasonByNumber, seasonDays } from "@/lib/quests/season";
 import {
+  dayStandings,
   hasStore,
   readFeatured,
   readPools,
@@ -81,7 +82,20 @@ export async function GET(request: Request) {
      * the response, so the five quests never wait on it, and the rows are
      * still served for anything reading this endpoint directly.
      */
-    const leaderboard = getLeaderboard(today);
+    /**
+     * Read, not computed. Scoring belongs to the writer now, and its results
+     * live in quest_days — so this comes from there rather than from whatever
+     * this particular instance happened to have scored, which for a reader is
+     * nothing at all.
+     */
+    const leaderboard = (await dayStandings(day)).map((row) => ({
+      address: row.address,
+      points: row.points,
+      done: row.done,
+      bonus: row.bonus,
+      streak: 0,
+      actions: row.done,
+    }));
     const [rewards, nextRewards, snapshots, featured] = await Promise.all([
       readRewards(season.number),
       readRewards(season.number + 1),

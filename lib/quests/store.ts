@@ -795,6 +795,24 @@ export async function writePool(
   }
 }
 
+/** Today's standings, from what the writer has recorded of the day. */
+export async function dayStandings(day: number, limit = 15): Promise<
+  { address: string; points: number; done: number; bonus: number }[]
+> {
+  const sql = await db();
+  if (!sql) return [];
+  try {
+    const rows = await sql<{ address: string; points: number; done: number; bonus: number }[]>`
+      select address, points, done, bonus from quest_days
+       where day = ${day} and points > 0
+       order by points desc, done desc
+       limit ${limit}`;
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 /* ------------------------------------------------------------- day state */
 
 /** Hands the writer's copy of the day to every other instance. */

@@ -875,32 +875,32 @@ export async function getToday(force = false, work = false): Promise<TodayState>
   const age = state ? Date.now() - state.at : Infinity;
   if (state && age < (force ? FLOOR_MS : TTL_MS)) return state;
 
-  // A reader with something to serve serves it, and leaves the chain alone.
-  if (!work && state && age < WRITER_GRACE_MS) return state;
-
   /**
-   * A reader with nothing — a cold instance — takes the writer's copy rather
-   * than rebuilding the day for itself. That rebuild is the whole cost: it
-   * walks the logs, reads the mines tables and asks the marketplace, and a
-   * cold request measured forty-six seconds doing it. Reading the row the
-   * writer left is one query.
+   * Whoever has read the most of the day wins.
+   *
+   * A reader holding its own copy used to keep serving it for the whole
+   * grace, even once the writer had published a better one — so an instance
+   * that had managed a single slice of logs told its visitors the day was
+   * nine per cent read while the writer had all of it, and every quest that
+   * needs logs showed nothing. Take the published copy whenever it is the
+   * fresher of the two, and fall back to our own only if the writer has
+   * gone quiet.
+   *
+   * Reading that row is one query. Rebuilding the day, which is what a cold
+   * instance used to do, measured forty-six seconds.
    */
-  if (!state) {
-    const saved = await readDayState<Handover>(day);
-    if (saved) {
-      state = hydrate(day, saved.state);
-      state.floorRon = saved.state.floorRon ?? 0;
-      state.sales = saved.state.sales ?? [];
-      state.at = saved.state.at ?? saved.at;
-      /**
-       * A reader stops here and serves it. The writer carries on from it,
-       * which is the point: each run of the job is a fresh instance, and
-       * without somewhere to pick the day up it would rebuild from the seed
-       * every minute and walk the same logs again — the thing this was built
-       * to stop.
-       */
-      if (!work && Date.now() - saved.at < WRITER_GRACE_MS) return state;
-    }
+  const saved = await readDayState<Handover>(day);
+  if (saved && (!state || saved.at > state.at)) {
+    state = hydrate(day, saved.state);
+    state.floorRon = saved.state.floorRon ?? 0;
+    state.sales = saved.state.sales ?? [];
+    state.at = saved.state.at ?? saved.at;
+    // A reader stops here. The writer carries on from it, which is the
+    // point: each run of the job is a fresh instance, and without somewhere
+    // to pick the day up it would walk the same logs again every minute.
+    if (!work && Date.now() - saved.at < WRITER_GRACE_MS) return state;
+  } else if (!work && state && age < WRITER_GRACE_MS) {
+    return state;
   }
 
   inflight =
