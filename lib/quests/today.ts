@@ -62,8 +62,10 @@ import {
   readFeatured,
   readPools,
   recordMany,
+  readDayState,
   socialVerifiedOn,
   sweptOn,
+  writeDayState,
 } from "./store";
 import { poolOnDay } from "./pool";
 
@@ -574,6 +576,40 @@ async function buildSeed(day: number): Promise<Seed> {
   };
 }
 
+/** The writer's copy of the day, in the shape hydrate() already understands. */
+interface Handover extends Seed {
+  floorRon: number;
+  sales: Sale[];
+  at: number;
+}
+
+function handover(current: Internal): Handover {
+  return {
+    atBlock: current.logBlock,
+    coveredFrom: current.coveredFrom,
+    startBlock: current.startBlock,
+    rounds: current.rounds,
+    // Defensive: a day that failed to read has no cursors, and the writer
+    // publishing is not worth throwing over.
+    minesLatest: [...(current.minesCursor?.entries() ?? [])],
+    minesTruncated: false,
+    logsMissing: current.logsMissing,
+    spins: [...current.spins.entries()],
+    spinRon: [...current.spinRon.entries()],
+    aor: [...current.aor.entries()].map(([k, v]) => [
+      k,
+      { plays: v.plays, labels: [...v.labels], ronkeSpent: v.ronkeSpent },
+    ]),
+    buys: [...current.buys.entries()],
+    monkeBuys: [...current.monkeBuys.entries()],
+    training: [...current.training.entries()],
+    tokenBuys: [...current.tokenBuys.entries()],
+    floorRon: current.floorRon,
+    sales: current.sales,
+    at: current.at,
+  };
+}
+
 function cachedSeed(day: number): Promise<Seed> {
   return unstable_cache(() => buildSeed(day), ["ronke-quest-seed", String(day)], {
     revalidate: SEED_TTL_S,
@@ -808,16 +844,57 @@ async function stepForward(current: Internal) {
 let inflight: Promise<void> | null = null;
 
 /**
- * The day as it stands. `force` is the refresh button: it re-reads anything
- * older than the floor, and returns the last good copy plus an error string if
- * the node refuses.
+ * How stale the day may get before a plain request will go and read the chain
+ * itself. The writer runs every minute, so this is only reached when the
+ * writer has stopped — better a slow request than a board frozen at whatever
+ * the last tick saw.
  */
-export async function getToday(force = false): Promise<TodayState> {
+const WRITER_GRACE_MS = 6 * 60_000;
+
+/**
+ * The day as it stands.
+ *
+ * Who does the reading matters more than it looks. Every instance keeps its
+ * own copy of the day, so when each of them walked the chain forward on its
+ * own the same work was done over and over — a month of that was 787,000
+ * invocations and 2,560 GB-hours, and all but a dollar of the bill was time
+ * spent re-reading what another instance had already read.
+ *
+ * So the walking is now one job on a timer. Requests take what is there: a
+ * warm copy, or the shared seed, and otherwise they wait for neither. They
+ * only go to the chain themselves if the writer has been quiet for longer
+ * than the grace, which is the difference between a slow board and a stuck one.
+ *
+ * `force` is the refresh button, and `work` is the writer saying it is its
+ * turn.
+ */
+export async function getToday(force = false, work = false): Promise<TodayState> {
   const day = dayIndex();
   if (state && state.day !== day) state = null;
 
   const age = state ? Date.now() - state.at : Infinity;
   if (state && age < (force ? FLOOR_MS : TTL_MS)) return state;
+
+  // A reader with something to serve serves it, and leaves the chain alone.
+  if (!work && state && age < WRITER_GRACE_MS) return state;
+
+  /**
+   * A reader with nothing — a cold instance — takes the writer's copy rather
+   * than rebuilding the day for itself. That rebuild is the whole cost: it
+   * walks the logs, reads the mines tables and asks the marketplace, and a
+   * cold request measured forty-six seconds doing it. Reading the row the
+   * writer left is one query.
+   */
+  if (!work) {
+    const saved = await readDayState<Handover>(day);
+    if (saved && Date.now() - saved.at < WRITER_GRACE_MS) {
+      state = hydrate(day, saved.state);
+      state.floorRon = saved.state.floorRon ?? 0;
+      state.sales = saved.state.sales ?? [];
+      state.at = saved.state.at ?? saved.at;
+      return state;
+    }
+  }
 
   inflight =
     inflight ??
@@ -829,7 +906,25 @@ export async function getToday(force = false): Promise<TodayState> {
       }
       await stepForward(state);
       await refreshMarket(state);
-    })().catch((error: unknown) => {
+    })()
+      .then(async () => {
+        /**
+         * Only the writer publishes, and only the real one.
+         *
+         * Everything that runs this code shares a database — a preview build,
+         * and a developer's machine with the production URL in a file. Either
+         * could otherwise hand its own half-read copy of the day to every
+         * visitor of the live site, and a copy read from the public node, a
+         * few minutes behind, looks exactly like a board that lost everyone's
+         * progress.
+         */
+        // Nothing read means nothing worth handing on: publishing an empty
+        // day would tell every reader the board is empty.
+        if (work && state && state.at > 0 && process.env.VERCEL_ENV === "production") {
+          await writeDayState(day, handover(state));
+        }
+      })
+      .catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       // Never advance a cursor on failure — the next attempt re-reads the same
       // range rather than skipping it.
@@ -1013,11 +1108,14 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
  * So a stale or absent leaderboard is served immediately and the rebuild runs
  * behind it; the page polls anyway, and picks it up on the next pass.
  */
-export function getLeaderboard(today: TodayState): BoardEntry[] {
+export function getLeaderboard(today: TodayState, work = false): BoardEntry[] {
   const day = dayIndex();
   const fresh = cached?.day === day && Date.now() - cached.at < LEADERBOARD_TTL_MS;
 
-  if (!fresh && !building) {
+  // Scoring sixty wallets is a hundred-odd chain reads. Only the writer starts
+  // one; a reader serves the rows it has, which is what it did anyway while
+  // the rebuild ran behind it.
+  if (!fresh && !building && work) {
     building = scoreWallets(today, day)
       .then((rows) => {
         cached = { day, at: Date.now(), rows };

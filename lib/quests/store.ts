@@ -50,6 +50,7 @@ const SCHEMA = [
   "quest_social_post_id",
   "quest_results",
   "quest_results_day_quest_idx",
+  "quest_state",
 ] as const;
 
 /**
@@ -133,6 +134,22 @@ async function migrate(sql: Sql): Promise<void> {
 
   // One X account per wallet, and one wallet per X account — without the
   // second half, a single account could sign up every wallet on the board.
+  /**
+   * The day as the writer last read it, so a request never has to read it
+   * again.
+   *
+   * Every instance used to rebuild this from the chain for itself — a cold
+   * one spent the better part of a minute walking logs another instance had
+   * already walked. One row, rewritten each tick, turns that into a query.
+   */
+  await sql`
+    create table if not exists quest_state (
+      day        integer primary key,
+      state      jsonb   not null,
+      updated_at timestamptz not null default now()
+    )
+  `;
+
   // Quests pinned onto a day's boards for everyone, on top of the five they
   // drew. One row per quest per day.
   await sql`
@@ -775,6 +792,36 @@ export async function writePool(
     return true;
   } catch {
     return false;
+  }
+}
+
+/* ------------------------------------------------------------- day state */
+
+/** Hands the writer's copy of the day to every other instance. */
+export async function writeDayState(day: number, blob: unknown): Promise<boolean> {
+  const sql = await db();
+  if (!sql) return false;
+  try {
+    await sql`
+      insert into quest_state (day, state, updated_at)
+      values (${day}, ${sql.json(blob as never)}, now())
+      on conflict (day) do update set state = excluded.state, updated_at = now()
+    `;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function readDayState<T>(day: number): Promise<{ state: T; at: number } | null> {
+  const sql = await db();
+  if (!sql) return null;
+  try {
+    const [row] = await sql<{ state: T; updated_at: Date }[]>`
+      select state, updated_at from quest_state where day = ${day}`;
+    return row ? { state: row.state, at: new Date(row.updated_at).getTime() } : null;
+  } catch {
+    return null;
   }
 }
 
