@@ -70,6 +70,7 @@ export const MINES_TABLES = [
   { key: "RONKE", label: "RONKE", address: "0xa9b7d87df126ae0b80b90ded3d481209e20eb3bf", decimals: 18 },
   { key: "RICE", label: "RICE", address: "0x2846307caac69141520a7eb281bd4b9210e57b2f", decimals: 18 },
   { key: "RONKESTR", label: "RONKESTR", address: "0xb60f456ade104656829344d9a8e7e319d197a1ff", decimals: 18 },
+  { key: "RONKA", label: "RONKA", address: "0x58a5ca951f240407cf2ef1f2eb864b599cd8d670", decimals: 18 },
 ] as const;
 
 /**

@@ -707,7 +707,16 @@ async function newRounds(current: Internal): Promise<MinesRound[]> {
 
   MINES_TABLES.forEach((table, i) => {
     const latest = toNumber(words(counters[i] ?? "0x")[0]);
-    const seen = current.minesCursor.get(table.label) ?? latest;
+    const known = current.minesCursor.get(table.label);
+    // A table added after this day's seed was cached has no cursor. Falling
+    // back to `latest` without storing it meant every pass treated the table
+    // as fully read, so none of its rounds counted until the next day. Pin it
+    // where it stands now (only on a real counter read) and read on from there.
+    if (known === undefined) {
+      if (counters[i]) current.minesCursor.set(table.label, latest);
+      return;
+    }
+    const seen = known;
     if (latest <= seen) return;
 
     // Bounded so one pass cannot outgrow the request, but the cursor stays
