@@ -304,6 +304,19 @@ async function collectMonkeBuys(transferLogs: Log[], monkeBuys: Map<string, numb
        * priced at nothing, which is how offers came to not count at all.
        */
       ron = tx?.from === to ? wronSpent(inside, to) : wronPaidBy(inside, to);
+
+      /**
+       * Still nothing, and they paid in $RONKE.
+       *
+       * A swap straight from $RONKE into another token never touches RON or
+       * wrapped RON, so a purchase that cost a hundred RON of $RONKE read as
+       * free and the quest said nothing had happened. What they spent is
+       * worth what the pair says it is worth, so price it there.
+       */
+      if (ron <= 0 && tx?.from === to) {
+        const paid = tokenPaidBy(inside, TOKENS.RONKE, to);
+        if (paid > 0) ron = paid * (await ronkePrice());
+      }
     }
     if (ron <= 0) continue;
 
@@ -391,6 +404,46 @@ function wronPaidBy(logs: Log[], buyer: string): number {
     if (log.topics[0] !== TRANSFER_TOPIC || log.topics.length < 3) continue;
     const from = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
     if (from !== buyer) continue;
+    total += fromWei(toBigInt(log.data.replace(/^0x/, "")));
+  }
+  return total;
+}
+
+/**
+ * What a token is worth in RON, from the pair's own reserves.
+ *
+ * Read once per pass and held: it is two numbers from one call, and the
+ * price does not move enough inside a single scan to matter.
+ */
+let ronPerToken: { at: number; ronke: number } | null = null;
+
+async function ronkePrice(): Promise<number> {
+  if (ronPerToken && Date.now() - ronPerToken.at < 60_000) return ronPerToken.ronke;
+  try {
+    const [res] = await multicall([
+      { target: POOLS.ronke.address, data: SELECTORS.getReserves },
+    ]);
+    const w = words(res ?? "0x");
+    if (w.length < 2) return ronPerToken?.ronke ?? 0;
+    // The RONKE pair holds WRON as token0.
+    const wron = fromWei(toBigInt(w[0]));
+    const ronke = fromWei(toBigInt(w[1]));
+    const price = ronke > 0 ? wron / ronke : 0;
+    ronPerToken = { at: Date.now(), ronke: price };
+    return price;
+  } catch {
+    return ronPerToken?.ronke ?? 0;
+  }
+}
+
+/** What one wallet spent of a token inside a transaction. */
+function tokenPaidBy(logs: Log[], token: string, payer: string): number {
+  let total = 0;
+  for (const log of logs) {
+    if (log.address.toLowerCase() !== token) continue;
+    if (log.topics[0] !== TRANSFER_TOPIC || log.topics.length < 3) continue;
+    const from = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
+    if (from !== payer) continue;
     total += fromWei(toBigInt(log.data.replace(/^0x/, "")));
   }
   return total;
