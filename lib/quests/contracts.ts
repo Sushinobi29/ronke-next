@@ -86,11 +86,19 @@ export const POOLS = {
     address: "0x75ae353997242927c701d4d6c2722ebef43fd2d3",
     wronIsToken0: true,
   },
-  ronkestr: {
-    address: "0x87b0acb34aa54cb51451050be73e9e31921154c2",
-    wronIsToken0: false,
-  },
 } as const;
+
+/**
+ * $RONKESTR trades against $RONKE now, not against RON.
+ *
+ * Its old WRON pair was drained when the strategy repaired — it holds about
+ * a RON in total — so reading it for buys found nothing, and nothing is what
+ * it will keep finding. There is no WRON in the new pair at all, which is why
+ * it is not in POOLS: that map is for pairs a buy can be priced from in RON
+ * directly. A $RONKESTR buy is priced the way any other is now, from what the
+ * buyer actually spent.
+ */
+export const RONKESTR_RONKE_PAIR = "0xeb5df20f636adecf87e762b54b8b0203cf1a8e24";
 
 /**
  * topic0 of the pair's `Swap`, which is what a buy quest is actually asking
@@ -134,7 +142,8 @@ export const TOKEN_SINKS = new Set<string>([
   "0xb60f456ade104656829344d9a8e7e319d197a1ff", // mines RONKESTR
   "0x16bb753b48fbeac599a1a7a291b3f87aa3dbdf19", // Ronke Strategy
   "0x75ae353997242927c701d4d6c2722ebef43fd2d3", // RONKE/WRON V2
-  "0x87b0acb34aa54cb51451050be73e9e31921154c2", // RONKESTR/WRON V2
+  "0x87b0acb34aa54cb51451050be73e9e31921154c2", // RONKESTR/WRON V2 (drained)
+  "0xeb5df20f636adecf87e762b54b8b0203cf1a8e24", // RONKESTR/RONKE V2, the live one
   "0x5489ad0bbd828e2e3b5aacdc1641ca583b7d6467", // RONKE/WRON V3 0.01%
   "0x14bb374eff7d8cba7e2df7985c0d5f36019582e2", // RONKE/WRON V3 0.3%
   "0xca5621172f2e176031d699e0a0f701c029d7bac1", // RONKE/WRON V3 1%

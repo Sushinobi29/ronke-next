@@ -201,10 +201,7 @@ function collect(
  * The two tokens with a pair in this scan. Ronka has none here — it is read
  * from the tokens arriving instead, which sees every route and needs no pool.
  */
-const POOL_SIDE = new Map<string, keyof typeof POOLS>([
-  [POOLS.ronke.address, "ronke"],
-  [POOLS.ronkestr.address, "ronkestr"],
-]);
+const POOL_SIDE = new Map<string, keyof typeof POOLS>([[POOLS.ronke.address, "ronke"]]);
 
 /**
  * The day's buys, from the pairs' own Swap events.
@@ -476,13 +473,9 @@ async function scan(from: number, to: number) {
   // time keeps a slow scan from starving the rest of the request.
   const spinLogs = await getLogsRange(FORTUNE_SPIN.pack, FORTUNE_SPIN.settleTopic, from, to);
   const aorLogs = await getLogsRange(AGE_OF_RONKE.play, AGE_OF_RONKE.playTopic, from, to);
-  // Both pairs in one filter, so watching the market costs one scan, not two.
-  const swapLogs = await getLogsRange(
-    [POOLS.ronke.address, POOLS.ronkestr.address],
-    SWAP_TOPIC,
-    from,
-    to
-  );
+  // One pair left to watch here: $RONKESTR moved off RON and is priced from
+  // what the buyer spent instead, like every other token.
+  const swapLogs = await getLogsRange(POOLS.ronke.address, SWAP_TOPIC, from, to);
   const monkeLogs = await getLogsRange(COLLECTIONS.ronkeverse, TRANSFER_TOPIC, from, to);
   const trainLogs = await getLogsRange(
     BARRACKS_TRAINING.contract,
