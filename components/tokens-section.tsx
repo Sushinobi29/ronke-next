@@ -20,7 +20,8 @@ const TOKENS = [
     name: "NFT Strategy Token",
     blurb: "Trading fees buy floor NFTs, flips burn the supply.",
     address: "0x404533a09bf281199ce6b0ef60b7eff7123ff8dc",
-    pool: "0x87b0acb34aa54cb51451050be73e9e31921154c2",
+    // Paired against RONKE since the migration; the old WRON pool is drained.
+    pool: "0xeb5df20f636adecf87e762b54b8b0203cf1a8e24",
     icon: "/tokens/ronkestr.png",
   },
 ] as const;
