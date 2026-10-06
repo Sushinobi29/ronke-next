@@ -140,6 +140,7 @@ export const TOKEN_SINKS = new Set<string>([
   "0xa9b7d87df126ae0b80b90ded3d481209e20eb3bf", // mines RONKE
   "0x2846307caac69141520a7eb281bd4b9210e57b2f", // mines RICE
   "0xb60f456ade104656829344d9a8e7e319d197a1ff", // mines RONKESTR
+  "0x58a5ca951f240407cf2ef1f2eb864b599cd8d670", // mines RONKA
   "0x16bb753b48fbeac599a1a7a291b3f87aa3dbdf19", // Ronke Strategy
   "0x75ae353997242927c701d4d6c2722ebef43fd2d3", // RONKE/WRON V2
   "0x87b0acb34aa54cb51451050be73e9e31921154c2", // RONKESTR/WRON V2 (drained)
