@@ -6,11 +6,11 @@ import { dayIndex, questResults, scoreDay, secondsUntilReset } from "@/lib/quest
 import { seasonAt, seasonDays } from "@/lib/quests/season";
 import {
   priorSweepStreak,
-  readFeatured,
-  readPools,
+  readFeaturedShared,
+  readPoolsShared,
   recordDay,
   seasonPlace,
-  socialVerifiedOn,
+  socialVerifiedShared,
   walletSeason,
 } from "@/lib/quests/store";
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Ronin did not answer: ${today.error}` }, { status: 502 });
     }
 
-    const social = await socialVerifiedOn(dayIndex());
+    const social = await socialVerifiedShared(dayIndex());
     const stats = await readDaily(
       address.trim(),
       today.rounds,
@@ -64,8 +64,8 @@ export async function GET(request: NextRequest) {
     const wallet = address.trim().toLowerCase();
     const [priorStreak, snapshots, featured] = await Promise.all([
       priorSweepStreak(wallet, day),
-      readPools(),
-      readFeatured(day),
+      readPoolsShared(),
+      readFeaturedShared(day),
     ]);
     const score = scoreDay(
       stats,
@@ -108,15 +108,18 @@ export async function GET(request: NextRequest) {
       headers: {
         /**
          * Keyed by the address in the query, so one wallet's answer is only
-         * ever reused for that wallet. Short, because a player who has just
-         * done something wants to see it — but not zero, because the state
-         * behind this only moves every thirty seconds, so a row of refreshes
-         * was paying for the same reading several times over. `fresh` skips
-         * it, which is what the refresh button sends.
+         * ever reused for that wallet — and that is the whole problem with a
+         * short TTL here. The board URL is shared, so other visitors keep it
+         * warm; this one has exactly one poller. At a thirty second TTL and a
+         * forty-five second poll the entry was always expired by the time its
+         * only reader came back, so every poll of every open page bought a
+         * four second origin read. Sixty outlives the poll, and the writer
+         * only publishes once a minute, so nothing here was ever fresher than
+         * that. `fresh` skips it, which is what the refresh button sends.
          */
         "Cache-Control": force
           ? "no-store"
-          : "public, s-maxage=30, stale-while-revalidate=90",
+          : "public, s-maxage=60, stale-while-revalidate=240",
       },
     });
   } catch (error) {

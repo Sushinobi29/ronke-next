@@ -888,3 +888,49 @@ export async function writeFeatured(
     return false;
   }
 }
+
+/* ------------------------------------------------------------ shared reads */
+
+/**
+ * Three of the reads behind one wallet's answer are not about that wallet.
+ *
+ * The pool, the day's featured list and the set of verified social handles
+ * are the same bytes for every visitor, but the wallet endpoint is keyed by
+ * address, so each open page was fetching its own copy of all three on every
+ * poll — six sequential round trips to serve nine thousand rows that had not
+ * moved. Hold them briefly per instance instead.
+ *
+ * Deliberately not pushed down into `readPools` itself. The admin editor
+ * reads the snapshots, edits them and writes them back, and a stale read
+ * there is a silently lost edit; the writer wants the truth for the same
+ * reason. Only the read paths opt in.
+ */
+const SHARED_TTL_MS = 30_000;
+const sharedReads = new Map<string, { at: number; value: Promise<unknown> }>();
+
+function sharedRead<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = sharedReads.get(key);
+  if (hit && Date.now() - hit.at < SHARED_TTL_MS) return hit.value as Promise<T>;
+
+  // A rejection must not be what the next caller gets handed back.
+  const value = load().catch((error) => {
+    sharedReads.delete(key);
+    throw error;
+  });
+
+  // Keys carry the day, so a long-lived instance would otherwise keep
+  // yesterday's around for nothing.
+  for (const [old, entry] of sharedReads)
+    if (Date.now() - entry.at > SHARED_TTL_MS * 4) sharedReads.delete(old);
+
+  sharedReads.set(key, { at: Date.now(), value });
+  return value;
+}
+
+export const readPoolsShared = () => sharedRead("pools", readPools);
+
+export const readFeaturedShared = (day: number) =>
+  sharedRead(`featured:${day}`, () => readFeatured(day));
+
+export const socialVerifiedShared = (day: number) =>
+  sharedRead(`social:${day}`, () => socialVerifiedOn(day));

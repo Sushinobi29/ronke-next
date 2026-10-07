@@ -49,8 +49,10 @@ export async function GET(request: Request) {
           : null,
     }, {
       // The whole table, identical for everyone, and it only moves when a
-      // scoring pass writes. A minute of sharing costs nothing.
-      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180" },
+      // scoring pass writes — eighty kilobytes of it. The page polls this
+      // every sixty seconds, so a sixty second window expired in step with
+      // the poll and served almost nothing from cache.
+      headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" },
     });
   } catch (error) {
     return NextResponse.json(

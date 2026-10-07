@@ -14,8 +14,8 @@ import { seasonAt, seasonByNumber, seasonDays } from "@/lib/quests/season";
 import {
   dayStandings,
   hasStore,
-  readFeatured,
-  readPools,
+  readFeaturedShared,
+  readPoolsShared,
   readRewards,
   seasonHeadcount,
   seasonStandings,
@@ -42,15 +42,17 @@ const LEADERBOARD_ROWS = 50;
  * board meant forty chain reads a minute to produce forty identical replies,
  * and the bill said so: function time was all but the whole of it.
  *
- * Thirty seconds costs nothing in freshness. The state behind it only
- * refreshes on that cadence anyway, and the page polls slower than that.
+ * A minute costs nothing in freshness: the writer only publishes on that
+ * cadence, so a shorter window cannot produce a newer answer, only another
+ * bill for the same one. This URL is shared, so other visitors keep it warm
+ * between any one page's polls.
  * The refresh button asks for `fresh`, which must never be served from a
  * cache or the button does nothing.
  */
 const shared = (fresh: boolean) => ({
   "Cache-Control": fresh
     ? "no-store"
-    : "public, s-maxage=30, stale-while-revalidate=120",
+    : "public, s-maxage=60, stale-while-revalidate=240",
 });
 
 /**
@@ -99,8 +101,8 @@ export async function GET(request: Request) {
     const [rewards, nextRewards, snapshots, featured] = await Promise.all([
       readRewards(season.number),
       readRewards(season.number + 1),
-      readPools(),
-      readFeatured(day),
+      readPoolsShared(),
+      readFeaturedShared(day),
     ]);
 
     // The running season's prizes if it has any, otherwise the next season's.
