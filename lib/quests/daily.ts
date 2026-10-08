@@ -59,7 +59,7 @@ export const MIN_BUY_FLOOR_SHARE = 0.1;
  */
 export const TYPICAL_BUY_SHARE = 0.8;
 /** What the Fortune machine charges for the pull worth doing. */
-export const MIN_SPIN_RON = 69;
+export const MIN_SPIN_RON = 80;
 
 /**
  * The ladder itself, so a quest priced against a moving cost is priced by the
