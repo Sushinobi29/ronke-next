@@ -100,6 +100,12 @@ const FLOOR_MS = 8_000;
  * thirty seconds.
  */
 const MAX_CATCHUP = 400;
+/**
+ * A Mines round that has not resolved yet. Re-read until it does, so a late
+ * settlement is not lost to a cursor that has already gone past.
+ */
+const OPEN_STATUS = 0;
+const MAX_RECHECK = 150;
 
 export interface TodayState {
   day: number;
@@ -780,6 +786,34 @@ async function newRounds(current: Internal): Promise<MinesRound[]> {
       });
     }
   });
+
+  /**
+   * Ask again about anything still open.
+   *
+   * The cursor only ever moves forward, so a round was read exactly once —
+   * whatever status it happened to hold at that moment. A Mines round settles
+   * a moment after it is created, which is usually well inside the same pass,
+   * so this went unnoticed. It stops being true the moment settling is slow:
+   * when the house wallet ran dry, rounds sat open long enough for the cursor
+   * to walk past them, and every one that settled afterwards stayed `open`
+   * here for the rest of the day. Players who cashed out got no credit for it,
+   * and `stepForward` already replaces by id precisely so a status can change
+   * — nothing ever gave it the chance.
+   *
+   * Bounded, because a genuinely abandoned round stays open all day and would
+   * otherwise be re-read on every pass until midnight.
+   */
+  const reopen = current.rounds.filter((round) => round.status === OPEN_STATUS);
+  for (const round of reopen.slice(0, MAX_RECHECK)) {
+    const table = MINES_TABLES.find((t) => t.label === round.table);
+    if (!table) continue;
+    calls.push({
+      target: table.address,
+      data: callData(SELECTORS.games, padUint(round.id)),
+      table: round.table,
+      id: round.id,
+    });
+  }
 
   if (calls.length === 0) return [];
 
