@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-const ANALYTICS_URL = "https://ronke-analytics.vercel.app";
+// The analytics site moved. The old deployment answers 402 — Vercel's
+// "this project is disabled" — which an iframe renders as a blank panel,
+// so six of the seven tabs below were showing nothing at all.
+const ANALYTICS_URL = "https://ronke-score-nine.vercel.app";
 
 // Height of the embedded site's sticky top bar (measured live: 59px). The
 // iframe is shifted up by exactly this much inside an overflow-hidden frame,
