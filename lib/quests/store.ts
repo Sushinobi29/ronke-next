@@ -15,6 +15,7 @@
 import type { Sql } from "postgres";
 import type { RewardsConfig } from "@/lib/quests/rewards";
 import type { QuestDef } from "@/lib/quests/daily";
+import { seasonAt, seasonDays } from "@/lib/quests/season";
 
 let client: Sql | null = null;
 let ready: Promise<Sql | null> | null = null;
@@ -515,6 +516,17 @@ export async function socialVerifiedOn(day: number): Promise<Set<string>> {
   }
 }
 
+/**
+ * The first day of the season a given day belongs to.
+ *
+ * Asked about the last second of the day, because seasons turn over at 07:00
+ * UTC: the day a season opens is counted as its first, and `seasonDays` already
+ * rounds the boundary that way.
+ */
+function seasonFloor(day: number): number {
+  return seasonDays(seasonAt(day * 86_400 + 86_399)).fromDay;
+}
+
 /* ------------------------------------------------------------------ streak */
 
 /**
@@ -529,12 +541,17 @@ export async function priorSweepStreak(address: string, day: number, limit = 60)
   if (!sql) return 0;
 
   try {
+    // A streak cannot reach back past the season it belongs to. Without this
+    // the walk just counted calendar days, so everyone who swept into the
+    // last night of a season opened the next one still multiplied — the reset
+    // the season is supposed to be never happened.
+    const floor = Math.max(day - limit, seasonFloor(day));
     const rows = await sql<{ day: number }[]>`
       select day from quest_days
        where address = ${address.toLowerCase()}
          and bonus > 0
          and day < ${day}
-         and day >= ${day - limit}
+         and day >= ${floor}
        order by day desc
     `;
 
@@ -593,12 +610,14 @@ export async function priorSweepStreaks(
   const wanted = addresses.map((a) => a.toLowerCase());
 
   try {
+    // Same season floor as the single-wallet read above.
+    const floor = Math.max(day - limit, seasonFloor(day));
     const rows = await sql<{ address: string; day: number }[]>`
       select address, day from quest_days
        where address in ${sql(wanted)}
          and bonus > 0
          and day < ${day}
-         and day >= ${day - limit}
+         and day >= ${floor}
        order by address, day desc
     `;
 
