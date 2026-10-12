@@ -19,6 +19,7 @@
 
 import { TOKENS } from "./contracts";
 import { metric as metricFor, readMetric } from "@/lib/quests/metrics";
+import { seasonAt, seasonDays } from "@/lib/quests/season";
 
 export const DAY_SECONDS = 86_400;
 export const QUESTS_PER_DAY = 5;
@@ -740,6 +741,50 @@ export const BASE_POOL: QuestDef[] = [
 const TARGET_DAY = 1300;
 const TOLERANCE = 150;
 const DRAW_ATTEMPTS = 200;
+/** Boards weighed on each draw before the best is taken, once levelling is on. */
+const CANDIDATES = 48;
+
+/**
+ * The day the budget started correcting itself.
+ *
+ * A day's board lands within TOLERANCE of TARGET_DAY, which reads as fair and
+ * is not: each day was sampled on its own, so the misses accumulated as a
+ * random walk instead of cancelling out. Season one ended with 2,475 points
+ * between the best-served and worst-served of the nineteen players who
+ * completed every quest they were given — and since all nineteen completed
+ * everything, that gap WAS the leaderboard. The player who came eleventh had
+ * done nothing differently from the one who won.
+ *
+ * The target now repays what earlier days overshot, so a season converges
+ * instead of wandering. The draw stays a pure function of the day, the wallet
+ * and the pool, because the days it reads back over are drawn by this same
+ * function.
+ */
+const CARRY_FROM_DAY = 20739;
+/** The most one day's target may bend to repay drift. */
+const CARRY_STEP = 150;
+/** A season's worth of days to read back over, as a safety stop. */
+const CARRY_LOOKBACK = 40;
+
+/**
+ * Quests too expensive to fit a levelled budget, handed out on a rota instead.
+ *
+ * Adopting a monke is worth 1,050 against a target of 1,300, so it only fits
+ * beside the four cheapest quests on the board — a combination the draw almost
+ * never produces. Under the loose band that did not matter; a board 150 over
+ * was accepted and the quest appeared about five times a season. Under a
+ * levelled budget it never wins against a board that hits the target exactly,
+ * and simulation showed it disappearing altogether.
+ *
+ * It was also the whole of the second unfairness: the only quest whose payout
+ * moves with what you spend, drawn between two and nine times a season, which
+ * predicted a player's uplift at 0.907. So it is no longer drawn at all. Every
+ * wallet is given it on exactly BIG_QUOTA days of the season, picked from the
+ * wallet and the season alone, and the target is raised on those days to make
+ * room. Same quest, same number of times, different days — which is what
+ * players were told the rotation already did.
+ */
+const BIG_QUOTA = 4;
 
 /**
  * How the five are made up. Two paid quests is the usual board, but a single
@@ -788,7 +833,8 @@ function feasiblePaid(
   free: QuestDef[],
   cheap: QuestDef[],
   shape: { cheap: number; paid: number },
-  tolerance: number
+  tolerance: number,
+  target: number = TARGET_DAY
 ): QuestDef[] {
   if (!free.length || cheap.length < shape.cheap) return paid;
 
@@ -806,7 +852,7 @@ function feasiblePaid(
     if (rest.length < others) return true;
     const low = lowFill + quest.points + sum(rest.slice(0, others));
     const high = highFill + quest.points + sum(rest.slice(-others || rest.length).slice(0, others));
-    return low <= TARGET_DAY + tolerance && high >= TARGET_DAY - tolerance;
+    return low <= target + tolerance && high >= target - tolerance;
   });
 
   // A pool that filters to nothing is a pool with a bigger problem than this.
@@ -933,12 +979,183 @@ export function drawableOn(quest: QuestDef, day: number): boolean {
   return true;
 }
 
+/** What a board is worth against the budget: the fixed numbers, never the market. */
+const worthOf = (set: QuestDef[]) => set.reduce((sum, q) => sum + q.points, 0);
+
+/** Seasons turn over at 07:00 UTC, so a day is asked about at its last second. */
+const seasonFloorDay = (day: number) =>
+  seasonDays(seasonAt(day * 86_400 + 86_399)).fromDay;
+
+const seasonSpan = (day: number) => {
+  const season = seasonAt(day * 86_400 + 86_399);
+  const { fromDay, toDay } = seasonDays(season);
+  return { fromDay, length: toDay - fromDay + 1 };
+};
+
+const clampCarry = (n: number) => Math.max(-CARRY_STEP, Math.min(CARRY_STEP, n));
+
+/** A quest the levelled budget cannot absorb, so it goes on the rota instead. */
+const isBig = (quest: QuestDef) => quest.cost === "big";
+
+/**
+ * The days this wallet is given the big quest, this season.
+ *
+ * A partial shuffle of the season's days seeded on the wallet and the season
+ * start, so every wallet gets exactly the same number of them and no two
+ * wallets get the same days. Nothing is stored: the same wallet and season
+ * always produce the same rota.
+ */
+function bigDaysFor(address: string, day: number, quota: number): Set<number> {
+  const { fromDay, length } = seasonSpan(day);
+  const next = rng(((fromDay * 2654435761) ^ hashAddress(address) ^ 0x9e3779b9) >>> 0);
+  const days = Array.from({ length }, (_, i) => fromDay + i);
+  const take = Math.min(quota, days.length);
+  for (let i = 0; i < take; i++) {
+    const j = i + Math.floor(next() * (days.length - i));
+    [days[i], days[j]] = [days[j], days[i]];
+  }
+  return new Set(days.slice(0, take));
+}
+
+let rotaCache = new Map<string, Set<number>>();
+
+function bigDaysCached(address: string, day: number): Set<number> {
+  const { fromDay } = seasonSpan(day);
+  const key = `${fromDay}:${address.toLowerCase()}`;
+  let hit = rotaCache.get(key);
+  if (!hit) {
+    if (rotaCache.size > 4000) rotaCache = new Map();
+    hit = bigDaysFor(address, day, BIG_QUOTA);
+    rotaCache.set(key, hit);
+  }
+  return hit;
+}
+
+/**
+ * How far ahead of the budget this wallet is, this season.
+ *
+ * Replays its own earlier boards — the draw is pure, so they can be recomputed
+ * rather than stored — and sums what each was worth against that day's target.
+ * Days before the rule existed are replayed exactly as they were handed out,
+ * but their drift still counts: the point is to level the season.
+ */
+/**
+ * Two running balances, because there are two kinds of day.
+ *
+ * A single balance could not level both. An ordinary day is budgeted at 1,300
+ * and a rota day at roughly 1,850, so folding them together meant the carry
+ * spent the season chasing the rota premium — and how much of it got repaid
+ * depended on whether a wallet's rota days fell early or late. Wallets drifted
+ * 170 points a day apart on that alone, which was worse than no levelling.
+ *
+ * Each series now repays only itself: ordinary days converge on the flat
+ * target, rota days converge on the rota target, and every wallet gets the
+ * same number of each.
+ */
+interface Carry {
+  ordinary: number;
+  rota: number;
+}
+
+const NO_CARRY: Carry = { ordinary: 0, rota: 0 };
+
+function carryFor(day: number, address: string | undefined, pool: QuestDef[]): Carry {
+  if (!address || day < CARRY_FROM_DAY) return NO_CARRY;
+
+  const from = Math.max(seasonFloorDay(day), day - CARRY_LOOKBACK);
+  const carry: Carry = { ordinary: 0, rota: 0 };
+  for (let d = from; d < day; d++) {
+    if (d < CARRY_FROM_DAY) {
+      carry.ordinary += worthOf(boardFor(d, address, pool, TARGET_DAY)) - TARGET_DAY;
+      continue;
+    }
+    const rota = bigDaysCached(address, d).has(d);
+    const flat = rotaTarget(d, address, pool, rota);
+    const target = flat - clampCarry(rota ? carry.rota : carry.ordinary);
+    const drift = worthOf(boardFor(d, address, pool, target)) - flat;
+    if (rota) carry.rota += drift;
+    else carry.ordinary += drift;
+  }
+  return carry;
+}
+
+/** The flat budget for a day of its kind, before any repayment. */
+function rotaTarget(
+  day: number,
+  address: string | undefined,
+  pool: QuestDef[],
+  rota: boolean
+): number {
+  if (!rota || !address) return TARGET_DAY;
+  const live = pool.filter((quest) => drawableOn(quest, day));
+  const big = live.filter(isBig);
+  const paid = live.filter((q) => slotOf(q) === "paid" && !isBig(q));
+  if (!big.length || !paid.length) return TARGET_DAY;
+  const meanPaid = paid.reduce((sum, q) => sum + q.points, 0) / paid.length;
+  const meanBig = big.reduce((sum, q) => sum + q.points, 0) / big.length;
+  // The big quest stands in for an ordinary paid pick, so only the difference
+  // is added to the day's budget.
+  return TARGET_DAY + meanBig - meanPaid;
+}
+
+/**
+ * Today's budget: the flat target, less what earlier days overspent, plus room
+ * for the big quest when the rota says today is its day.
+ */
+function budgetFor(
+  day: number,
+  address: string | undefined,
+  pool: QuestDef[],
+  carry: Carry
+): number {
+  const rota = !!address && day >= CARRY_FROM_DAY && bigDaysCached(address, day).has(day);
+  const flat = rotaTarget(day, address, pool, rota);
+  return flat - clampCarry(rota ? carry.rota : carry.ordinary);
+}
+
+/**
+ * Replaying a season costs a few hundred draws, and the scoring pass and the
+ * page ask for the same wallet repeatedly. Keyed by the pool it was computed
+ * against, so an edited pool is never answered from the old one.
+ */
+let carryCache = new Map<string, Carry>();
+let carryCachePool: QuestDef[] | null = null;
+
+function cachedCarry(day: number, address: string | undefined, pool: QuestDef[]): Carry {
+  if (!address || day < CARRY_FROM_DAY) return NO_CARRY;
+  if (carryCachePool !== pool) {
+    carryCache = new Map();
+    carryCachePool = pool;
+  }
+  const key = `${day}:${address.toLowerCase()}`;
+  const hit = carryCache.get(key);
+  if (hit !== undefined) return hit;
+  const value = carryFor(day, address, pool);
+  carryCache.set(key, value);
+  return value;
+}
+
 export function questsForDay(
   day: number = dayIndex(),
   address?: string,
   pool: QuestDef[] = BASE_POOL
 ): QuestDef[] {
-  const live = pool.filter((quest) => drawableOn(quest, day));
+  const carry = cachedCarry(day, address, pool);
+  return boardFor(day, address, pool, budgetFor(day, address, pool, carry));
+}
+
+function boardFor(
+  day: number,
+  address: string | undefined,
+  pool: QuestDef[],
+  target: number
+): QuestDef[] {
+  const all = pool.filter((quest) => drawableOn(quest, day));
+  // Once the rota is running, the big quest appears only on its own days, and
+  // on those days it is the paid pick rather than a lucky one.
+  const levelling = day >= CARRY_FROM_DAY;
+  const onRota = levelling && !!address && bigDaysCached(address, day).has(day);
+  const live = levelling ? all.filter((q) => (isBig(q) ? onRota : true)) : all;
 
   const free = live.filter((q) => slotOf(q) === "free");
   const cheap = live.filter((q) => slotOf(q) === "cheap");
@@ -958,28 +1175,52 @@ export function questsForDay(
   // draw exactly as they did.
   const feasible = day >= FEASIBLE_FROM_DAY;
 
+  const bigOnes = live.filter(isBig);
   const draw = () => {
-    const shape = shapes.length > 1 ? shapes[Math.floor(next() * shapes.length)] : shapes[0];
-    const offer = feasible ? feasiblePaid(paid, free, cheap, shape, tolerance) : paid;
+    // A rota day always takes the two-paid shape. Left free to vary, the big
+    // quest landed beside either one paid slot or two, and the four-hundred
+    // point difference between those boards reopened the very gap the rota
+    // closes — the first run of this came out wider than no levelling at all.
+    const shape =
+      onRota && bigOnes.length
+        ? SHAPES[0]
+        : shapes.length > 1
+          ? shapes[Math.floor(next() * shapes.length)]
+          : shapes[0];
+    const offer = feasible ? feasiblePaid(paid, free, cheap, shape, tolerance, target) : paid;
     const taken = new Set<string>();
+    // On its rota day the big quest is not drawn against the others, it is
+    // simply there; the shape's remaining paid slot is filled as usual.
+    const forced = onRota && bigOnes.length ? [bigOnes[0]] : [];
+    for (const quest of forced) taken.add(quest.id);
     return [
       ...pick(free, 1, next, taken),
       ...pick(cheap, shape.cheap, next, taken),
-      ...pick(offer, shape.paid, next, taken),
+      ...forced,
+      ...pick(offer, Math.max(0, shape.paid - forced.length), next, taken),
     ];
   };
 
-  const worth = (set: QuestDef[]) => set.reduce((sum, q) => sum + q.points, 0);
+  const worth = worthOf;
 
   let chosen = draw();
-  let best = Math.abs(worth(chosen) - TARGET_DAY);
+  let best = Math.abs(worth(chosen) - target);
 
-  // Keep drawing until a board lands on budget, remembering the closest miss
-  // so a thin pool still returns something sensible.
-  for (let i = 0; i < DRAW_ATTEMPTS && best > tolerance; i++) {
+  /**
+   * Weigh a batch of boards rather than taking the first that fits.
+   *
+   * Stopping at the first board inside the band threw away the only freedom
+   * the draw has: hundreds of boards land on budget on a given day, and which
+   * one was handed over came down to whichever the generator produced first.
+   * Judging a batch costs a fraction of a millisecond and is what lets the
+   * levelled target actually bite.
+   */
+  for (let i = 0; i < DRAW_ATTEMPTS; i++) {
+    const enough = levelling ? i >= CANDIDATES : true;
+    if (enough && best <= tolerance) break;
     const candidate = draw();
     if (candidate.length < QUESTS_PER_DAY) continue;
-    const gap = Math.abs(worth(candidate) - TARGET_DAY);
+    const gap = Math.abs(worth(candidate) - target);
     if (gap < best) {
       best = gap;
       chosen = candidate;
