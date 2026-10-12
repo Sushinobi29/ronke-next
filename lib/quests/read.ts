@@ -338,20 +338,22 @@ export async function readDaily(
     unitsTrained: trainingToday.get(address.toLowerCase()) ?? 0,
     socialVerified: socialToday.has(address.toLowerCase()),
     /**
-     * Ending the day holding monkes, and no fewer than it opened with.
+     * Ending the day with no fewer monkes than it opened with.
      *
-     * It used to ask what you held at midnight instead, which decided the
-     * quest before the day began: a wallet holding nothing drew "do not sell
-     * a single monke today", could not finish it by any action available to
-     * it, and lost the clean sweep with it. One player drew it two days
-     * running, bought a monke on the second, held it, and still failed —
-     * having done precisely what the card asked.
+     * The card asks one thing — "do not sell a single monke today" — so that
+     * is the whole test now: the count went down, or it did not.
      *
-     * Holding something is still required, so nobody is paid for owning
-     * nothing; what changed is that acquiring one during the day now counts
-     * as holding it.
+     * Requiring a monke on top of that kept the old bug alive in a quieter
+     * form. Over two days, every single wallet that failed this quest held
+     * nothing at all: fifty-five of them, and not one actual seller among
+     * them. They were handed a free core quest they could not finish by any
+     * action short of buying a monke at floor for fifty points, while the
+     * card told them they had already done it, and it took their sweep.
+     *
+     * A wallet holding nothing has sold nothing, so it passes. Someone who
+     * drops from three to two does not, which is the quest doing its job.
      */
-    heldTheLine: monkesNow > 0 && monkesNow >= monkesAtOpen,
+    heldTheLine: monkesNow >= monkesAtOpen,
     heldBarracks: openedAt(4) > 0 && word(now, 4) >= openedAt(4),
   };
 }
