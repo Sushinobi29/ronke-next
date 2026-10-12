@@ -15,6 +15,7 @@
 import type { Sql } from "postgres";
 import type { RewardsConfig } from "@/lib/quests/rewards";
 import type { QuestDef } from "@/lib/quests/daily";
+import type { PayoutRow } from "@/lib/quests/payouts";
 import { seasonAt, seasonDays } from "@/lib/quests/season";
 
 let client: Sql | null = null;
@@ -183,6 +184,22 @@ async function migrate(sql: Sql): Promise<void> {
       config      jsonb not null,
       updated_by  text not null,
       updated_at  timestamptz not null default now()
+    )
+  `;
+
+  await sql`
+    create table if not exists quest_payouts (
+      season      integer not null,
+      address     text not null,
+      item_id     text not null,
+      rank        integer not null,
+      label       text not null,
+      kind        text not null,
+      amount      numeric not null,
+      status      text not null default 'pending',
+      tx_hash     text,
+      updated_at  timestamptz not null default now(),
+      primary key (season, address, item_id)
     )
   `;
 
@@ -953,3 +970,106 @@ export const readFeaturedShared = (day: number) =>
 
 export const socialVerifiedShared = (day: number) =>
   sharedRead(`social:${day}`, () => socialVerifiedOn(day));
+
+/* ----------------------------------------------------------------- payouts */
+
+/**
+ * What a season owes, and what has already gone out.
+ *
+ * Rows are written once when a payout is frozen and then only ever marked
+ * sent. The arithmetic lives in `lib/quests/payouts.ts`; this is storage.
+ */
+export async function readPayouts(season: number): Promise<PayoutRow[]> {
+  const sql = await db();
+  if (!sql) return [];
+  try {
+    const rows = await sql<
+      {
+        address: string; item_id: string; rank: number; label: string;
+        kind: string; amount: string; status: string; tx_hash: string | null;
+      }[]
+    >`
+      select address, item_id, rank, label, kind, amount, status, tx_hash
+        from quest_payouts where season = ${season}
+    `;
+    return rows.map((row) => ({
+      address: row.address,
+      itemId: row.item_id,
+      rank: row.rank,
+      label: row.label,
+      kind: row.kind as PayoutRow["kind"],
+      amount: Number(row.amount),
+      status: row.status === "sent" ? "sent" : "pending",
+      txHash: row.tx_hash,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Write the frozen list.
+ *
+ * A row already marked sent is left exactly as it is — the update touches
+ * only rows still pending, so a recomputation can correct what is owed but
+ * can never rewrite what was paid.
+ */
+export async function writePayouts(season: number, rows: PayoutRow[]): Promise<boolean> {
+  const sql = await db();
+  if (!sql || !rows.length) return false;
+  try {
+    await sql.begin(async (tx) => {
+      for (const row of rows) {
+        await tx`
+          insert into quest_payouts
+            (season, address, item_id, rank, label, kind, amount, status, tx_hash)
+          values (${season}, ${row.address.toLowerCase()}, ${row.itemId}, ${row.rank},
+                  ${row.label}, ${row.kind}, ${row.amount}, ${row.status}, ${row.txHash})
+          on conflict (season, address, item_id) do update
+            set rank = excluded.rank,
+                label = excluded.label,
+                kind = excluded.kind,
+                amount = excluded.amount,
+                updated_at = now()
+            where quest_payouts.status <> 'sent'
+        `;
+      }
+    });
+    return true;
+  } catch (error) {
+    console.error("[quests] could not write the payout:", error);
+    return false;
+  }
+}
+
+/**
+ * Record that a row was paid.
+ *
+ * Refuses a row that is already sent, so a retry after a timeout cannot
+ * overwrite the first transaction's hash with a second one. Returns false if
+ * nothing was updated, which the caller should treat as "already paid".
+ */
+export async function markPayoutSent(
+  season: number,
+  address: string,
+  itemId: string,
+  txHash: string
+): Promise<boolean> {
+  const sql = await db();
+  if (!sql) return false;
+  try {
+    const done = await sql`
+      update quest_payouts
+         set status = 'sent', tx_hash = ${txHash}, updated_at = now()
+       where season = ${season}
+         and address = ${address.toLowerCase()}
+         and item_id = ${itemId}
+         and status <> 'sent'
+      returning address
+    `;
+    return done.length > 0;
+  } catch (error) {
+    console.error("[quests] could not record the payment:", error);
+    return false;
+  }
+}

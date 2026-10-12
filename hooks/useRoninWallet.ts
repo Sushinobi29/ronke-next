@@ -47,6 +47,15 @@ export interface RoninWallet {
   switchToRonin: () => Promise<void>;
   /** personal_sign. Costs nothing and moves nothing — it only proves a key. */
   sign: (message: string) => Promise<string>;
+  /**
+   * eth_sendTransaction. This one DOES move money.
+   *
+   * Only the admin payout screen calls it, one transfer at a time, against a
+   * list the server froze and the wallet's owner has already signed for. The
+   * wallet still shows every transaction for approval, so nothing leaves
+   * without a second pair of eyes on the amount and the recipient.
+   */
+  send: (tx: { to: string; data: string; value?: string }) => Promise<string>;
 }
 
 export function useRoninWallet(): RoninWallet {
@@ -199,6 +208,24 @@ export function useRoninWallet(): RoninWallet {
     [getConnector, address, via]
   );
 
+  const send = useCallback(
+    async (tx: { to: string; data: string; value?: string }) => {
+      if (!address) throw new Error("Connect a wallet first.");
+      const params = [{ from: address, to: tx.to, data: tx.data, value: tx.value ?? "0x0" }];
+
+      if (via === "stash") {
+        const stash = await stashProvider();
+        if (!stash) throw new Error("Social login is not configured.");
+        return stash.request<string>({ method: "eth_sendTransaction", params });
+      }
+
+      const connector = await getConnector();
+      const provider = await connector.requestProvider();
+      return provider.request<string>({ method: "eth_sendTransaction", params });
+    },
+    [getConnector, address, via]
+  );
+
   return {
     status,
     address,
@@ -210,5 +237,6 @@ export function useRoninWallet(): RoninWallet {
     disconnect,
     switchToRonin,
     sign,
+    send,
   };
 }

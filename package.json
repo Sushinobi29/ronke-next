@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate-stats": "ts-node -P tsconfig.scripts.json scripts/generateStats.ts"
+    "generate-stats": "ts-node -P tsconfig.scripts.json scripts/generateStats.ts",
+    "test": "TS_NODE_PROJECT=tsconfig.test.json TS_NODE_TRANSPILE_ONLY=true node --require ts-node/register --require tsconfig-paths/register --test lib/quests/__tests__/*.test.ts"
   },
   "dependencies": {
     "@privy-io/cross-app-connect": "^0.6.1",

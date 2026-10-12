@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useRoninWallet } from "@/hooks/useRoninWallet";
 import QuestsAdminPool from "@/components/quests-admin-pool";
+import QuestsAdminPayout from "@/components/quests-admin-payout";
 import type { Season } from "@/lib/quests/season";
 import {
   adminMessage,
@@ -665,6 +666,12 @@ export default function QuestsAdmin() {
           </p>
         )}
       </section>
+
+      {state.season && (
+        <div className="mt-6">
+          <QuestsAdminPayout wallet={wallet} season={state.season.number} />
+        </div>
+      )}
         </>
       )}
     </Shell>
