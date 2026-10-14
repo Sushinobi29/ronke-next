@@ -219,6 +219,71 @@ export function readiness(rows: PayoutRow[], held: Record<string, number>): Read
   return { ok: reasons.length === 0, reasons };
 }
 
+/* ----------------------------------------------------------- batch sends */
+
+/** One ERC-20 Transfer, as read back off the chain. */
+export interface Transfer {
+  to: string;
+  value: bigint;
+}
+
+export interface Matched {
+  /** Rows this transaction actually paid, to be marked sent. */
+  paid: PayoutRow[];
+  /** Rows it did not pay, which stay owed. */
+  missed: PayoutRow[];
+  /** Transfers that answered to no row — not an error, but worth saying. */
+  spare: Transfer[];
+}
+
+/**
+ * Which owed rows a single transaction actually paid.
+ *
+ * Batch tools send one transaction to many wallets, which is far better than
+ * a hundred signatures — but it means the panel never sees the individual
+ * sends, and marking a hundred rows paid on somebody's say-so is exactly the
+ * thing the rest of this file exists to prevent. So nothing is taken on
+ * trust: the transaction's own Transfer logs are read back off the chain and
+ * matched against what was owed, and a row is only marked paid when a
+ * transfer of exactly its amount, to exactly its wallet, is found.
+ *
+ * Transfers are consumed as they match, so two rows owed to the same wallet
+ * need two transfers rather than one counted twice.
+ */
+export function matchBatch(
+  rows: PayoutRow[],
+  transfers: Transfer[],
+  unitsOf: (row: PayoutRow) => bigint
+): Matched {
+  const left = new Map<string, bigint[]>();
+  for (const transfer of transfers) {
+    const key = transfer.to.toLowerCase();
+    const list = left.get(key) ?? [];
+    list.push(transfer.value);
+    left.set(key, list);
+  }
+
+  const paid: PayoutRow[] = [];
+  const missed: PayoutRow[] = [];
+
+  for (const row of sortRows(rows)) {
+    const list = left.get(row.address.toLowerCase());
+    const want = unitsOf(row);
+    const at = list?.findIndex((value) => value === want) ?? -1;
+    if (list && at >= 0) {
+      list.splice(at, 1);
+      paid.push(row);
+    } else {
+      missed.push(row);
+    }
+  }
+
+  const spare: Transfer[] = [];
+  for (const [to, values] of left) for (const value of values) spare.push({ to, value });
+
+  return { paid, missed, spare };
+}
+
 /* ------------------------------------------------------- what gets signed */
 
 /**
@@ -233,6 +298,14 @@ export const freezeMessage = (season: number, checksum: string, rows: number, wh
     `Ronke Quest — freeze the Season ${season} payout`,
     `${rows} payments, fingerprint ${checksum}`,
     `by ${who.toLowerCase()}`,
+    at,
+  ].join("\n");
+
+export const batchMessage = (season: number, itemId: string, tx: string, rows: number, at: string) =>
+  [
+    `Ronke Quest — record a Season ${season} batch payment`,
+    `${itemId} · ${rows} wallets`,
+    tx.toLowerCase(),
     at,
   ].join("\n");
 

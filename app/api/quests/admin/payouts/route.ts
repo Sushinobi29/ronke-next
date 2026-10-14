@@ -11,9 +11,14 @@ import {
 import { rankedStandings } from "@/lib/quests/standings";
 import { hasAdmins, isAdmin, verifyAdminMessage } from "@/lib/quests/admin";
 import { previewRewards } from "@/lib/quests/rewards";
+import { parseUnits } from "viem";
+import { tokenFor } from "@/lib/quests/contracts";
+import { transfersOf } from "@/lib/quests/receipt";
 import {
+  batchMessage,
   checksumOf,
   freezeMessage,
+  matchBatch,
   freezeRows,
   pendingOf,
   reconcile,
@@ -37,6 +42,31 @@ async function state(season: number) {
     checksum: checksumOf(rows),
     frozen: rows.length > 0,
   };
+}
+
+/**
+ * What one batch transaction proves it paid, against what is owed.
+ *
+ * Shared by the preview and the write so the number an admin is shown before
+ * signing is produced by the same code that acts on the signature.
+ */
+async function batchRead(season: number, itemId: string, txHash: string) {
+  const owed = pendingOf(await readPayouts(season)).filter((row) => row.itemId === itemId);
+  if (!owed.length) return { error: "Nothing is owed for that prize.", status: 422 } as const;
+
+  const token = tokenFor(owed[0].label);
+  if (!token) {
+    return { error: `No contract is known for ${owed[0].label}.`, status: 422 } as const;
+  }
+
+  const read = await transfersOf(txHash, token.address);
+  if (!read.ok) return { error: read.reason, status: 422 } as const;
+
+  return {
+    matched: matchBatch(owed, read.transfers, (row) =>
+      parseUnits(String(row.amount), token.decimals)
+    ),
+  } as const;
 }
 
 /**
@@ -64,6 +94,26 @@ export async function GET(request: NextRequest) {
   const current = await state(number);
   const merged = reconcile(current.rows, fresh);
 
+  // A batch transaction can be checked against the chain before it is
+  // recorded, so the count that gets signed is one the admin has already
+  // seen. Read-only: nothing is written on this path.
+  const tx = request.nextUrl.searchParams.get("tx");
+  const item = request.nextUrl.searchParams.get("item");
+  let batch: unknown = null;
+  if (tx && item && /^0x[0-9a-fA-F]{64}$/.test(tx)) {
+    const read = await batchRead(number, item, tx);
+    batch =
+      "error" in read
+        ? { ok: false, error: read.error }
+        : {
+            ok: true,
+            pays: read.matched.paid.length,
+            stillOwed: read.matched.missed.length,
+            spare: read.matched.spare.length,
+            wallets: read.matched.paid.map((row) => row.address),
+          };
+  }
+
   return NextResponse.json({
     ...current,
     name: season.name,
@@ -88,6 +138,7 @@ export async function GET(request: NextRequest) {
         { rank: index + 1, points: row.points, score: row.score },
       ])
     ),
+    batch,
     // What freezing again would do, so nothing is a surprise.
     wouldAdd: merged.added,
     wouldOrphan: merged.orphaned,
@@ -180,6 +231,61 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Could not write the payout." }, { status: 503 });
     }
     return NextResponse.json({ ok: true, ...(await state(number)), conflicts: merged.conflicts });
+  }
+
+  /**
+   * Record one batch transaction as having paid many rows.
+   *
+   * Sending a hundred transfers by hand is a hundred signatures, and Ronin's
+   * own Scatter tool does the same job in one transaction. The cost of that
+   * is that the panel never sees the individual sends — so nothing here is
+   * taken on trust. The transaction's Transfer logs are read back off the
+   * chain and matched against what is owed, and only rows a log actually
+   * proves get marked paid. The rest stay owed.
+   */
+  if (action === "batch") {
+    const itemId = body.payment?.itemId ?? "";
+    const txHash = body.payment?.txHash ?? "";
+    if (!itemId || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+      return NextResponse.json({ error: "Which prize, and which transaction?" }, { status: 400 });
+    }
+
+    const read = await batchRead(number, itemId, txHash);
+    if ("error" in read) {
+      return NextResponse.json({ error: read.error }, { status: read.status });
+    }
+    const { matched } = read;
+    if (!matched.paid.length) {
+      return NextResponse.json(
+        {
+          error:
+            "That transaction paid none of the wallets that are owed — check it is the right one, and for the right token.",
+        },
+        { status: 422 }
+      );
+    }
+
+    const check = await verifyAdminMessage({
+      address: address!,
+      signature,
+      issuedAt,
+      message: batchMessage(number, itemId, txHash, matched.paid.length, issuedAt),
+    });
+    if (!check.ok) {
+      return NextResponse.json({ error: check.reason }, { status: check.status });
+    }
+
+    for (const row of matched.paid) {
+      await markPayoutSent(number, row.address, row.itemId, txHash);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      recorded: matched.paid.length,
+      stillOwed: matched.missed.length,
+      spare: matched.spare.length,
+      ...(await state(number)),
+    });
   }
 
   if (action === "sent") {

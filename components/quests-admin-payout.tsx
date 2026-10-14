@@ -1,11 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Loader2, Snowflake, Wallet } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  Snowflake,
+  Wallet,
+} from "lucide-react";
 import { encodeFunctionData, erc20Abi, parseUnits } from "viem";
 import type { RoninWallet } from "@/hooks/useRoninWallet";
 import { TOKENS } from "@/lib/quests/contracts";
-import { freezeMessage, sentMessage, type PayoutRow, type Totals } from "@/lib/quests/payouts";
+import {
+  batchMessage,
+  freezeMessage,
+  sentMessage,
+  type PayoutRow,
+  type Totals,
+} from "@/lib/quests/payouts";
 
 /**
  * Paying a season out, one transaction at a time.
@@ -30,6 +44,15 @@ const resolve = (label: string) =>
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const EXPLORER = "https://app.roninchain.com/tx/";
+const SCATTER = "https://scatter.roninchain.com";
+
+interface BatchCheck {
+  ok: boolean;
+  error?: string;
+  pays?: number;
+  stillOwed?: number;
+  spare?: number;
+}
 
 /** One line of what actually happened, kept rather than overwritten. */
 interface LogLine {
@@ -75,6 +98,9 @@ export default function QuestsAdminPayout({
   const [failed, setFailed] = useState<string[]>([]);
   const [log, setLog] = useState<LogLine[]>([]);
   const [confirm, setConfirm] = useState("");
+  const [batchTx, setBatchTx] = useState("");
+  const [batchItem, setBatchItem] = useState<string | null>(null);
+  const [check, setCheck] = useState<BatchCheck | null>(null);
 
   const load = useCallback(async () => {
     if (!address) return;
@@ -131,6 +157,66 @@ export default function QuestsAdminPayout({
       await load();
     } catch (error) {
       setNote(error instanceof Error ? error.message : "The freeze failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** The pending rows of one prize, as Scatter wants them pasted. */
+  const csvFor = (itemId: string) =>
+    pending
+      .filter((row) => row.itemId === itemId)
+      .map((row) => `${row.address},${row.amount}`)
+      .join("\n");
+
+  /** Ask the chain what a transaction actually paid, before anything is signed. */
+  const checkBatch = async (itemId: string) => {
+    if (!address) return;
+    setBusy("check");
+    setCheck(null);
+    try {
+      const res = await fetch(
+        `/api/quests/admin/payouts?address=${address}&season=${season}` +
+          `&item=${encodeURIComponent(itemId)}&tx=${batchTx.trim()}`
+      );
+      const body = await res.json();
+      setCheck(body.batch ?? { ok: false, error: "That transaction could not be checked." });
+    } catch {
+      setCheck({ ok: false, error: "Could not reach the checker." });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** Record it, once the chain has confirmed what it paid. */
+  const recordBatch = async (itemId: string) => {
+    if (!address || !check?.ok || !check.pays) return;
+    setBusy("record");
+    try {
+      const issuedAt = new Date().toISOString();
+      const signature = await wallet.sign(
+        batchMessage(season, itemId, batchTx.trim(), check.pays, issuedAt)
+      );
+      const res = await fetch("/api/quests/admin/payouts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          address, signature, issuedAt, season, action: "batch",
+          payment: { itemId, txHash: batchTx.trim() },
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "That batch was refused.");
+      setNote(
+        `Recorded ${body.recorded} payments from one transaction.` +
+          (body.stillOwed ? ` ${body.stillOwed} are still owed.` : "")
+      );
+      setBatchTx("");
+      setCheck(null);
+      setBatchItem(null);
+      await load();
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "That batch could not be recorded.");
     } finally {
       setBusy(null);
     }
@@ -348,6 +434,101 @@ export default function QuestsAdminPayout({
             ↕ marks wallets level on points, where Ronke Score decided the order.
           </p>
         </details>
+      )}
+
+      {state.frozen && pending.some((row) => row.kind === "token") && (
+        <div className="space-y-3 rounded-lg border border-border bg-card-2 p-3">
+          <div>
+            <h4 className="text-sm font-semibold">Send them all in one transaction</h4>
+            <p className="mt-1 text-[13px] text-muted-1">
+              Ronin&apos;s{" "}
+              <a className="text-accent hover:underline" href={SCATTER} target="_blank" rel="noreferrer">
+                Scatter
+              </a>{" "}
+              takes a list and pays everyone at once, which beats signing one transfer at a
+              time. Copy the list, send it there, then paste the transaction back here — the
+              chain is read to confirm who it actually paid before anybody is marked off.
+            </p>
+          </div>
+
+          {[...new Set(pending.filter((r) => r.kind === "token").map((r) => r.itemId))].map((itemId) => {
+            const rows = pending.filter((row) => row.itemId === itemId);
+            const label = rows[0]?.label ?? itemId;
+            const picked = batchItem === itemId;
+            return (
+              <div key={itemId} className="space-y-2 border-t border-border-soft pt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="mono text-[13px]">
+                    {label} · {rows.length} wallets
+                  </span>
+                  <button
+                    onClick={() => {
+                      void navigator.clipboard.writeText(csvFor(itemId));
+                      setNote(`Copied ${rows.length} lines for ${label}.`);
+                    }}
+                    className="rv-hover inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[13px]"
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copy list
+                  </button>
+                  <button
+                    onClick={() => {
+                      setBatchItem(picked ? null : itemId);
+                      setCheck(null);
+                    }}
+                    className="rv-hover rounded-lg border border-border px-2.5 py-1.5 text-[13px]"
+                  >
+                    {picked ? "Cancel" : "I sent it"}
+                  </button>
+                </div>
+
+                {picked && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={batchTx}
+                      onChange={(event) => {
+                        setBatchTx(event.target.value);
+                        setCheck(null);
+                      }}
+                      placeholder="0x… transaction hash"
+                      className="mono min-w-[320px] flex-1 rounded-lg border border-border bg-card px-3 py-2 text-[13px]"
+                    />
+                    {check?.ok ? (
+                      <button
+                        onClick={() => void recordBatch(itemId)}
+                        disabled={!!busy || !check.pays}
+                        className="rv-hover rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-black disabled:opacity-40"
+                      >
+                        {busy === "record" ? "Recording…" : `Record ${check.pays} payments`}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => void checkBatch(itemId)}
+                        disabled={!!busy || !/^0x[0-9a-fA-F]{64}$/.test(batchTx.trim())}
+                        className="rv-hover rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-40"
+                      >
+                        {busy === "check" ? "Checking the chain…" : "Check it"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {picked && check && (
+                  <p
+                    className={`mono text-[12px] ${
+                      check.ok && check.pays ? "text-accent" : "text-burn"
+                    }`}
+                  >
+                    {check.ok
+                      ? `The chain shows it paid ${check.pays} of the ${rows.length} wallets owed.` +
+                        (check.stillOwed ? ` ${check.stillOwed} still owed.` : "") +
+                        (check.spare ? ` ${check.spare} transfers matched no row.` : "")
+                      : check.error}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-3">

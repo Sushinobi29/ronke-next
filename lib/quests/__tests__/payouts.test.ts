@@ -16,6 +16,7 @@ import {
   reconcile,
   totalsOf,
   type PayoutRow,
+  matchBatch,
 } from "@/lib/quests/payouts";
 import { distribute, previewRewards, weightsFor, type RewardsConfig, type SeasonRow } from "@/lib/quests/rewards";
 
@@ -168,4 +169,80 @@ test("rounding never invents or loses a unit, at any pool size", () => {
       assert.equal(sum, amount, `${amount} over ${n} wallets came to ${sum}`);
     }
   }
+});
+
+/* ----------------------------------------------------------- batch sends */
+
+const units = (row: { amount: number }) => BigInt(Math.round(row.amount * 1e4)) * BigInt(10) ** BigInt(14);
+
+const owed = (address: string, amount: number, rank = 1): PayoutRow => ({
+  address,
+  rank,
+  itemId: "tok",
+  label: "RONKESTR",
+  kind: "token",
+  amount,
+  status: "pending",
+  txHash: null,
+});
+
+const W1 = "0x1111111111111111111111111111111111111111";
+const W2 = "0x2222222222222222222222222222222222222222";
+const W3 = "0x3333333333333333333333333333333333333333";
+
+test("a batch pays only the rows its logs actually prove", () => {
+  const rows = [owed(W1, 100, 1), owed(W2, 50, 2), owed(W3, 25, 3)];
+  const { paid, missed, spare } = matchBatch(
+    rows,
+    [{ to: W1, value: units({ amount: 100 }) }, { to: W2, value: units({ amount: 50 }) }],
+    units
+  );
+  assert.deepEqual(paid.map((r) => r.address), [W1, W2]);
+  assert.deepEqual(missed.map((r) => r.address), [W3]);
+  assert.equal(spare.length, 0);
+});
+
+test("a transfer of the wrong amount does not pay the row", () => {
+  const rows = [owed(W1, 100)];
+  const { paid, missed, spare } = matchBatch(rows, [{ to: W1, value: units({ amount: 99 }) }], units);
+  assert.equal(paid.length, 0);
+  assert.deepEqual(missed.map((r) => r.address), [W1]);
+  // The money did leave, so it is reported rather than swallowed.
+  assert.equal(spare.length, 1);
+});
+
+test("a transfer to the wrong wallet pays nobody", () => {
+  const { paid, missed } = matchBatch([owed(W1, 100)], [{ to: W2, value: units({ amount: 100 }) }], units);
+  assert.equal(paid.length, 0);
+  assert.equal(missed.length, 1);
+});
+
+test("one transfer cannot pay two rows owed to the same wallet", () => {
+  const rows = [owed(W1, 100, 1), { ...owed(W1, 100, 2), itemId: "tok2" }];
+  const { paid, missed } = matchBatch(rows, [{ to: W1, value: units({ amount: 100 }) }], units);
+  assert.equal(paid.length, 1);
+  assert.equal(missed.length, 1);
+});
+
+test("two transfers do pay two rows owed to the same wallet", () => {
+  const rows = [owed(W1, 100, 1), { ...owed(W1, 100, 2), itemId: "tok2" }];
+  const { paid, missed } = matchBatch(
+    rows,
+    [{ to: W1, value: units({ amount: 100 }) }, { to: W1, value: units({ amount: 100 }) }],
+    units
+  );
+  assert.equal(paid.length, 2);
+  assert.equal(missed.length, 0);
+});
+
+test("case in an address never decides whether somebody got paid", () => {
+  const { paid } = matchBatch([owed(W1.toUpperCase(), 100)], [{ to: W1, value: units({ amount: 100 }) }], units);
+  assert.equal(paid.length, 1);
+});
+
+test("an empty transaction pays nothing and loses nothing", () => {
+  const rows = [owed(W1, 100), owed(W2, 50)];
+  const { paid, missed } = matchBatch(rows, [], units);
+  assert.equal(paid.length, 0);
+  assert.equal(missed.length, 2);
 });

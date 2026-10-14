@@ -49,6 +49,21 @@ export const TOKENS = {
   WRON: "0xe514d9deb7966c8be0ca922de8a064264ea6bcd4",
 } as const;
 
+/**
+ * Where a prize named on the rewards config actually lives.
+ *
+ * The payout writes a label like "RONKESTR" or "$RONKA"; this is the only
+ * place that turns one into a contract, so the panel that sends and the
+ * server that checks what was sent cannot disagree about which token a prize
+ * was. A label that does not resolve is never sent.
+ */
+export function tokenFor(label: string): { address: string; decimals: number } | null {
+  const key = label.replace(/^\$/, "").trim().toUpperCase();
+  const address = (TOKENS as Record<string, string>)[key];
+  // Every token here is 18 decimals; checked on chain rather than assumed.
+  return address ? { address, decimals: 18 } : null;
+}
+
 export const COLLECTIONS = {
   /** Ronkeverse — the monkes themselves. */
   ronkeverse: "0x810b6d1374ac7ba0e83612e7d49f49a13f1de019",
