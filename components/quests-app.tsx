@@ -442,7 +442,6 @@ export default function QuestsApp() {
     seasonTotal !== null &&
     !seasonRows.some((row) => row.address === scored.toLowerCase());
 
-  const anyScores = seasonRows.some((row) => typeof row.score === "number");
   const season = board?.season;
   const seasonDays =
     season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
@@ -785,9 +784,6 @@ export default function QuestsApp() {
                     these and a streak of one. The column said "Streak" and
                     was read as one. */}
                 <th className="px-3 py-2 text-right font-bold">Sweeps</th>
-                {/* Only shown once the table carries scores, and only ever
-                    meaningful where two wallets are level on points. */}
-                {anyScores && <th className="px-3 py-2 text-right font-bold">Score</th>}
                 <th className="px-5 py-2 text-right font-bold">Points</th>
               </tr>
             </thead>
@@ -822,11 +818,6 @@ export default function QuestsApp() {
                     >
                       {row.sweeps || "—"}
                     </td>
-                    {anyScores && (
-                      <td className="mono px-3 py-2.5 text-right text-muted-3">
-                        {typeof row.score === "number" ? row.score.toLocaleString() : "—"}
-                      </td>
-                    )}
                     <td className="mono px-5 py-2.5 text-right font-bold text-gold">
                       {row.points.toLocaleString()}
                     </td>
@@ -851,7 +842,6 @@ export default function QuestsApp() {
                   >
                     {seasonTotal?.sweeps || "—"}
                   </td>
-                  {anyScores && <td className="mono px-3 py-2.5 text-right text-muted-3">—</td>}
                   <td className="mono px-5 py-2.5 text-right font-bold text-gold">
                     {(seasonTotal?.points ?? 0).toLocaleString()}
                   </td>
@@ -860,7 +850,7 @@ export default function QuestsApp() {
 
               {board && !board.seasonPersisted && (
                 <tr>
-                  <td colSpan={anyScores ? 6 : 5} className="px-5 py-8 text-center text-sm text-muted-2">
+                  <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
                     Season totals start once a database is connected. Today&apos;s board works
                     either way.
                   </td>
@@ -868,14 +858,14 @@ export default function QuestsApp() {
               )}
               {board?.seasonPersisted && seasonRows.length === 0 && (
                 <tr>
-                  <td colSpan={anyScores ? 6 : 5} className="px-5 py-10 text-center text-sm text-muted-2">
+                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-2">
                     Nothing banked yet this season. Be the first name up there.
                   </td>
                 </tr>
               )}
               {!board && !boardError && (
                 <tr>
-                  <td colSpan={anyScores ? 6 : 5} className="mono px-5 py-10 text-center text-xs text-muted-3">
+                  <td colSpan={5} className="mono px-5 py-10 text-center text-xs text-muted-3">
                     Reading Ronin…
                   </td>
                 </tr>
