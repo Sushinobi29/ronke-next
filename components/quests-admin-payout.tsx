@@ -73,7 +73,7 @@ interface State {
   totals: Totals[];
   pending: number;
   checksum: string;
-  fresh: { rows: number; checksum: string; totals: Totals[] };
+  fresh: { rows: number; checksum: string; totals: Totals[]; list: PayoutRow[] };
   scoredTiebreak: boolean;
   scoresAsOf: string | null;
   tied: number;
@@ -162,9 +162,15 @@ export default function QuestsAdminPayout({
     }
   };
 
-  /** The pending rows of one prize, as Scatter wants them pasted. */
+  /**
+   * The rows to copy: what is still owed once a payout is frozen, or what the
+   * standings say right now if it is not. Copying the list is not a payment
+   * and never needed a signature behind it.
+   */
+  const copyable = pending.length ? pending : (state?.fresh.list ?? []);
+
   const csvFor = (itemId: string) =>
-    pending
+    copyable
       .filter((row) => row.itemId === itemId)
       .map((row) => `${row.address},${row.amount}`)
       .join("\n");
@@ -436,23 +442,25 @@ export default function QuestsAdminPayout({
         </details>
       )}
 
-      {state.frozen && pending.some((row) => row.kind === "token") && (
+      {copyable.some((row) => row.kind === "token") && (
         <div className="space-y-3 rounded-lg border border-border bg-card-2 p-3">
           <div>
             <h4 className="text-sm font-semibold">Send them all in one transaction</h4>
             <p className="mt-1 text-[13px] text-muted-1">
-              Ronin&apos;s{" "}
+              Copy the list, paste it into{" "}
               <a className="text-accent hover:underline" href={SCATTER} target="_blank" rel="noreferrer">
                 Scatter
-              </a>{" "}
-              takes a list and pays everyone at once, which beats signing one transfer at a
-              time. Copy the list, send it there, then paste the transaction back here — the
-              chain is read to confirm who it actually paid before anybody is marked off.
+              </a>
+              , send. That is the whole job — nothing here has to be frozen first, and the
+              list can just as well be sent to whoever is paying.
+              {state.frozen
+                ? " Once it is sent, paste the transaction back here to mark it off."
+                : " Freeze it first if you want this panel to track what has gone out."}
             </p>
           </div>
 
-          {[...new Set(pending.filter((r) => r.kind === "token").map((r) => r.itemId))].map((itemId) => {
-            const rows = pending.filter((row) => row.itemId === itemId);
+          {[...new Set(copyable.filter((r) => r.kind === "token").map((r) => r.itemId))].map((itemId) => {
+            const rows = copyable.filter((row) => row.itemId === itemId);
             const label = rows[0]?.label ?? itemId;
             const picked = batchItem === itemId;
             return (
@@ -470,15 +478,17 @@ export default function QuestsAdminPayout({
                   >
                     <Copy className="h-3.5 w-3.5" /> Copy list
                   </button>
-                  <button
-                    onClick={() => {
-                      setBatchItem(picked ? null : itemId);
-                      setCheck(null);
-                    }}
-                    className="rv-hover rounded-lg border border-border px-2.5 py-1.5 text-[13px]"
-                  >
-                    {picked ? "Cancel" : "I sent it"}
-                  </button>
+                  {state.frozen && (
+                    <button
+                      onClick={() => {
+                        setBatchItem(picked ? null : itemId);
+                        setCheck(null);
+                      }}
+                      className="rv-hover rounded-lg border border-border px-2.5 py-1.5 text-[13px]"
+                    >
+                      {picked ? "Cancel" : "I sent it"}
+                    </button>
+                  )}
                 </div>
 
                 {picked && (

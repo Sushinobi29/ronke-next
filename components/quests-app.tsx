@@ -442,16 +442,6 @@ export default function QuestsApp() {
     seasonTotal !== null &&
     !seasonRows.some((row) => row.address === scored.toLowerCase());
 
-  /**
-   * Points totals that more than one wallet reached. Only there does the
-   * Ronke Score decide anything, so only there is it worth showing.
-   */
-  const tiedPoints = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const row of seasonRows) counts.set(row.points, (counts.get(row.points) ?? 0) + 1);
-    return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([points]) => points));
-  }, [seasonRows]);
-
   const anyScores = seasonRows.some((row) => typeof row.score === "number");
   const season = board?.season;
   const seasonDays =
@@ -833,18 +823,8 @@ export default function QuestsApp() {
                       {row.sweeps || "—"}
                     </td>
                     {anyScores && (
-                      <td
-                        className={`mono px-3 py-2.5 text-right ${
-                          tiedPoints.has(row.points) ? "text-diamond" : "text-muted-3"
-                        }`}
-                        title={
-                          tiedPoints.has(row.points)
-                            ? "Level on points — Ronke Score decided the order"
-                            : undefined
-                        }
-                      >
+                      <td className="mono px-3 py-2.5 text-right text-muted-3">
                         {typeof row.score === "number" ? row.score.toLocaleString() : "—"}
-                        {tiedPoints.has(row.points) ? " ↕" : ""}
                       </td>
                     )}
                     <td className="mono px-5 py-2.5 text-right font-bold text-gold">

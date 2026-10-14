@@ -122,6 +122,10 @@ export async function GET(request: NextRequest) {
       rows: fresh.length,
       checksum: checksumOf(fresh),
       totals: totalsOf(fresh),
+      // The actual rows, so the list can be copied without freezing first.
+      // Freezing is for paying from here; getting the numbers out should not
+      // need a signature.
+      list: fresh,
     },
     // Ties are the normal result now that a season is worth the same to
     // everyone, and the order among equals is what the payout pays on. So the
