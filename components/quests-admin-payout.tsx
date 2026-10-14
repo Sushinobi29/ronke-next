@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Download } from "lucide-react";
+import { Copy } from "lucide-react";
 import type { RoninWallet } from "@/hooks/useRoninWallet";
 import type { PayoutRow } from "@/lib/quests/payouts";
 
@@ -105,17 +105,6 @@ export default function QuestsAdminPayout({
     setNote(`Copied ${rows.length} lines of ${label}.`);
   };
 
-  /** The same thing as a file, since it is a file Scatter wants. */
-  const download = (label: string, rows: PayoutRow[]) => {
-    const url = URL.createObjectURL(new Blob([csv(rows)], { type: "text/csv" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setNote(`Downloaded ${rows.length} lines of ${label}.`);
-  };
-
   return (
     <section className="rv-card space-y-4 p-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
@@ -129,21 +118,14 @@ export default function QuestsAdminPayout({
 
       <div className="flex flex-wrap items-center gap-2">
         {tokenPrizes.map(([label, rows]) => (
-          <div key={label} className="flex items-center gap-2">
-            <button
-              onClick={() => download(label, rows)}
-              className="rv-hover inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-black"
-            >
-              <Download className="h-4 w-4" />
-              {label} CSV ({rows.length})
-            </button>
-            <button
-              onClick={() => copy(label, rows)}
-              className="rv-hover inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
-            >
-              <Copy className="h-4 w-4" /> Copy
-            </button>
-          </div>
+          <button
+            key={label}
+            onClick={() => copy(label, rows)}
+            className="rv-hover inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-black"
+          >
+            <Copy className="h-4 w-4" />
+            Copy {label} CSV ({rows.length})
+          </button>
         ))}
       </div>
 
