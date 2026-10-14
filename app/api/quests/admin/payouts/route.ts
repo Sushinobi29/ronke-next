@@ -80,6 +80,14 @@ export async function GET(request: NextRequest) {
     scoresAsOf: table.asOf,
     tied: table.tied,
     unbroken: table.unbroken,
+    // What put each wallet where it is, so the panel can show the reason next
+    // to the amount rather than asking anyone to take the order on faith.
+    standing: Object.fromEntries(
+      table.rows.map((row, index) => [
+        row.address,
+        { rank: index + 1, points: row.points, score: row.score },
+      ])
+    ),
     // What freezing again would do, so nothing is a surprise.
     wouldAdd: merged.added,
     wouldOrphan: merged.orphaned,

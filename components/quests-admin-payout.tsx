@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Snowflake, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Loader2, Snowflake, Wallet } from "lucide-react";
 import { encodeFunctionData, erc20Abi, parseUnits } from "viem";
 import type { RoninWallet } from "@/hooks/useRoninWallet";
 import { TOKENS } from "@/lib/quests/contracts";
@@ -28,6 +28,19 @@ const CONTRACTS: Record<string, { address: string; decimals: number }> = {
 const resolve = (label: string) =>
   CONTRACTS[label.replace(/^\$/, "").trim().toUpperCase()] ?? null;
 
+const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+const EXPLORER = "https://app.roninchain.com/tx/";
+
+/** One line of what actually happened, kept rather than overwritten. */
+interface LogLine {
+  key: string;
+  address: string;
+  label: string;
+  amount: number;
+  txHash?: string;
+  error?: string;
+}
+
 interface State {
   season: number;
   name: string;
@@ -42,6 +55,7 @@ interface State {
   scoresAsOf: string | null;
   tied: number;
   unbroken: number;
+  standing: Record<string, { rank: number; points: number; score: number | null }>;
   wouldAdd: number;
   wouldOrphan: number;
   conflicts: { address: string; itemId: string; paid: number; wanted: number }[];
@@ -59,6 +73,7 @@ export default function QuestsAdminPayout({
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [failed, setFailed] = useState<string[]>([]);
+  const [log, setLog] = useState<LogLine[]>([]);
   const [confirm, setConfirm] = useState("");
 
   const load = useCallback(async () => {
@@ -77,6 +92,15 @@ export default function QuestsAdminPayout({
     () => (state?.rows ?? []).filter((row) => row.status === "pending"),
     [state]
   );
+
+  /** Points totals shared by more than one wallet, so the table can mark them. */
+  const tiedPoints = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const entry of Object.values(state?.standing ?? {})) {
+      counts.set(entry.points, (counts.get(entry.points) ?? 0) + 1);
+    }
+    return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([p]) => p));
+  }, [state]);
 
   /** Prizes the sender cannot resolve to a contract — these block the run. */
   const unresolved = useMemo(
@@ -116,6 +140,7 @@ export default function QuestsAdminPayout({
     if (!address || !state) return;
     setBusy("send");
     setFailed([]);
+    setLog([]);
     let done = 0;
 
     for (const row of pending) {
@@ -140,6 +165,7 @@ export default function QuestsAdminPayout({
 
         setNote(`Sending ${row.amount} ${row.label} to ${row.address.slice(0, 10)}… (${done + 1} of ${pending.length})`);
         const txHash = await wallet.send({ to, data });
+        setLog((was) => [...was, { key, address: row.address, label: row.label, amount: row.amount, txHash }]);
 
         const issuedAt = new Date().toISOString();
         const signature = await wallet.sign(
@@ -157,7 +183,9 @@ export default function QuestsAdminPayout({
       } catch (error) {
         // One failure does not stop the run: the rest are still owed, and the
         // server knows exactly which rows were recorded.
-        setFailed((was) => [...was, `${key}: ${error instanceof Error ? error.message : "failed"}`]);
+        const why = error instanceof Error ? error.message : "failed";
+        setFailed((was) => [...was, `${key}: ${why}`]);
+        setLog((was) => [...was, { key, address: row.address, label: row.label, amount: row.amount, error: why }]);
       }
     }
 
@@ -253,6 +281,75 @@ export default function QuestsAdminPayout({
         </p>
       )}
 
+      {state.rows.length > 0 && (
+        <details className="rounded-lg border border-border" open>
+          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">
+            Every row this will send ({state.rows.length})
+          </summary>
+          <div className="max-h-80 overflow-y-auto">
+            <table className="w-full min-w-[600px] text-left text-[13px]">
+              <thead className="mono sticky top-0 bg-card-2 text-[10px] uppercase tracking-[0.12em] text-muted-3">
+                <tr>
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Wallet</th>
+                  <th className="px-3 py-2 text-right">Points</th>
+                  <th className="px-3 py-2 text-right">Score</th>
+                  <th className="px-3 py-2">Prize</th>
+                  <th className="px-3 py-2 text-right">Amount</th>
+                  <th className="px-3 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody className="mono">
+                {state.rows.map((row) => {
+                  const who = state.standing[row.address];
+                  const tied = who ? tiedPoints.has(who.points) : false;
+                  return (
+                    <tr key={`${row.address}|${row.itemId}`} className="border-t border-border-soft">
+                      <td className="px-3 py-1.5">{row.rank}</td>
+                      <td className="px-3 py-1.5">{short(row.address)}</td>
+                      <td className="px-3 py-1.5 text-right">
+                        {who?.points.toLocaleString() ?? "—"}
+                      </td>
+                      {/* The score only decided anything where the points were level,
+                          so it is only called out there. */}
+                      <td className={`px-3 py-1.5 text-right ${tied ? "text-gold" : "text-muted-3"}`}>
+                        {who?.score ?? "—"}
+                        {tied ? " ↕" : ""}
+                      </td>
+                      <td className="px-3 py-1.5">{row.label}</td>
+                      <td className="px-3 py-1.5 text-right">{row.amount.toLocaleString()}</td>
+                      <td className="px-3 py-1.5">
+                        {row.status === "sent" ? (
+                          row.txHash ? (
+                            <a
+                              className="inline-flex items-center gap-1 text-accent hover:underline"
+                              href={`${EXPLORER}${row.txHash}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              sent <ArrowUpRight className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-accent">sent</span>
+                          )
+                        ) : row.kind === "nft" ? (
+                          <span className="text-muted-3">by hand</span>
+                        ) : (
+                          <span className="text-muted-2">waiting</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-3 py-2 text-[12px] text-muted-2">
+            ↕ marks wallets level on points, where Ronke Score decided the order.
+          </p>
+        </details>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={freeze}
@@ -290,10 +387,39 @@ export default function QuestsAdminPayout({
       </div>
 
       {note && <p className="text-sm text-muted-1">{note}</p>}
+
+      {log.length > 0 && (
+        <div className="max-h-64 overflow-y-auto rounded-lg border border-border">
+          <ul className="mono divide-y divide-border-soft text-[12px]">
+            {log.map((line) => (
+              <li key={line.key} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+                <span className={line.error ? "text-red-400" : "text-accent"}>
+                  {line.error ? "failed" : "sent"}
+                </span>
+                <span>{line.amount.toLocaleString()} {line.label}</span>
+                <span className="text-muted-2">to {short(line.address)}</span>
+                {line.txHash ? (
+                  <a
+                    className="inline-flex items-center gap-1 text-accent hover:underline"
+                    href={`${EXPLORER}${line.txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {short(line.txHash)} <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                ) : null}
+                {line.error ? <span className="text-red-400">{line.error}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {failed.length > 0 && (
-        <ul className="space-y-1 text-sm text-red-400">
-          {failed.map((line) => <li key={line} className="mono">{line}</li>)}
-        </ul>
+        <p className="text-sm text-red-400">
+          {failed.length} row{failed.length === 1 ? "" : "s"} did not send and are still owed.
+          Running again sends only those.
+        </p>
       )}
     </section>
   );
