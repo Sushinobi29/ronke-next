@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
-import { seasonAt, seasonByNumber, seasonDays, secondsLeft } from "@/lib/quests/season";
-import { hasStore, readRewards, writeRewards } from "@/lib/quests/store";
+import {
+  QUEST_SEASON_ONE,
+  seasonAt,
+  seasonByNumber,
+  seasonDays,
+  secondsLeft,
+} from "@/lib/quests/season";
+import { hasStore, readPayouts, readRewards, writeRewards } from "@/lib/quests/store";
 import { rankedStandings } from "@/lib/quests/standings";
 import { hasAdmins, isAdmin, verifyAdminWrite } from "@/lib/quests/admin";
 import {
@@ -21,10 +27,19 @@ const STANDINGS_LIMIT = 200;
  * further, because rewards for a season three months out are a guess, and no
  * earlier, because a closed season's prizes are a record rather than a plan.
  */
+/**
+ * Which season the panel is working on.
+ *
+ * Finished seasons are reachable, not just the running one and the next. A
+ * season is paid out after it closes — that is what paying out means — and
+ * until now the only seasons that could be selected were the current one and
+ * the one after it, so the payout panel could never be pointed at the season
+ * that actually needed paying.
+ */
 function seasonWindow(wanted?: number | null) {
   const now = seasonAt();
   const number =
-    wanted && wanted >= now.number && wanted <= now.number + 1 ? wanted : now.number;
+    wanted && wanted >= QUEST_SEASON_ONE && wanted <= now.number + 1 ? wanted : now.number;
   const season = seasonByNumber(number);
   return { season, ...seasonDays(season), current: now.number };
 }
@@ -62,10 +77,19 @@ export async function GET(request: NextRequest) {
     persisted: hasStore(),
     season,
     // Which seasons can be written, and whether the next one is set up yet.
-    seasons: [
-      { ...seasonByNumber(current), running: true, secondsLeft: secondsLeft(seasonByNumber(current)) },
-      { ...seasonByNumber(current + 1), running: false, secondsLeft: 0 },
-    ],
+    // Every season Ronke Quest has run, plus the one being set up.
+    seasons: Array.from(
+      { length: current + 1 - QUEST_SEASON_ONE + 1 },
+      (_, i) => QUEST_SEASON_ONE + i
+    ).map((number) => {
+      const entry = seasonByNumber(number);
+      return {
+        ...entry,
+        running: number === current,
+        finished: number < current,
+        secondsLeft: number === current ? secondsLeft(entry) : 0,
+      };
+    }),
     nextConfigured: Boolean(next?.config.items.length),
     started: season.number <= current,
     config,
@@ -121,6 +145,16 @@ export async function POST(request: NextRequest) {
   });
   if (!check.ok) {
     return NextResponse.json({ error: check.reason }, { status: check.status });
+  }
+
+  // Editing the prizes of a season that is already being paid would leave the
+  // frozen list and the config saying different things, and the frozen list is
+  // the one with people's money in it.
+  if ((await readPayouts(season.number)).length) {
+    return NextResponse.json(
+      { error: "That season's payout is already frozen, so its prizes cannot be changed." },
+      { status: 409 }
+    );
   }
 
   if (!(await writeRewards(season.number, cleaned as RewardsConfig, address!))) {

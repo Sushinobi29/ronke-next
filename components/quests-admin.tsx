@@ -32,6 +32,8 @@ import {
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 interface SeasonChoice extends Season {
+  /** Closed, so it can be paid out but no longer edited. */
+  finished?: boolean;
   running: boolean;
   secondsLeft: number;
 }
@@ -320,7 +322,9 @@ export default function QuestsAdmin() {
                 <span className="mono block text-[10px] uppercase tracking-[0.1em] text-muted-3">
                   {choice.running
                     ? `running · ${Math.ceil(choice.secondsLeft / 3600)}h left`
-                    : `from ${new Date(choice.startsAt * 1000).toUTCString().slice(5, 16)}`}
+                    : choice.finished
+                      ? `finished · ready to pay`
+                      : `from ${new Date(choice.startsAt * 1000).toUTCString().slice(5, 16)}`}
                 </span>
               </button>
             );
