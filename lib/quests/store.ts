@@ -212,6 +212,12 @@ async function migrate(sql: Sql): Promise<void> {
     )
   `;
 
+  // Where an account came from, when it was moved. A wallet migration is a
+  // real thing that happens to people, and the unique handle meant there was
+  // no way back from one.
+  await sql`alter table quest_x_links add column if not exists moved_from text`;
+  await sql`alter table quest_x_links add column if not exists moved_at timestamptz`;
+
   // One verified post per wallet per day. The url is kept so a disputed
   // clean sweep can be checked by a human later.
   await sql`
@@ -715,6 +721,79 @@ export async function linkHandle(
     return true;
   } catch {
     return false;
+  }
+}
+
+/** A handle may follow its owner to a new wallet once a season, no sooner. */
+export const HANDLE_MOVE_COOLDOWN_DAYS = 30;
+
+export type MoveResult =
+  | { ok: true; from: string }
+  | { ok: false; reason: string };
+
+/**
+ * Moves a linked account from one wallet to another.
+ *
+ * The handle is unique on purpose — one account must not satisfy the social
+ * quest for two wallets — and moving it keeps that true, since the old wallet
+ * loses the link in the same transaction that the new one gains it. What it
+ * must not become is a way to serve two wallets on alternate days, so a handle
+ * that has just moved cannot move again for a season.
+ *
+ * The caller has already proved the account: the post carrying the new
+ * wallet's code came from it, which is the same proof the first link needed.
+ */
+export async function moveHandle(
+  from: string,
+  to: string,
+  handle: string,
+  proofUrl: string
+): Promise<MoveResult> {
+  const sql = await db();
+  if (!sql) return { ok: false, reason: "No database is configured." };
+
+  const older = from.toLowerCase();
+  const newer = to.toLowerCase();
+  if (older === newer) return { ok: true, from: older };
+
+  try {
+    return await sql.begin(async (tx) => {
+      const [row] = await tx<{ address: string; moved_at: string | null }[]>`
+        select address, moved_at from quest_x_links
+        where lower(handle) = ${handle.toLowerCase()}
+        for update
+      `;
+      // Someone else moved it between the check and here.
+      if (!row) return { ok: false, reason: "That account is no longer linked anywhere." };
+      if (row.address !== older) return { ok: false, reason: "That account has just moved." };
+
+      if (row.moved_at) {
+        const days = (Date.now() - new Date(row.moved_at).getTime()) / 86_400_000;
+        const left = Math.ceil(HANDLE_MOVE_COOLDOWN_DAYS - days);
+        if (left > 0) {
+          return {
+            ok: false,
+            reason: `@${handle} was moved to another wallet recently. It can move again in ${left} day${left === 1 ? "" : "s"}.`,
+          };
+        }
+      }
+
+      // The new row cannot be written while the old one holds the handle.
+      await tx`delete from quest_x_links where address = ${older}`;
+      await tx`
+        insert into quest_x_links (address, handle, proof_url, moved_from, moved_at)
+        values (${newer}, ${handle}, ${proofUrl}, ${older}, now())
+        on conflict (address) do update
+          set handle = excluded.handle,
+              proof_url = excluded.proof_url,
+              moved_from = excluded.moved_from,
+              moved_at = now(),
+              linked_at = now()
+      `;
+      return { ok: true, from: older };
+    });
+  } catch {
+    return { ok: false, reason: "Could not move the link. Try again in a moment." };
   }
 }
 

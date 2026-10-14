@@ -14,6 +14,7 @@ import {
   hasStore,
   linkHandle,
   linkedHandle,
+  moveHandle,
   postClaimedBy,
   readPools,
   recordSocial,
@@ -112,13 +113,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: check.reason }, { status: 422 });
     }
 
-    // One account cannot sign up a second wallet, or the whole link is theatre.
+    // One account cannot hold two wallets at once, or the whole link is
+    // theatre — but it can follow its owner to a new one. People do migrate
+    // wallets, and the post proving the move is the same post that proved the
+    // first link, written by the same account. The old wallet loses the link
+    // in the same transaction, so the account is never on two at once.
     const owner = await handleOwner(check.handle!);
     if (owner && owner !== wallet) {
-      return NextResponse.json(
-        { ok: false, error: `@${check.handle} is already linked to another wallet.` },
-        { status: 409 }
-      );
+      const moved = await moveHandle(owner, wallet, check.handle!, url.trim());
+      if (!moved.ok) {
+        return NextResponse.json({ ok: false, error: moved.reason }, { status: 409 });
+      }
+      return NextResponse.json({
+        ok: true,
+        linked: check.handle,
+        handle: check.handle,
+        moved: true,
+        movedFrom: moved.from,
+        completed: false,
+      });
     }
 
     const stored = await linkHandle(wallet, check.handle!, url.trim());

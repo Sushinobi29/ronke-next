@@ -6,6 +6,8 @@ import { ArrowUpRight, Check, Loader2 } from "lucide-react";
 import { COST_LABELS, type ScoredQuest, type SocialAsk } from "@/lib/quests/daily";
 import { useSounds } from "@/hooks/useSounds";
 
+const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+
 /**
  * The social quest, which cannot be a plain link like the others: it has to
  * take a link back and prove who wrote it.
@@ -35,6 +37,7 @@ export default function SocialQuestCard({
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const play = useSounds();
 
   useEffect(() => {
@@ -64,6 +67,7 @@ export default function SocialQuestCard({
     if (!address || !url.trim()) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch("/api/quests/social", {
         method: "POST",
@@ -77,6 +81,13 @@ export default function SocialQuestCard({
         return;
       }
       if (json.linked) setHandle(json.linked);
+      // A move is quiet otherwise, and the player should hear that the wallet
+      // they came from no longer carries the account.
+      if (json.moved) {
+        setNotice(
+          `@${json.handle} now belongs to this wallet. ${short(json.movedFrom)} no longer has it.`
+        );
+      }
       setUrl("");
       // Linking is not the quest, so say what is left rather than celebrating.
       if (json.completed === false) setError(null);
@@ -207,6 +218,7 @@ export default function SocialQuestCard({
           </div>
 
           {error && <p className="mono mt-2 text-[12px] text-burn">{error}</p>}
+          {notice && <p className="mono mt-2 text-[12px] text-muted-2">{notice}</p>}
         </div>
       )}
 
