@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { previewRewards } from "@/lib/quests/rewards";
-import { seasonAt, seasonByNumber, seasonDays } from "@/lib/quests/season";
+import {
+  QUEST_SEASON_ONE,
+  seasonAt,
+  seasonByNumber,
+  seasonDays,
+} from "@/lib/quests/season";
 import { hasStore, readRewards } from "@/lib/quests/store";
 import { rankedStandings } from "@/lib/quests/standings";
 
@@ -23,8 +28,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Season totals need a database." }, { status: 503 });
   }
 
+  const now = seasonAt();
   const requested = Number(new URL(request.url).searchParams.get("season"));
-  const season = Number.isFinite(requested) && requested > 0 ? seasonByNumber(requested) : seasonAt();
+  // A season that never ran has no table to show, and a season past the
+  // current one has not happened yet.
+  const wanted =
+    Number.isFinite(requested) && requested >= QUEST_SEASON_ONE && requested <= now.number
+      ? requested
+      : now.number;
+  const season = seasonByNumber(wanted);
   const { fromDay, toDay } = seasonDays(season);
 
   try {
@@ -38,12 +50,26 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       season,
+      // Every season that has run, so the page can offer them. Finished ones
+      // are final; the running one still moves.
+      seasons: Array.from({ length: now.number - QUEST_SEASON_ONE + 1 }, (_, i) => {
+        const entry = seasonByNumber(QUEST_SEASON_ONE + i);
+        return {
+          number: entry.number,
+          name: entry.name,
+          running: entry.number === now.number,
+        };
+      }),
       players: standings.length,
       // Capped so a runaway season cannot hand the browser an unbounded list;
       // say so rather than quietly truncating.
       capped: standings.length >= HARD_CAP,
       standings,
       scoredTiebreak: table.scored,
+      // Finished seasons never change, so they can sit in a cache far longer
+      // than a running one — but the header below is shared, so the running
+      // season's window is the one that has to be safe.
+      closed: wanted < now.number,
       // Same shares the board shows, worked out over the same full table, so
       // an expanded row says exactly what the paged one did.
       shares:

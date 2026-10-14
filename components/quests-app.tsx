@@ -51,6 +51,14 @@ interface SeasonRow {
   points: number;
   days: number;
   sweeps: number;
+  /** Ronke Score, which is what separates two wallets level on points. */
+  score?: number | null;
+}
+
+interface SeasonChoice {
+  number: number;
+  name: string;
+  running: boolean;
 }
 
 interface BoardPayload {
@@ -139,6 +147,11 @@ export default function QuestsApp() {
   const [logCoverage, setLogCoverage] = useState(1);
   /** The whole season table, once someone asks to see past the first page. */
   const [fullSeason, setFullSeason] = useState<SeasonRow[] | null>(null);
+  /** Which season the table is showing. Null means the one running now. */
+  const [viewing, setViewing] = useState<number | null>(null);
+  const [seasonList, setSeasonList] = useState<SeasonChoice[]>([]);
+  const [viewedSeason, setViewedSeason] = useState<Season | null>(null);
+  const [viewedPlayers, setViewedPlayers] = useState<number | null>(null);
   const [fullShares, setFullShares] = useState<
     { address: string; shares: { id: string; label: string; amount: number }[] }[] | null
   >(null);
@@ -332,15 +345,20 @@ export default function QuestsApp() {
    * button that wants more rows pay for a chain read. These rows only change
    * once a scoring pass, so one fetch stands.
    */
-  const loadFullSeason = useCallback(async () => {
+  const loadFullSeason = useCallback(async (which?: number | null) => {
     setLoadingSeason(true);
     setSeasonError(null);
     try {
-      const res = await fetch("/api/quests/season");
+      const res = await fetch(
+        `/api/quests/season${which ? `?season=${which}` : ""}`
+      );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Could not read the season table");
       setFullSeason(json.standings ?? []);
       setFullShares(json.shares ?? null);
+      setSeasonList(json.seasons ?? []);
+      setViewedSeason(json.season ?? null);
+      setViewedPlayers(typeof json.players === "number" ? json.players : null);
     } catch (error) {
       setSeasonError(error instanceof Error ? error.message : "Could not read the season table");
     } finally {
@@ -349,16 +367,52 @@ export default function QuestsApp() {
   }, []);
 
   /**
+   * The list of seasons, fetched once so the picker can exist before anybody
+   * asks to read past the first page. Cheap: the board already told us the
+   * running season, and this only adds the names of the ones before it.
+   */
+  useEffect(() => {
+    let live = true;
+    fetch("/api/quests/season")
+      .then((res) => res.json())
+      .then((json) => {
+        if (live && Array.isArray(json.seasons)) setSeasonList(json.seasons);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  /** Switch the table to another season, or back to the running one. */
+  const showSeason = useCallback(
+    (which: number | null) => {
+      setViewing(which);
+      if (which === null) {
+        setFullSeason(null);
+        setFullShares(null);
+        setViewedSeason(null);
+        setViewedPlayers(null);
+        return;
+      }
+      void loadFullSeason(which);
+    },
+    [loadFullSeason]
+  );
+
+  /**
    * An expanded table has left the board's polling behind, so it refreshes on
    * its own. Keyed on the flag rather than the rows, or every fetch would
    * tear the interval down and start it again.
    */
   const seasonExpanded = fullSeason !== null;
   useEffect(() => {
-    if (!seasonExpanded) return;
-    const timer = setInterval(loadFullSeason, 60_000);
+    // A closed season is final — refreshing it every minute reads a table
+    // that cannot have changed.
+    if (!seasonExpanded || viewing !== null) return;
+    const timer = setInterval(() => void loadFullSeason(null), 60_000);
     return () => clearInterval(timer);
-  }, [seasonExpanded, loadFullSeason]);
+  }, [seasonExpanded, viewing, loadFullSeason]);
 
   /** What each wallet is currently in line for, when the season shows it. */
   const projections = useMemo(() => {
@@ -368,15 +422,37 @@ export default function QuestsApp() {
   }, [fullShares, board?.rewards?.shares]);
 
   /** The page the board gave us, or the whole table once it has been asked for. */
-  const seasonRows = fullSeason ?? board?.seasonStandings ?? [];
-  const seasonPlayers = board?.seasonPlayers ?? seasonRows.length;
+  const seasonRows = useMemo(
+    () => fullSeason ?? board?.seasonStandings ?? [],
+    [fullSeason, board?.seasonStandings]
+  );
+  const seasonPlayers = viewing !== null
+    ? (viewedPlayers ?? seasonRows.length)
+    : (board?.seasonPlayers ?? seasonRows.length);
   const hiddenPlayers = Math.max(0, seasonPlayers - seasonRows.length);
-  /** A connected wallet ranked past the rows on screen still gets a line. */
+  /**
+   * A connected wallet ranked past the rows on screen still gets a line —
+   * but only on the season those numbers were read for. Pinning this
+   * season's total under last season's table would just be wrong.
+   */
   const showOwnRow =
+    viewing === null &&
     scored !== null &&
     seasonRank !== null &&
     seasonTotal !== null &&
     !seasonRows.some((row) => row.address === scored.toLowerCase());
+
+  /**
+   * Points totals that more than one wallet reached. Only there does the
+   * Ronke Score decide anything, so only there is it worth showing.
+   */
+  const tiedPoints = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const row of seasonRows) counts.set(row.points, (counts.get(row.points) ?? 0) + 1);
+    return new Set([...counts.entries()].filter(([, n]) => n > 1).map(([points]) => points));
+  }, [seasonRows]);
+
+  const anyScores = seasonRows.some((row) => typeof row.score === "number");
   const season = board?.season;
   const seasonDays =
     season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
@@ -672,12 +748,40 @@ export default function QuestsApp() {
       <div className="rv-card mt-10 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-5 py-3">
           <h2 className="text-[13px] font-semibold text-foreground">
-            {season?.name ?? "Season"} standings
+            {(viewing !== null ? viewedSeason?.name : season?.name) ?? "Season"} standings
           </h2>
           <span className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
-            points, all days so far
+            {viewing !== null ? "final" : "points, all days so far"}
           </span>
         </div>
+
+        {/* Past seasons are final and worth reading back. */}
+        {seasonList.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-5 py-2.5">
+            {seasonList.map((choice) => {
+              const picked = choice.running ? viewing === null : viewing === choice.number;
+              return (
+                <button
+                  key={choice.number}
+                  onClick={() => {
+                    play("click");
+                    showSeason(choice.running ? null : choice.number);
+                  }}
+                  className={`mono rounded-lg border px-2.5 py-1 text-[11px] transition-colors ${
+                    picked
+                      ? "border-gold text-gold"
+                      : "border-border text-muted-2 hover:border-border-strong hover:text-foreground"
+                  }`}
+                >
+                  {choice.name}
+                  {choice.running ? "" : " ·"}
+                  {choice.running ? "" : <span className="text-muted-3"> final</span>}
+                </button>
+              );
+            })}
+            {loadingSeason && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-3" />}
+          </div>
+        )}
 
         <div className="rv-scroll overflow-x-auto">
           <table className="w-full min-w-[420px] text-sm">
@@ -691,6 +795,9 @@ export default function QuestsApp() {
                     these and a streak of one. The column said "Streak" and
                     was read as one. */}
                 <th className="px-3 py-2 text-right font-bold">Sweeps</th>
+                {/* Only shown once the table carries scores, and only ever
+                    meaningful where two wallets are level on points. */}
+                {anyScores && <th className="px-3 py-2 text-right font-bold">Score</th>}
                 <th className="px-5 py-2 text-right font-bold">Points</th>
               </tr>
             </thead>
@@ -725,6 +832,21 @@ export default function QuestsApp() {
                     >
                       {row.sweeps || "—"}
                     </td>
+                    {anyScores && (
+                      <td
+                        className={`mono px-3 py-2.5 text-right ${
+                          tiedPoints.has(row.points) ? "text-diamond" : "text-muted-3"
+                        }`}
+                        title={
+                          tiedPoints.has(row.points)
+                            ? "Level on points — Ronke Score decided the order"
+                            : undefined
+                        }
+                      >
+                        {typeof row.score === "number" ? row.score.toLocaleString() : "—"}
+                        {tiedPoints.has(row.points) ? " ↕" : ""}
+                      </td>
+                    )}
                     <td className="mono px-5 py-2.5 text-right font-bold text-gold">
                       {row.points.toLocaleString()}
                     </td>
@@ -749,6 +871,7 @@ export default function QuestsApp() {
                   >
                     {seasonTotal?.sweeps || "—"}
                   </td>
+                  {anyScores && <td className="mono px-3 py-2.5 text-right text-muted-3">—</td>}
                   <td className="mono px-5 py-2.5 text-right font-bold text-gold">
                     {(seasonTotal?.points ?? 0).toLocaleString()}
                   </td>
@@ -757,7 +880,7 @@ export default function QuestsApp() {
 
               {board && !board.seasonPersisted && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-2">
+                  <td colSpan={anyScores ? 6 : 5} className="px-5 py-8 text-center text-sm text-muted-2">
                     Season totals start once a database is connected. Today&apos;s board works
                     either way.
                   </td>
@@ -765,14 +888,14 @@ export default function QuestsApp() {
               )}
               {board?.seasonPersisted && seasonRows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-muted-2">
+                  <td colSpan={anyScores ? 6 : 5} className="px-5 py-10 text-center text-sm text-muted-2">
                     Nothing banked yet this season. Be the first name up there.
                   </td>
                 </tr>
               )}
               {!board && !boardError && (
                 <tr>
-                  <td colSpan={5} className="mono px-5 py-10 text-center text-xs text-muted-3">
+                  <td colSpan={anyScores ? 6 : 5} className="mono px-5 py-10 text-center text-xs text-muted-3">
                     Reading Ronin…
                   </td>
                 </tr>
@@ -793,7 +916,7 @@ export default function QuestsApp() {
               <button
                 onClick={() => {
                   play("click");
-                  loadFullSeason();
+                  void loadFullSeason(viewing);
                 }}
                 disabled={loadingSeason}
                 className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-3 py-1.5 text-[13px] font-medium transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
