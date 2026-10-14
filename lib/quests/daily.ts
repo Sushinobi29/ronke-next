@@ -760,7 +760,7 @@ const CANDIDATES = 48;
  * and the pool, because the days it reads back over are drawn by this same
  * function.
  */
-const CARRY_FROM_DAY = 20739;
+const CARRY_FROM_DAY = 20741;
 /** The most one day's target may bend to repay drift. */
 const CARRY_STEP = 150;
 /** A season's worth of days to read back over, as a safety stop. */
@@ -783,8 +783,14 @@ const CARRY_LOOKBACK = 40;
  * wallet and the season alone, and the target is raised on those days to make
  * room. Same quest, same number of times, different days — which is what
  * players were told the rotation already did.
+ *
+ * Six, not the four the arithmetic alone would pick: adopting a monke is the
+ * one quest that moves the collection, and proof-of-drop wants that volume
+ * more than it wants the smallest possible dent in the daily budget. The
+ * levelling absorbs it either way, since every wallet is given the same
+ * number.
  */
-const BIG_QUOTA = 4;
+const BIG_QUOTA = 6;
 
 /**
  * How the five are made up. Two paid quests is the usual board, but a single
@@ -1008,7 +1014,13 @@ const isBig = (quest: QuestDef) => quest.cost === "big";
 function bigDaysFor(address: string, day: number, quota: number): Set<number> {
   const { fromDay, length } = seasonSpan(day);
   const next = rng(((fromDay * 2654435761) ^ hashAddress(address) ^ 0x9e3779b9) >>> 0);
-  const days = Array.from({ length }, (_, i) => fromDay + i);
+  // Only days the rota is actually live can hold one. Season two started
+  // before the rule did, and a day drawn from before the gate would simply be
+  // dropped — one wallet getting five while its neighbour got six, which is
+  // the exact unfairness this replaced. Later seasons start after the gate, so
+  // the clamp does nothing to them.
+  const first = Math.max(fromDay, CARRY_FROM_DAY);
+  const days = Array.from({ length: length - (first - fromDay) }, (_, i) => first + i);
   const take = Math.min(quota, days.length);
   for (let i = 0; i < take; i++) {
     const j = i + Math.floor(next() * (days.length - i));
@@ -1017,15 +1029,44 @@ function bigDaysFor(address: string, day: number, quota: number): Set<number> {
   return new Set(days.slice(0, take));
 }
 
-let rotaCache = new Map<string, Set<number>>();
-
-function bigDaysCached(address: string, day: number): Set<number> {
+/**
+ * Big quests this wallet already drew this season, before the rota existed.
+ *
+ * Season two opened four days before the gate, and on those days the quest was
+ * still drawn by luck — a third of wallets got one, some got two. Those days
+ * cannot be redrawn; players have already played them. So the rota hands out
+ * what is left instead, and a wallet that got lucky early simply gets fewer
+ * later. Every wallet still ends the season on the same number.
+ *
+ * Counted across the whole pre-gate stretch rather than up to today, so the
+ * quota is the same number on every day of the season. Seasons that start
+ * after the gate have no such days and skip the loop entirely.
+ */
+function preGateBigs(address: string, day: number, pool: QuestDef[]): number {
   const { fromDay } = seasonSpan(day);
+  let seen = 0;
+  // boardFor does not consult the rota before the gate, so this cannot recurse.
+  for (let d = fromDay; d < CARRY_FROM_DAY; d++) {
+    seen += boardFor(d, address, pool, TARGET_DAY).filter(isBig).length;
+  }
+  return seen;
+}
+
+let rotaCache = new Map<string, Set<number>>();
+let rotaCachePool: QuestDef[] | null = null;
+
+function bigDaysCached(address: string, day: number, pool: QuestDef[]): Set<number> {
+  const { fromDay } = seasonSpan(day);
+  if (rotaCachePool !== pool) {
+    rotaCache = new Map();
+    rotaCachePool = pool;
+  }
   const key = `${fromDay}:${address.toLowerCase()}`;
   let hit = rotaCache.get(key);
   if (!hit) {
     if (rotaCache.size > 4000) rotaCache = new Map();
-    hit = bigDaysFor(address, day, BIG_QUOTA);
+    const quota = Math.max(0, BIG_QUOTA - preGateBigs(address, day, pool));
+    hit = bigDaysFor(address, day, quota);
     rotaCache.set(key, hit);
   }
   return hit;
@@ -1066,10 +1107,18 @@ function carryFor(day: number, address: string | undefined, pool: QuestDef[]): C
   const carry: Carry = { ordinary: 0, rota: 0 };
   for (let d = from; d < day; d++) {
     if (d < CARRY_FROM_DAY) {
-      carry.ordinary += worthOf(boardFor(d, address, pool, TARGET_DAY)) - TARGET_DAY;
+      const board = boardFor(d, address, pool, TARGET_DAY);
+      // A pre-gate day that drew the big quest spends one of this season's
+      // six, but it was budgeted as an ordinary day — around 1,300 where a
+      // rota day gets 1,850. Left alone, the wallet is simply short the
+      // difference for the rest of the season. Booking it against the rota
+      // budget puts that shortfall on the ordinary carry, which has the whole
+      // season to pay it back.
+      const against = board.some(isBig) ? rotaTarget(d, address, pool, true) : TARGET_DAY;
+      carry.ordinary += worthOf(board) - against;
       continue;
     }
-    const rota = bigDaysCached(address, d).has(d);
+    const rota = bigDaysCached(address, d, pool).has(d);
     const flat = rotaTarget(d, address, pool, rota);
     const target = flat - clampCarry(rota ? carry.rota : carry.ordinary);
     const drift = worthOf(boardFor(d, address, pool, target)) - flat;
@@ -1108,7 +1157,8 @@ function budgetFor(
   pool: QuestDef[],
   carry: Carry
 ): number {
-  const rota = !!address && day >= CARRY_FROM_DAY && bigDaysCached(address, day).has(day);
+  const rota =
+    !!address && day >= CARRY_FROM_DAY && bigDaysCached(address, day, pool).has(day);
   const flat = rotaTarget(day, address, pool, rota);
   return flat - clampCarry(rota ? carry.rota : carry.ordinary);
 }
@@ -1154,7 +1204,7 @@ function boardFor(
   // Once the rota is running, the big quest appears only on its own days, and
   // on those days it is the paid pick rather than a lucky one.
   const levelling = day >= CARRY_FROM_DAY;
-  const onRota = levelling && !!address && bigDaysCached(address, day).has(day);
+  const onRota = levelling && !!address && bigDaysCached(address, day, pool).has(day);
   const live = levelling ? all.filter((q) => (isBig(q) ? onRota : true)) : all;
 
   const free = live.filter((q) => slotOf(q) === "free");
