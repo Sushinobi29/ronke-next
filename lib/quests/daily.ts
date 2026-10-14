@@ -776,6 +776,50 @@ const CARRY_FROM_DAY = 20741;
  * actually finished is added back, to the wallets that finished it.
  */
 const SPLIT_DAY = 20740;
+
+/**
+ * The knobs that changed between the two deploys, so one day can be drawn
+ * exactly as the deploy that served it drew it.
+ *
+ * Reproducing the mid-day board is not a matter of putting the gate back: the
+ * commit that served it also handed out four big quests instead of six, drew
+ * the rota across the whole season rather than the days the rota was live,
+ * and did not discount what a wallet had already drawn before the gate. All
+ * four have to move together or the board is a different board.
+ */
+interface Rules {
+  gate: number;
+  quota: number;
+  /** Draw rota days only from days the rota was live. */
+  clampRota: boolean;
+  /** Take off what the wallet already drew before the gate. */
+  discount: boolean;
+  /** Book a pre-gate big day against the rota budget rather than the flat one. */
+  rotaPreGate: boolean;
+  id: string;
+}
+
+const NOW: Rules = {
+  gate: CARRY_FROM_DAY,
+  // Filled below, once the quota it mirrors has been declared.
+  quota: 0,
+  clampRota: true,
+  discount: true,
+  rotaPreGate: true,
+  id: "now",
+};
+
+/** The deploy that was live for most of day 20740, kept so it can be redrawn. */
+const MIDDAY: Rules = {
+  gate: 20739,
+  quota: 4,
+  clampRota: false,
+  discount: false,
+  rotaPreGate: false,
+  id: "midday",
+};
+
+const rulesFor = (day: number): Rules => (day === SPLIT_DAY ? MIDDAY : NOW);
 /** The most one day's target may bend to repay drift. */
 const CARRY_STEP = 150;
 /** A season's worth of days to read back over, as a safety stop. */
@@ -806,6 +850,7 @@ const CARRY_LOOKBACK = 40;
  * number.
  */
 const BIG_QUOTA = 6;
+NOW.quota = BIG_QUOTA;
 
 /**
  * How the five are made up. Two paid quests is the usual board, but a single
@@ -1026,7 +1071,7 @@ const isBig = (quest: QuestDef) => quest.cost === "big";
  * wallets get the same days. Nothing is stored: the same wallet and season
  * always produce the same rota.
  */
-function bigDaysFor(address: string, day: number, quota: number): Set<number> {
+function bigDaysFor(address: string, day: number, quota: number, rules: Rules): Set<number> {
   const { fromDay, length } = seasonSpan(day);
   const next = rng(((fromDay * 2654435761) ^ hashAddress(address) ^ 0x9e3779b9) >>> 0);
   // Only days the rota is actually live can hold one. Season two started
@@ -1034,7 +1079,7 @@ function bigDaysFor(address: string, day: number, quota: number): Set<number> {
   // dropped — one wallet getting five while its neighbour got six, which is
   // the exact unfairness this replaced. Later seasons start after the gate, so
   // the clamp does nothing to them.
-  const first = Math.max(fromDay, CARRY_FROM_DAY);
+  const first = rules.clampRota ? Math.max(fromDay, rules.gate) : fromDay;
   const days = Array.from({ length: length - (first - fromDay) }, (_, i) => first + i);
   const take = Math.min(quota, days.length);
   for (let i = 0; i < take; i++) {
@@ -1057,12 +1102,12 @@ function bigDaysFor(address: string, day: number, quota: number): Set<number> {
  * quota is the same number on every day of the season. Seasons that start
  * after the gate have no such days and skip the loop entirely.
  */
-function preGateBigs(address: string, day: number, pool: QuestDef[]): number {
+function preGateBigs(address: string, day: number, pool: QuestDef[], rules: Rules): number {
   const { fromDay } = seasonSpan(day);
   let seen = 0;
   // boardFor does not consult the rota before the gate, so this cannot recurse.
-  for (let d = fromDay; d < CARRY_FROM_DAY; d++) {
-    seen += boardFor(d, address, pool, TARGET_DAY).filter(isBig).length;
+  for (let d = fromDay; d < rules.gate; d++) {
+    seen += boardFor(d, address, pool, TARGET_DAY, rules).filter(isBig).length;
   }
   return seen;
 }
@@ -1070,18 +1115,20 @@ function preGateBigs(address: string, day: number, pool: QuestDef[]): number {
 let rotaCache = new Map<string, Set<number>>();
 let rotaCachePool: QuestDef[] | null = null;
 
-function bigDaysCached(address: string, day: number, pool: QuestDef[]): Set<number> {
+function bigDaysCached(address: string, day: number, pool: QuestDef[], rules: Rules): Set<number> {
   const { fromDay } = seasonSpan(day);
   if (rotaCachePool !== pool) {
     rotaCache = new Map();
     rotaCachePool = pool;
   }
-  const key = `${CARRY_FROM_DAY}:${fromDay}:${address.toLowerCase()}`;
+  const key = `${rules.id}:${fromDay}:${address.toLowerCase()}`;
   let hit = rotaCache.get(key);
   if (!hit) {
     if (rotaCache.size > 4000) rotaCache = new Map();
-    const quota = Math.max(0, BIG_QUOTA - preGateBigs(address, day, pool));
-    hit = bigDaysFor(address, day, quota);
+    const quota = rules.discount
+      ? Math.max(0, rules.quota - preGateBigs(address, day, pool, rules))
+      : rules.quota;
+    hit = bigDaysFor(address, day, quota, rules);
     rotaCache.set(key, hit);
   }
   return hit;
@@ -1115,28 +1162,36 @@ interface Carry {
 
 const NO_CARRY: Carry = { ordinary: 0, rota: 0 };
 
-function carryFor(day: number, address: string | undefined, pool: QuestDef[]): Carry {
-  if (!address || day < CARRY_FROM_DAY) return NO_CARRY;
+function carryFor(
+  day: number,
+  address: string | undefined,
+  pool: QuestDef[],
+  rules: Rules
+): Carry {
+  if (!address || day < rules.gate) return NO_CARRY;
 
   const from = Math.max(seasonFloorDay(day), day - CARRY_LOOKBACK);
   const carry: Carry = { ordinary: 0, rota: 0 };
   for (let d = from; d < day; d++) {
-    if (d < CARRY_FROM_DAY) {
-      const board = boardFor(d, address, pool, TARGET_DAY);
+    if (d < rules.gate) {
+      const board = boardFor(d, address, pool, TARGET_DAY, rules);
       // A pre-gate day that drew the big quest spends one of this season's
       // six, but it was budgeted as an ordinary day — around 1,300 where a
       // rota day gets 1,850. Left alone, the wallet is simply short the
       // difference for the rest of the season. Booking it against the rota
       // budget puts that shortfall on the ordinary carry, which has the whole
       // season to pay it back.
-      const against = board.some(isBig) ? rotaTarget(d, address, pool, true) : TARGET_DAY;
+      const against =
+        rules.rotaPreGate && board.some(isBig)
+          ? rotaTarget(d, address, pool, true)
+          : TARGET_DAY;
       carry.ordinary += worthOf(board) - against;
       continue;
     }
-    const rota = bigDaysCached(address, d, pool).has(d);
+    const rota = bigDaysCached(address, d, pool, rules).has(d);
     const flat = rotaTarget(d, address, pool, rota);
     const target = flat - clampCarry(rota ? carry.rota : carry.ordinary);
-    const drift = worthOf(boardFor(d, address, pool, target)) - flat;
+    const drift = worthOf(boardFor(d, address, pool, target, rules)) - flat;
     if (rota) carry.rota += drift;
     else carry.ordinary += drift;
   }
@@ -1170,10 +1225,11 @@ function budgetFor(
   day: number,
   address: string | undefined,
   pool: QuestDef[],
-  carry: Carry
+  carry: Carry,
+  rules: Rules
 ): number {
   const rota =
-    !!address && day >= CARRY_FROM_DAY && bigDaysCached(address, day, pool).has(day);
+    !!address && day >= rules.gate && bigDaysCached(address, day, pool, rules).has(day);
   const flat = rotaTarget(day, address, pool, rota);
   return flat - clampCarry(rota ? carry.rota : carry.ordinary);
 }
@@ -1186,16 +1242,21 @@ function budgetFor(
 let carryCache = new Map<string, Carry>();
 let carryCachePool: QuestDef[] | null = null;
 
-function cachedCarry(day: number, address: string | undefined, pool: QuestDef[]): Carry {
-  if (!address || day < CARRY_FROM_DAY) return NO_CARRY;
+function cachedCarry(
+  day: number,
+  address: string | undefined,
+  pool: QuestDef[],
+  rules: Rules
+): Carry {
+  if (!address || day < rules.gate) return NO_CARRY;
   if (carryCachePool !== pool) {
     carryCache = new Map();
     carryCachePool = pool;
   }
-  const key = `${CARRY_FROM_DAY}:${day}:${address.toLowerCase()}`;
+  const key = `${rules.id}:${day}:${address.toLowerCase()}`;
   const hit = carryCache.get(key);
   if (hit !== undefined) return hit;
-  const value = carryFor(day, address, pool);
+  const value = carryFor(day, address, pool, rules);
   carryCache.set(key, value);
   return value;
 }
@@ -1209,21 +1270,23 @@ export function questsForDay(
 }
 
 function drawOne(day: number, address: string | undefined, pool: QuestDef[]): QuestDef[] {
-  const carry = cachedCarry(day, address, pool);
-  return boardFor(day, address, pool, budgetFor(day, address, pool, carry));
+  const rules = rulesFor(day);
+  const carry = cachedCarry(day, address, pool, rules);
+  return boardFor(day, address, pool, budgetFor(day, address, pool, carry, rules), rules);
 }
 
 function boardFor(
   day: number,
   address: string | undefined,
   pool: QuestDef[],
-  target: number
+  target: number,
+  rules: Rules = NOW
 ): QuestDef[] {
   const all = pool.filter((quest) => drawableOn(quest, day));
   // Once the rota is running, the big quest appears only on its own days, and
   // on those days it is the paid pick rather than a lucky one.
-  const levelling = day >= CARRY_FROM_DAY;
-  const onRota = levelling && !!address && bigDaysCached(address, day, pool).has(day);
+  const levelling = day >= rules.gate;
+  const onRota = levelling && !!address && bigDaysCached(address, day, pool, rules).has(day);
   const live = levelling ? all.filter((q) => (isBig(q) ? onRota : true)) : all;
 
   const free = live.filter((q) => slotOf(q) === "free");
@@ -1446,29 +1509,10 @@ export function scoreDay(
     };
   };
 
-  const base = questsForDay(day, address, pool);
-  /**
-   * On the day two boards were handed out, anything the wallet actually
-   * finished counts, whichever board it was on.
-   *
-   * Replaying the other board from its gate is not enough: the deploy that
-   * handed it out had a different quota and rota as well, so the board it
-   * drew cannot be reconstructed from this code. What can be known for
-   * certain is what somebody finished, because the day's own metrics still
-   * say so. Nobody is told they did not do a thing they did.
-   */
-  const recovered =
-    day === SPLIT_DAY && address
-      ? pool
-          .filter((quest) => !base.some((q) => q.id === quest.id) && drawableOn(quest, day))
-          .map(score)
-          .filter((quest) => quest.done)
-      : [];
-
-  const drawn = [...base, ...recovered.map((quest) => pool.find((q) => q.id === quest.id)!)];
+  const drawn = questsForDay(day, address, pool);
   const onBoard = new Set(drawn.map((quest) => quest.id));
 
-  const quests = [...base.map(score), ...recovered];
+  const quests = drawn.map(score);
   // A pinned quest somebody already drew is just that quest, not two of it.
   const extra = featured
     .filter((id) => !onBoard.has(id))
