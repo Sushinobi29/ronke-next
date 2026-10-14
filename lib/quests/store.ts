@@ -47,12 +47,29 @@ const SCHEMA = [
   "quest_featured",
   "quest_pool",
   "quest_rewards",
+  "quest_payouts",
   "quest_x_links",
   "quest_social",
   "quest_social_post_id",
   "quest_results",
   "quest_results_day_quest_idx",
   "quest_state",
+] as const;
+
+/**
+ * Columns added to tables that already existed.
+ *
+ * The check below reads pg_class, which knows about tables and indexes and
+ * nothing at all about columns — so a column added to a table that is already
+ * there is invisible to it, the schema counts as complete, and the migration
+ * that would add the column never runs. Listing them here is what makes an
+ * `alter table ... add column` actually reach a database that has been live
+ * since before it was written.
+ */
+const SCHEMA_COLUMNS = [
+  "quest_social.post_id",
+  "quest_x_links.moved_from",
+  "quest_x_links.moved_at",
 ] as const;
 
 /**
@@ -70,13 +87,26 @@ const SCHEMA = [
  */
 async function ensureSchema(sql: Sql): Promise<void> {
   try {
-    const [row] = await sql<{ found: number }[]>`
-      select count(*)::int as found
-        from pg_class
-       where relname = any(${[...SCHEMA]})
-         and relnamespace = 'public'::regnamespace
-    `;
-    if (row?.found === SCHEMA.length) return;
+    const [relations, columns] = await Promise.all([
+      sql<{ found: number }[]>`
+        select count(*)::int as found
+          from pg_class
+         where relname = any(${[...SCHEMA]})
+           and relnamespace = 'public'::regnamespace
+      `,
+      sql<{ found: number }[]>`
+        select count(*)::int as found
+          from information_schema.columns
+         where table_schema = 'public'
+           and table_name || '.' || column_name = any(${[...SCHEMA_COLUMNS]})
+      `,
+    ]);
+    if (
+      relations[0]?.found === SCHEMA.length &&
+      columns[0]?.found === SCHEMA_COLUMNS.length
+    ) {
+      return;
+    }
   } catch (cause) {
     // Worth saying out loud. Swallowing it silently is how the first version
     // of this check went unnoticed: it threw on every call, so the DDL ran
