@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
 import { seasonAt, seasonByNumber, seasonDays, secondsLeft } from "@/lib/quests/season";
-import { hasStore, readRewards, seasonStandings, writeRewards } from "@/lib/quests/store";
+import { hasStore, readRewards, writeRewards } from "@/lib/quests/store";
+import { rankedStandings } from "@/lib/quests/standings";
 import { hasAdmins, isAdmin, verifyAdminWrite } from "@/lib/quests/admin";
 import {
   EMPTY_REWARDS,
@@ -46,11 +47,12 @@ export async function GET(request: NextRequest) {
 
   const wanted = Number(request.nextUrl.searchParams.get("season"));
   const { season, fromDay, toDay, current } = seasonWindow(Number.isFinite(wanted) ? wanted : null);
-  const [stored, standings, next] = await Promise.all([
+  const [stored, table, next] = await Promise.all([
     readRewards(season.number),
-    seasonStandings(fromDay, toDay, STANDINGS_LIMIT),
+    rankedStandings(fromDay, toDay, STANDINGS_LIMIT),
     readRewards(current + 1),
   ]);
+  const standings = table.rows;
 
   const config = stored?.config ?? EMPTY_REWARDS;
 
@@ -132,7 +134,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const standings = await seasonStandings(fromDay, toDay, STANDINGS_LIMIT);
+  const standings = (await rankedStandings(fromDay, toDay, STANDINGS_LIMIT)).rows;
   return NextResponse.json({
     ok: true,
     season: season.number,

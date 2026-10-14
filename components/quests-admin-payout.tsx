@@ -38,6 +38,10 @@ interface State {
   pending: number;
   checksum: string;
   fresh: { rows: number; checksum: string; totals: Totals[] };
+  scoredTiebreak: boolean;
+  scoresAsOf: string | null;
+  tied: number;
+  unbroken: number;
   wouldAdd: number;
   wouldOrphan: number;
   conflicts: { address: string; itemId: string; paid: number; wanted: number }[];
@@ -201,6 +205,33 @@ export default function QuestsAdminPayout({
           ))}
         </tbody>
       </table>
+
+      {state.tied > 0 && (
+        <p
+          className={`rounded-lg border p-3 text-sm ${
+            state.scoredTiebreak
+              ? "border-border bg-card-2 text-muted-1"
+              : "border-red-500/40 bg-red-500/10"
+          }`}
+        >
+          {state.scoredTiebreak ? (
+            <>
+              {state.tied} wallets are level on points. Ronke Score orders them
+              {state.scoresAsOf
+                ? ` (scored ${new Date(state.scoresAsOf).toLocaleDateString()})`
+                : ""}
+              {state.unbroken > 0
+                ? `, and ${state.unbroken} are level on the score too — those fall back to wallet address.`
+                : "."}
+            </>
+          ) : (
+            <>
+              {state.tied} wallets are level on points and Ronke Score could not be read.
+              Freezing is refused until it answers, because rank decides the money.
+            </>
+          )}
+        </p>
+      )}
 
       {state.conflicts.length > 0 && (
         <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">

@@ -6,9 +6,9 @@ import {
   markPayoutSent,
   readPayouts,
   readRewards,
-  seasonStandings,
   writePayouts,
 } from "@/lib/quests/store";
+import { rankedStandings } from "@/lib/quests/standings";
 import { hasAdmins, isAdmin, verifyAdminMessage } from "@/lib/quests/admin";
 import { previewRewards } from "@/lib/quests/rewards";
 import {
@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
 
   const stored = await readRewards(number);
   const config = stored?.config ?? null;
-  const standings = await seasonStandings(fromDay, toDay, STANDINGS_LIMIT);
-  const fresh = config ? freezeRows(previewRewards(standings, config)) : [];
+  const table = await rankedStandings(fromDay, toDay, STANDINGS_LIMIT);
+  const fresh = config ? freezeRows(previewRewards(table.rows, config)) : [];
   const current = await state(number);
   const merged = reconcile(current.rows, fresh);
 
@@ -73,6 +73,13 @@ export async function GET(request: NextRequest) {
       checksum: checksumOf(fresh),
       totals: totalsOf(fresh),
     },
+    // Ties are the normal result now that a season is worth the same to
+    // everyone, and the order among equals is what the payout pays on. So the
+    // panel is told whether the score that broke them could actually be read.
+    scoredTiebreak: table.scored,
+    scoresAsOf: table.asOf,
+    tied: table.tied,
+    unbroken: table.unbroken,
     // What freezing again would do, so nothing is a surprise.
     wouldAdd: merged.added,
     wouldOrphan: merged.orphaned,
@@ -127,10 +134,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That season has no rewards configured." }, { status: 422 });
     }
 
-    const standings = await seasonStandings(fromDay, toDay, STANDINGS_LIMIT);
-    const fresh = freezeRows(previewRewards(standings, config));
+    const table = await rankedStandings(fromDay, toDay, STANDINGS_LIMIT);
+    const fresh = freezeRows(previewRewards(table.rows, config));
     if (!fresh.length) {
       return NextResponse.json({ error: "That season pays nobody." }, { status: 422 });
+    }
+
+    // Rank is money here — a harmonic falloff pays rank six half again what
+    // it pays rank nine — so freezing a table full of ties while the score
+    // that separates them cannot be read would pay people in address order
+    // and call it a leaderboard. Refused rather than guessed at.
+    if (!table.scored && table.tied > 0) {
+      return NextResponse.json(
+        {
+          error: `${table.tied} wallets are level on points and Ronke Score could not be read, so their order would be arbitrary. Try again when the score API answers.`,
+        },
+        { status: 503 }
+      );
     }
 
     const already = await readPayouts(number);

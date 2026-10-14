@@ -347,7 +347,12 @@ export interface SeasonRow {
   sweeps: number;
 }
 
-/** Season standings, highest total first. */
+/**
+ * Season standings, highest total first.
+ *
+ * Callers that show or pay this table want `rankedStandings` instead: this
+ * orders on points alone, and after the draw fix most of the table ties.
+ */
 export async function seasonStandings(
   fromDay: number,
   toDay: number,
@@ -368,7 +373,11 @@ export async function seasonStandings(
        where day between ${fromDay} and ${toDay}
        group by address
        having sum(points) > 0
-       order by sum(points) desc
+       -- The address is not the real tiebreak — Ronke Score is, and it is
+       -- applied in lib/quests/standings.ts, which cannot reach it from here.
+       -- This only makes the truncation deterministic, so the same wallets
+       -- come back each time and the score gets to order the same set.
+       order by sum(points) desc, address asc
        limit ${limit}
     `;
     return rows.map((row) => ({

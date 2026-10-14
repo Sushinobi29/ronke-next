@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { previewRewards } from "@/lib/quests/rewards";
 import { seasonAt, seasonByNumber, seasonDays } from "@/lib/quests/season";
-import { hasStore, readRewards, seasonStandings } from "@/lib/quests/store";
+import { hasStore, readRewards } from "@/lib/quests/store";
+import { rankedStandings } from "@/lib/quests/standings";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +28,11 @@ export async function GET(request: Request) {
   const { fromDay, toDay } = seasonDays(season);
 
   try {
-    const [standings, rewards] = await Promise.all([
-      seasonStandings(fromDay, toDay, HARD_CAP),
+    const [table, rewards] = await Promise.all([
+      rankedStandings(fromDay, toDay, HARD_CAP),
       readRewards(season.number),
     ]);
+    const standings = table.rows;
 
     const config = rewards?.config.published ? rewards.config : null;
 
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
       // say so rather than quietly truncating.
       capped: standings.length >= HARD_CAP,
       standings,
+      scoredTiebreak: table.scored,
       // Same shares the board shows, worked out over the same full table, so
       // an expanded row says exactly what the paged one did.
       shares:
