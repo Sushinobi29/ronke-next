@@ -48,6 +48,7 @@ const SCHEMA = [
   "quest_pool",
   "quest_rewards",
   "quest_payouts",
+  "quest_quota",
   "quest_x_links",
   "quest_social",
   "quest_social_post_id",
@@ -230,6 +231,18 @@ async function migrate(sql: Sql): Promise<void> {
       tx_hash     text,
       updated_at  timestamptz not null default now(),
       primary key (season, address, item_id)
+    )
+  `;
+
+  // How many times a season hands out the big quest. One row per season,
+  // because it cannot change inside one without redrawing days that have
+  // already been played.
+  await sql`
+    create table if not exists quest_quota (
+      season     integer primary key,
+      quota      integer not null,
+      updated_by text not null,
+      updated_at timestamptz not null default now()
     )
   `;
 
@@ -833,6 +846,58 @@ export async function moveHandle(
     });
   } catch {
     return { ok: false, reason: "Could not move the link. Try again in a moment." };
+  }
+}
+
+/* ------------------------------------------------------------------- quota */
+
+/** Sane bounds. Beyond these the draw cannot build a board that fits. */
+export const QUOTA_MIN = 0;
+export const QUOTA_MAX = 10;
+
+/** How many big quests a season hands out, or null to use the built-in. */
+export async function readQuota(season: number): Promise<number | null> {
+  const sql = await db();
+  if (!sql) return null;
+  try {
+    const [row] = await sql<{ quota: number }[]>`
+      select quota from quest_quota where season = ${season}`;
+    return row ? Number(row.quota) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Every season that has one set, for the panel. */
+export async function readQuotas(): Promise<Record<number, number>> {
+  const sql = await db();
+  if (!sql) return {};
+  try {
+    const rows = await sql<{ season: number; quota: number }[]>`
+      select season, quota from quest_quota order by season`;
+    return Object.fromEntries(rows.map((row) => [row.season, Number(row.quota)]));
+  } catch {
+    return {};
+  }
+}
+
+export async function writeQuota(
+  season: number,
+  quota: number,
+  by: string
+): Promise<boolean> {
+  const sql = await db();
+  if (!sql) return false;
+  try {
+    await sql`
+      insert into quest_quota (season, quota, updated_by)
+      values (${season}, ${quota}, ${by.toLowerCase()})
+      on conflict (season) do update
+        set quota = excluded.quota, updated_by = excluded.updated_by, updated_at = now()
+    `;
+    return true;
+  } catch {
+    return false;
   }
 }
 

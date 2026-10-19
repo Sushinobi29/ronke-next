@@ -819,7 +819,20 @@ const MIDDAY: Rules = {
   id: "midday",
 };
 
-const rulesFor = (day: number): Rules => (day === SPLIT_DAY ? MIDDAY : NOW);
+/**
+ * The rules a day is drawn under.
+ *
+ * A quota set by an admin applies to whole seasons only. It cannot apply from
+ * part way through one: raising it adds rota days drawn from anywhere in the
+ * season, so a change made on day nine can land on day three — a board
+ * somebody already played. Seasons are the smallest unit that cannot be
+ * redrawn underneath anybody.
+ */
+const rulesFor = (day: number, quota?: number): Rules => {
+  if (day === SPLIT_DAY) return MIDDAY;
+  if (quota === undefined || quota === NOW.quota) return NOW;
+  return { ...NOW, quota, id: `now:${quota}` };
+};
 /** The most one day's target may bend to repay drift. */
 const CARRY_STEP = 150;
 /** A season's worth of days to read back over, as a safety stop. */
@@ -849,7 +862,7 @@ const CARRY_LOOKBACK = 40;
  * levelling absorbs it either way, since every wallet is given the same
  * number.
  */
-const BIG_QUOTA = 6;
+export const BIG_QUOTA = 6;
 NOW.quota = BIG_QUOTA;
 
 /**
@@ -1264,13 +1277,19 @@ function cachedCarry(
 export function questsForDay(
   day: number = dayIndex(),
   address?: string,
-  pool: QuestDef[] = BASE_POOL
+  pool: QuestDef[] = BASE_POOL,
+  quota?: number
 ): QuestDef[] {
-  return drawOne(day, address, pool);
+  return drawOne(day, address, pool, quota);
 }
 
-function drawOne(day: number, address: string | undefined, pool: QuestDef[]): QuestDef[] {
-  const rules = rulesFor(day);
+function drawOne(
+  day: number,
+  address: string | undefined,
+  pool: QuestDef[],
+  quota?: number
+): QuestDef[] {
+  const rules = rulesFor(day, quota);
   const carry = cachedCarry(day, address, pool, rules);
   return boardFor(day, address, pool, budgetFor(day, address, pool, carry, rules), rules);
 }
@@ -1464,7 +1483,8 @@ export function scoreDay(
   context: QuestContext = {},
   address?: string,
   pool: QuestDef[] = BASE_POOL,
-  featured: string[] = []
+  featured: string[] = [],
+  quota?: number
 ): DailyScore {
   const score = (quest: QuestDef) => {
     const threshold = targetFor(quest, context);
@@ -1509,7 +1529,7 @@ export function scoreDay(
     };
   };
 
-  const drawn = questsForDay(day, address, pool);
+  const drawn = questsForDay(day, address, pool, quota);
   const onBoard = new Set(drawn.map((quest) => quest.id));
 
   const quests = drawn.map(score);

@@ -18,6 +18,7 @@ import {
   readFeaturedShared,
   readPoolsShared,
   readRewards,
+  readQuota,
   seasonHeadcount,
 } from "@/lib/quests/store";
 
@@ -119,9 +120,10 @@ export async function GET(request: Request) {
      * owed, and tells the second fifty they are owed nothing.
      */
     const reach = prizes ? Math.max(...prizes.config.items.map((item) => item.topN), 0) : 0;
-    const [table, seasonPlayers] = await Promise.all([
+    const [table, seasonPlayers, quota] = await Promise.all([
       rankedStandings(fromDay, toDay, Math.max(LEADERBOARD_ROWS, reach)),
       seasonHeadcount(fromDay, toDay),
+      readQuota(season.number),
     ]);
     const standings = table.rows;
     const pool = poolOnDay(day, snapshots);
@@ -132,7 +134,7 @@ export async function GET(request: Request) {
       // No wallet here, so this is the day's shared set — a sample of what a
       // board looks like. Connecting swaps it for the visitor's own five.
       sampleBoard: true,
-      quests: questsForDay(day, undefined, pool).map((quest) => {
+      quests: questsForDay(day, undefined, pool, quota ?? undefined).map((quest) => {
         const { id, title, task, game, cost, unit, link, art, note, copy, copyLabel } = quest;
         return {
           id,
@@ -157,6 +159,9 @@ export async function GET(request: Request) {
       // The client draws its own board from the same pure function, so it
       // needs the same day's pool to draw from, and the same pinned quests.
       pool,
+      // The client draws its own board from the same pure function, so it
+      // needs the same number of big quests the server scored against.
+      bigQuota: quota,
       featured,
       leaderboard,
       // The board shows a page of the table; the split needed all of it.

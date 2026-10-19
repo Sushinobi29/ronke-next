@@ -16,6 +16,7 @@
  */
 
 import { unstable_cache } from "next/cache";
+import { seasonAt } from "@/lib/quests/season";
 import {
   blockNumber,
   currentLogWindow,
@@ -61,6 +62,7 @@ import {
   priorSweepStreaks,
   readFeatured,
   readPools,
+  readQuota,
   recordMany,
   readDayState,
   socialVerifiedOn,
@@ -1105,11 +1107,13 @@ let building: Promise<BoardEntry[]> | null = null;
 async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[]> {
   // Everyone the chain saw act today, plus anyone who swept yesterday: their
   // run is on the line and it should not depend on them opening the page.
-  const [yesterdaySweepers, social, snapshots, featured] = await Promise.all([
+  const [yesterdaySweepers, social, snapshots, featured, quota] = await Promise.all([
     sweptOn(day - 1),
     socialVerifiedOn(day),
     readPools(),
     readFeatured(day),
+    // Same number the page drew with, or the ranking is against other boards.
+    readQuota(seasonAt(day * 86_400 + 86_399).number),
   ]);
 
   /**
@@ -1154,7 +1158,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           { floorRon: today.floorRon, priorStreak: streaks.get(address) ?? 0 },
           address,
           pool,
-          featured
+          featured,
+          quota ?? undefined
         );
         return {
           address,

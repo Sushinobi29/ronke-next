@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
 import { poolOnDay } from "@/lib/quests/pool";
+import { seasonAt } from "@/lib/quests/season";
 import {
   dailyCode,
   postIdOf,
@@ -17,6 +18,7 @@ import {
   moveHandle,
   postClaimedBy,
   readPools,
+  readQuota,
   recordSocial,
   socialVerifiedOn,
 } from "@/lib/quests/store";
@@ -53,10 +55,15 @@ export async function GET(request: NextRequest) {
 
 /** The social quest on this wallet's board today, if it drew one. */
 async function socialQuestFor(day: number, wallet: string) {
-  const pool = poolOnDay(day, await readPools());
+  const [pool, quota] = await Promise.all([
+    readPools().then((snapshots) => poolOnDay(day, snapshots)),
+    readQuota(seasonAt(day * 86_400 + 86_399).number),
+  ]);
   // The pool carries the ask, so the checker uses the words the player was
   // actually shown on the day they were shown them.
-  return questsForDay(day, wallet, pool).find((quest) => quest.game === "social");
+  return questsForDay(day, wallet, pool, quota ?? undefined).find(
+    (quest) => quest.game === "social"
+  );
 }
 
 /**

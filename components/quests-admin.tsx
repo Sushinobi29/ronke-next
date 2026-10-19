@@ -15,6 +15,7 @@ import {
 import { useRoninWallet } from "@/hooks/useRoninWallet";
 import QuestsAdminPool from "@/components/quests-admin-pool";
 import QuestsAdminPayout from "@/components/quests-admin-payout";
+import QuestsAdminQuota from "@/components/quests-admin-quota";
 import type { Season } from "@/lib/quests/season";
 import {
   adminMessage,
@@ -670,6 +671,10 @@ export default function QuestsAdmin() {
           </p>
         )}
       </section>
+
+      <div className="mt-6">
+        <QuestsAdminQuota wallet={wallet} />
+      </div>
 
       {state.season && (
         <div className="mt-6">
