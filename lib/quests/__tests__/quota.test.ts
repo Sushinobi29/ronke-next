@@ -106,3 +106,27 @@ test("quotaOn reads the number in force on a day", () => {
   assert.equal(quotaOn(schedule, 500, 6), 3);
   assert.equal(quotaOn([], 500, 6), 6);
 });
+
+/**
+ * Season two opened before the rota did, so some wallets drew the quest by
+ * luck on those first four days and the season hands them that many fewer
+ * afterwards. A change has to carry that discount too, or the lucky wallets
+ * would end three ahead of everyone else the moment the number moved.
+ */
+test("a change keeps season two's head start discounted", () => {
+  const S2_FROM = 20737;
+  const S2_TO = 20766;
+  const adopts = (wallet: string, schedule?: QuotaStep[]) => {
+    let n = 0;
+    for (let d = S2_FROM; d <= S2_TO; d++) {
+      if (questsForDay(d, wallet, undefined, schedule).some((q) => q.cost === "big")) n++;
+    }
+    return n;
+  };
+  const RAISE = 4;
+  for (const wallet of WALLETS.slice(0, 25)) {
+    const before = adopts(wallet);
+    const after = adopts(wallet, [{ from: 20750, quota: 6 + RAISE }]);
+    assert.equal(after, before + RAISE, `${wallet} moved by ${after - before}, not ${RAISE}`);
+  }
+});

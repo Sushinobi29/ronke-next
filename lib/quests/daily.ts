@@ -1191,10 +1191,10 @@ function bigDaysCached(address: string, day: number, pool: QuestDef[], rules: Ru
   let hit = rotaCache.get(key);
   if (!hit) {
     if (rotaCache.size > 4000) rotaCache = new Map();
-    const quota = rules.discount
-      ? Math.max(0, rules.quota - preGateBigs(address, day, pool, rules))
-      : rules.quota;
-    hit = bigDaysFor(address, day, quota, rules);
+    const off = rules.discount ? preGateBigs(address, day, pool, rules) : 0;
+    const quota = Math.max(0, rules.quota - off);
+    const scheduled = rules.schedule?.map((s) => ({ ...s, quota: Math.max(0, s.quota - off) }));
+    hit = bigDaysFor(address, day, quota, { ...rules, schedule: scheduled });
     rotaCache.set(key, hit);
   }
   return hit;

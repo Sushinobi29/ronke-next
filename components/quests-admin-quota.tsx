@@ -8,9 +8,10 @@ import { quotaMessage } from "@/lib/quests/quota";
 /**
  * How many times a season hands out Adopt a Monke.
  *
- * Only seasons that have not started can be set. Raising the number adds rota
- * days drawn from anywhere in the season, so changing a season already under
- * way would land new ones on days people have played and redraw those boards.
+ * A season already under way can be changed; a season that has finished
+ * cannot. The change is stored against the day it starts, always the next
+ * reset, so the rota re-picks only from there and every board already played
+ * stands exactly as it was.
  */
 
 interface Row {
