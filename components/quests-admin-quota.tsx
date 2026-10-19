@@ -17,6 +17,8 @@ interface Row {
   number: number;
   name: string;
   quota: number;
+  schedule: { from: number; quota: number }[];
+  startsOn: number;
   locked: boolean;
   running: boolean;
 }
@@ -52,7 +54,10 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
     try {
       const quota = draft[season];
       const issuedAt = new Date().toISOString();
-      const signature = await wallet.sign(quotaMessage(season, quota, address, issuedAt));
+      const row = rows?.find((r) => r.number === season);
+      const signature = await wallet.sign(
+        quotaMessage(season, row!.startsOn, quota, address, issuedAt)
+      );
       const res = await fetch("/api/quests/admin/quota", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -60,7 +65,9 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Refused.");
-      setNote(`Season ${season} will hand out ${quota}.`);
+      setNote(
+        `Season ${season} hands out ${quota} from tomorrow. Days already played keep theirs.`
+      );
       await load();
     } catch (error) {
       setNote(error instanceof Error ? error.message : "Could not save it.");
@@ -78,7 +85,8 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
         <p className="mt-1 text-[13px] text-muted-1">
           How many days a season gives each wallet the adopt quest. Everyone gets the same
           number, so the points even out whatever this is set to — it changes NFT volume,
-          not the balance.
+          not the balance. A change starts at the next reset and leaves every day already
+          played exactly as it was.
         </p>
       </header>
 
@@ -89,7 +97,7 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
             {row.locked ? (
               <span className="mono inline-flex items-center gap-1.5 text-[13px] text-muted-2">
                 <Lock className="h-3.5 w-3.5" />
-                {row.quota} · {row.running ? "running" : "finished"}
+                {row.quota} · finished
               </span>
             ) : (
               <>
@@ -111,6 +119,12 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
                   {busy === row.number ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   Save
                 </button>
+                <span className="mono text-[11px] text-muted-3">
+                  {row.running ? "now " : ""}
+                  {row.quota}
+                  {draft[row.number] !== row.quota ? " · starts at the next reset" : ""}
+                  {row.schedule.length > 1 ? ` · changed ${row.schedule.length - 1}×` : ""}
+                </span>
               </>
             )}
           </div>
@@ -118,8 +132,8 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
       </div>
 
       <p className="text-[12px] text-muted-2">
-        A season that has started is fixed. Changing it would move which days hand out the
-        quest, including days people have already played.
+        Lowering it below what a wallet has already been given takes nothing back — those
+        days were played. That season just ends on the higher number.
       </p>
       {note && <p className="mono text-[12px] text-accent">{note}</p>}
     </section>

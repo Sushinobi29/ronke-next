@@ -14,7 +14,7 @@
 
 import type { Sql } from "postgres";
 import type { RewardsConfig } from "@/lib/quests/rewards";
-import type { QuestDef } from "@/lib/quests/daily";
+import type { QuestDef, QuotaStep } from "@/lib/quests/daily";
 import type { PayoutRow } from "@/lib/quests/payouts";
 import { seasonAt, seasonDays } from "@/lib/quests/season";
 
@@ -49,6 +49,7 @@ const SCHEMA = [
   "quest_rewards",
   "quest_payouts",
   "quest_quota",
+  "quest_quota_step",
   "quest_x_links",
   "quest_social",
   "quest_social_post_id",
@@ -234,16 +235,24 @@ async function migrate(sql: Sql): Promise<void> {
     )
   `;
 
-  // How many times a season hands out the big quest. One row per season,
-  // because it cannot change inside one without redrawing days that have
-  // already been played.
+  // How many times a season hands out the big quest, and from which day that
+  // number applies. One row per change rather than one per season: a change
+  // leaves the days already handed out alone and re-picks only the rest, so
+  // the history of changes is what the rota is built from.
   await sql`
     create table if not exists quest_quota (
-      season     integer primary key,
+      season     integer not null,
+      from_day   integer not null,
       quota      integer not null,
       updated_by text not null,
       updated_at timestamptz not null default now()
     )
+  `;
+  // An earlier shape kept one row per season. Widen it rather than lose it.
+  await sql`alter table quest_quota add column if not exists from_day integer not null default 0`;
+  await sql`alter table quest_quota drop constraint if exists quest_quota_pkey`;
+  await sql`
+    create unique index if not exists quest_quota_step on quest_quota (season, from_day)
   `;
 
   await sql`
@@ -855,34 +864,47 @@ export async function moveHandle(
 export const QUOTA_MIN = 0;
 export const QUOTA_MAX = 10;
 
-/** How many big quests a season hands out, or null to use the built-in. */
-export async function readQuota(season: number): Promise<number | null> {
+/** Every change made to a season's quota, oldest first. */
+export async function readQuota(season: number): Promise<QuotaStep[]> {
   const sql = await db();
-  if (!sql) return null;
+  if (!sql) return [];
   try {
-    const [row] = await sql<{ quota: number }[]>`
-      select quota from quest_quota where season = ${season}`;
-    return row ? Number(row.quota) : null;
+    const rows = await sql<{ from_day: number; quota: number }[]>`
+      select from_day, quota from quest_quota
+       where season = ${season} order by from_day`;
+    return rows.map((row) => ({ from: Number(row.from_day), quota: Number(row.quota) }));
   } catch {
-    return null;
+    return [];
   }
 }
 
-/** Every season that has one set, for the panel. */
-export async function readQuotas(): Promise<Record<number, number>> {
+/** The same, for every season at once. */
+export async function readQuotas(): Promise<Record<number, QuotaStep[]>> {
   const sql = await db();
   if (!sql) return {};
   try {
-    const rows = await sql<{ season: number; quota: number }[]>`
-      select season, quota from quest_quota order by season`;
-    return Object.fromEntries(rows.map((row) => [row.season, Number(row.quota)]));
+    const rows = await sql<{ season: number; from_day: number; quota: number }[]>`
+      select season, from_day, quota from quest_quota order by season, from_day`;
+    const by: Record<number, QuotaStep[]> = {};
+    for (const row of rows) {
+      (by[row.season] ??= []).push({ from: Number(row.from_day), quota: Number(row.quota) });
+    }
+    return by;
   } catch {
     return {};
   }
 }
 
+/**
+ * Set the quota from a given day onward.
+ *
+ * Writing the day it starts rather than overwriting the season is the whole
+ * point: the draw keeps the rota days already handed out before that day and
+ * re-picks only the ones still to come.
+ */
 export async function writeQuota(
   season: number,
+  fromDay: number,
   quota: number,
   by: string
 ): Promise<boolean> {
@@ -890,9 +912,9 @@ export async function writeQuota(
   if (!sql) return false;
   try {
     await sql`
-      insert into quest_quota (season, quota, updated_by)
-      values (${season}, ${quota}, ${by.toLowerCase()})
-      on conflict (season) do update
+      insert into quest_quota (season, from_day, quota, updated_by)
+      values (${season}, ${fromDay}, ${quota}, ${by.toLowerCase()})
+      on conflict (season, from_day) do update
         set quota = excluded.quota, updated_by = excluded.updated_by, updated_at = now()
     `;
     return true;

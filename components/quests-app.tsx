@@ -67,8 +67,9 @@ interface BoardPayload {
   floorRon?: number;
   quests: BoardQuest[];
   seasonStandings: SeasonRow[];
-  /** How many big quests this season hands out, when an admin has set one. */
-  bigQuota?: number | null;
+  /** Changes an admin has made to how often this season hands out the big
+   *  quest, with the day each one starts. */
+  bigQuota?: { from: number; quota: number }[] | null;
   rewards: {
     items: RewardItem[];
     note: string;
@@ -293,7 +294,12 @@ export default function QuestsApp() {
     if (!connected || !board) return null;
     const context = { floorRon: board.floorRon };
     // Same pure draw as the server, from the same day's pool.
-    const drawn = questsForDay(board.day, connected, board.pool, board.bigQuota ?? undefined);
+    const drawn = questsForDay(
+      board.day,
+      connected,
+      board.pool,
+      board.bigQuota ?? undefined
+    );
     return drawn.map((quest) => ({
       ...quest,
       target: targetFor(quest, context),

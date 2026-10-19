@@ -61,7 +61,7 @@ async function socialQuestFor(day: number, wallet: string) {
   ]);
   // The pool carries the ask, so the checker uses the words the player was
   // actually shown on the day they were shown them.
-  return questsForDay(day, wallet, pool, quota ?? undefined).find(
+  return questsForDay(day, wallet, pool, quota).find(
     (quest) => quest.game === "social"
   );
 }

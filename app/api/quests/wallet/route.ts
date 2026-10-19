@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       wallet,
       poolOnDay(day, snapshots),
       featured,
-      quota ?? undefined
+      quota
     );
 
     const season = seasonAt();

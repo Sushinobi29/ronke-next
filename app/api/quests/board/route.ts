@@ -134,7 +134,7 @@ export async function GET(request: Request) {
       // No wallet here, so this is the day's shared set — a sample of what a
       // board looks like. Connecting swaps it for the visitor's own five.
       sampleBoard: true,
-      quests: questsForDay(day, undefined, pool, quota ?? undefined).map((quest) => {
+      quests: questsForDay(day, undefined, pool, quota).map((quest) => {
         const { id, title, task, game, cost, unit, link, art, note, copy, copyLabel } = quest;
         return {
           id,

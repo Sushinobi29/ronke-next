@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "@/lib/quests/read";
-import { QUEST_SEASON_ONE, seasonAt, seasonByNumber } from "@/lib/quests/season";
+import {
+  QUEST_SEASON_ONE,
+  seasonAt,
+  seasonByNumber,
+  seasonDays,
+} from "@/lib/quests/season";
 import { hasStore, QUOTA_MAX, QUOTA_MIN, readQuotas, writeQuota } from "@/lib/quests/store";
 import { hasAdmins, isAdmin, verifyAdminMessage } from "@/lib/quests/admin";
-import { BIG_QUOTA } from "@/lib/quests/daily";
-import { quotaMessage } from "@/lib/quests/quota";
+import { BIG_QUOTA, dayIndex } from "@/lib/quests/daily";
+import { quotaMessage, quotaOn } from "@/lib/quests/quota";
 
 export const dynamic = "force-dynamic";
 
@@ -15,21 +20,34 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "That wallet cannot read this." }, { status: 403 });
   }
 
+  const today = dayIndex();
   const now = seasonAt().number;
   const set = await readQuotas();
   const seasons = Array.from({ length: now + 2 - QUEST_SEASON_ONE }, (_, i) => {
     const number = QUEST_SEASON_ONE + i;
+    const schedule = set[number] ?? [];
+    const { fromDay } = seasonDays(seasonByNumber(number));
     return {
       number,
       name: seasonByNumber(number).name,
-      quota: set[number] ?? BIG_QUOTA,
-      /** A season that has started cannot change: its days are already drawn. */
-      locked: number <= now,
+      /** In force today. */
+      quota: quotaOn(schedule, today, BIG_QUOTA),
+      schedule,
+      /** The day a change saved now would start from. */
+      startsOn: number === now ? today + 1 : Math.max(fromDay, today + 1),
+      /** A finished season is history and cannot be rewritten. */
+      locked: number < now,
       running: number === now,
     };
   });
 
-  return NextResponse.json({ seasons, fallback: BIG_QUOTA, min: QUOTA_MIN, max: QUOTA_MAX });
+  return NextResponse.json({
+    seasons,
+    today,
+    fallback: BIG_QUOTA,
+    min: QUOTA_MIN,
+    max: QUOTA_MAX,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -73,36 +91,36 @@ export async function POST(request: NextRequest) {
   }
 
   /**
-   * The guard this endpoint exists around.
+   * A change starts tomorrow, never today and never behind it.
    *
-   * Raising the number adds rota days drawn from anywhere in the season, so a
-   * change made on day nine can land on day three — a board somebody already
-   * played, redrawn underneath them. Lowering it takes days away the same way.
-   * A season that has started is therefore fixed, and the change goes to one
-   * that has not.
+   * This is the whole guard. The rota keeps every day handed out before the
+   * start day and re-picks only from it onward, so nothing already played can
+   * move — but only if the start day is in the future. Today is excluded as
+   * well as the past: a board changing under somebody at four in the
+   * afternoon is the same bug as one changing last Tuesday.
    */
-  if (season <= seasonAt().number) {
+  const now = seasonAt().number;
+  if (season < now) {
     return NextResponse.json(
-      {
-        error:
-          "That season has started, and changing it now would redraw days people have already played. Set it on a season that has not begun.",
-      },
+      { error: "That season is over. Its boards are history." },
       { status: 409 }
     );
   }
+  const { fromDay } = seasonDays(seasonByNumber(season));
+  const startsOn = season === now ? dayIndex() + 1 : Math.max(fromDay, dayIndex() + 1);
 
   const check = await verifyAdminMessage({
     address: address!,
     signature,
     issuedAt,
-    message: quotaMessage(season, quota, address!, issuedAt),
+    message: quotaMessage(season, startsOn, quota, address!, issuedAt),
   });
   if (!check.ok) {
     return NextResponse.json({ error: check.reason }, { status: check.status });
   }
 
-  if (!(await writeQuota(season, quota, address!))) {
+  if (!(await writeQuota(season, startsOn, quota, address!))) {
     return NextResponse.json({ error: "Could not save it. Try again." }, { status: 503 });
   }
-  return NextResponse.json({ ok: true, season, quota });
+  return NextResponse.json({ ok: true, season, quota, startsOn });
 }

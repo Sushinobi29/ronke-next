@@ -1159,7 +1159,7 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           address,
           pool,
           featured,
-          quota ?? undefined
+          quota
         );
         return {
           address,

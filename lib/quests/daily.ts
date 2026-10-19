@@ -787,9 +787,17 @@ const SPLIT_DAY = 20740;
  * and did not discount what a wallet had already drawn before the gate. All
  * four have to move together or the board is a different board.
  */
+/** A quota, and the first day it applies to. */
+export interface QuotaStep {
+  from: number;
+  quota: number;
+}
+
 interface Rules {
   gate: number;
   quota: number;
+  /** Changes made to the quota mid-season, oldest first. */
+  schedule?: QuotaStep[];
   /** Draw rota days only from days the rota was live. */
   clampRota: boolean;
   /** Take off what the wallet already drew before the gate. */
@@ -828,10 +836,15 @@ const MIDDAY: Rules = {
  * somebody already played. Seasons are the smallest unit that cannot be
  * redrawn underneath anybody.
  */
-const rulesFor = (day: number, quota?: number): Rules => {
+const rulesFor = (day: number, schedule?: QuotaStep[]): Rules => {
   if (day === SPLIT_DAY) return MIDDAY;
-  if (quota === undefined || quota === NOW.quota) return NOW;
-  return { ...NOW, quota, id: `now:${quota}` };
+  if (!schedule?.length) return NOW;
+  const sorted = [...schedule].sort((a, b) => a.from - b.from);
+  return {
+    ...NOW,
+    schedule: sorted,
+    id: `now:${sorted.map((s) => `${s.from}=${s.quota}`).join(",")}`,
+  };
 };
 /** The most one day's target may bend to repay drift. */
 const CARRY_STEP = 150;
@@ -1084,22 +1097,62 @@ const isBig = (quest: QuestDef) => quest.cost === "big";
  * wallets get the same days. Nothing is stored: the same wallet and season
  * always produce the same rota.
  */
+function pickDays(days: number[], take: number, seed: number): number[] {
+  const next = rng(seed);
+  const bag = [...days];
+  const n = Math.min(take, bag.length);
+  for (let i = 0; i < n; i++) {
+    const j = i + Math.floor(next() * (bag.length - i));
+    [bag[i], bag[j]] = [bag[j], bag[i]];
+  }
+  return bag.slice(0, n);
+}
+
+/**
+ * The days this wallet is given the big quest, this season.
+ *
+ * Without a mid-season change this is one partial shuffle of the season's
+ * days, seeded on the wallet and the season start, so every wallet gets the
+ * same number of them and no two wallets get the same days.
+ *
+ * A change is where the care goes. Re-picking the whole season would move
+ * days that have already been played — raising the number only ever adds
+ * days, but an added day is drawn from anywhere in the season and can land
+ * behind today, redrawing a board somebody already finished. So a change
+ * keeps every day handed out before it and re-picks only from the day it
+ * starts. Nothing behind that day can move, whichever way the number went.
+ *
+ * Lowering below what has already gone out takes nothing back: those days
+ * were played. The season simply ends on the higher number.
+ */
 function bigDaysFor(address: string, day: number, quota: number, rules: Rules): Set<number> {
   const { fromDay, length } = seasonSpan(day);
-  const next = rng(((fromDay * 2654435761) ^ hashAddress(address) ^ 0x9e3779b9) >>> 0);
+  const end = fromDay + length - 1;
+  const seed = ((fromDay * 2654435761) ^ hashAddress(address) ^ 0x9e3779b9) >>> 0;
   // Only days the rota is actually live can hold one. Season two started
   // before the rule did, and a day drawn from before the gate would simply be
   // dropped — one wallet getting five while its neighbour got six, which is
   // the exact unfairness this replaced. Later seasons start after the gate, so
   // the clamp does nothing to them.
   const first = rules.clampRota ? Math.max(fromDay, rules.gate) : fromDay;
-  const days = Array.from({ length: length - (first - fromDay) }, (_, i) => first + i);
-  const take = Math.min(quota, days.length);
-  for (let i = 0; i < take; i++) {
-    const j = i + Math.floor(next() * (days.length - i));
-    [days[i], days[j]] = [days[j], days[i]];
+
+  // The season always opens on a number. A change is laid over that, never
+  // used in place of it — without the opening step a schedule would discard
+  // every rota day before the change, which is the precise thing it exists to
+  // protect.
+  const steps = [{ from: first, quota }, ...(rules.schedule ?? [])];
+
+  let chosen: number[] = [];
+  for (const step of steps) {
+    const edge = Math.max(first, step.from);
+    // Days already handed out before this change stand.
+    chosen = chosen.filter((d) => d < edge);
+    const open: number[] = [];
+    for (let d = edge; d <= end; d++) if (!chosen.includes(d)) open.push(d);
+    // The caller has already taken off anything drawn before the gate.
+    chosen = [...chosen, ...pickDays(open, Math.max(0, step.quota - chosen.length), seed)];
   }
-  return new Set(days.slice(0, take));
+  return new Set(chosen);
 }
 
 /**
@@ -1278,18 +1331,18 @@ export function questsForDay(
   day: number = dayIndex(),
   address?: string,
   pool: QuestDef[] = BASE_POOL,
-  quota?: number
+  schedule?: QuotaStep[]
 ): QuestDef[] {
-  return drawOne(day, address, pool, quota);
+  return drawOne(day, address, pool, schedule);
 }
 
 function drawOne(
   day: number,
   address: string | undefined,
   pool: QuestDef[],
-  quota?: number
+  schedule?: QuotaStep[]
 ): QuestDef[] {
-  const rules = rulesFor(day, quota);
+  const rules = rulesFor(day, schedule);
   const carry = cachedCarry(day, address, pool, rules);
   return boardFor(day, address, pool, budgetFor(day, address, pool, carry, rules), rules);
 }
@@ -1484,7 +1537,7 @@ export function scoreDay(
   address?: string,
   pool: QuestDef[] = BASE_POOL,
   featured: string[] = [],
-  quota?: number
+  schedule?: QuotaStep[]
 ): DailyScore {
   const score = (quest: QuestDef) => {
     const threshold = targetFor(quest, context);
@@ -1529,7 +1582,7 @@ export function scoreDay(
     };
   };
 
-  const drawn = questsForDay(day, address, pool, quota);
+  const drawn = questsForDay(day, address, pool, schedule);
   const onBoard = new Set(drawn.map((quest) => quest.id));
 
   const quests = drawn.map(score);
