@@ -1583,6 +1583,30 @@ export function questResults(score: DailyScore) {
   ];
 }
 
+/**
+ * Mines went down with the infrastructure, and a quest nobody can finish is
+ * not a quest — it is a lost day and, worse, a lost streak, for everybody who
+ * happened to draw one. So on the days it was out, a Mines quest counts as
+ * done for whoever drew it.
+ *
+ * Written as the days themselves rather than a flag, because the board for a
+ * past day has to score the same way for ever: a switch turned off next week
+ * would quietly take the credit back off the leaderboard. Mines is retired
+ * from the pool from the day after, so this window does not grow.
+ */
+export const MINES_OUT_FROM = 20748;
+export const MINES_OUT_TO = 20749;
+
+const isMinesQuest = (quest: QuestDef) =>
+  quest.id.startsWith("mines.") || quest.metric.startsWith("mines");
+
+/** Whether this quest, on this day, is credited rather than measured. */
+export const creditedOn = (quest: QuestDef, day: number) =>
+  day >= MINES_OUT_FROM && day <= MINES_OUT_TO && isMinesQuest(quest);
+
+/** What a credited quest says on the card, so a tick nobody earned is explained. */
+export const CREDIT_NOTE = "Mines was down — credited";
+
 export function scoreDay(
   stats: DailyStats,
   day: number = dayIndex(),
@@ -1592,7 +1616,21 @@ export function scoreDay(
   featured: string[] = [],
   schedule?: QuotaStep[]
 ): DailyScore {
-  const score = (quest: QuestDef) => {
+  const score = (quest: QuestDef): ScoredQuest => {
+    const read = measure(quest);
+    if (!creditedOn(quest, day)) return read;
+    // Credited rather than measured: full marks, the points it was worth, and
+    // a line on the card saying why it is ticked.
+    return {
+      ...read,
+      value: read.target,
+      done: true,
+      points: pointsFor(quest, context),
+      note: CREDIT_NOTE,
+    };
+  };
+
+  const measure = (quest: QuestDef): ScoredQuest => {
     const threshold = targetFor(quest, context);
     const measured = readMetric(quest.metric, stats);
     const finished = measured >= threshold;
