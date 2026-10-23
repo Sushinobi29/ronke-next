@@ -1228,6 +1228,36 @@ interface Carry {
 
 const NO_CARRY: Carry = { ordinary: 0, rota: 0 };
 
+function stepCarry(
+  before: Carry,
+  d: number,
+  address: string,
+  pool: QuestDef[],
+  rules: Rules
+): Carry {
+  if (d < rules.gate) {
+    const board = boardFor(d, address, pool, TARGET_DAY, rules);
+    // A pre-gate day that drew the big quest spends one of this season's
+    // six, but it was budgeted as an ordinary day — around 1,300 where a
+    // rota day gets 1,850. Left alone, the wallet is simply short the
+    // difference for the rest of the season. Booking it against the rota
+    // budget puts that shortfall on the ordinary carry, which has the whole
+    // season to pay it back.
+    const against =
+      rules.rotaPreGate && board.some(isBig)
+        ? rotaTarget(d, address, pool, true)
+        : TARGET_DAY;
+    return { ...before, ordinary: before.ordinary + worthOf(board) - against };
+  }
+  const rota = bigDaysCached(address, d, pool, rules).has(d);
+  const flat = rotaTarget(d, address, pool, rota);
+  const target = flat - clampCarry(rota ? before.rota : before.ordinary);
+  const drift = worthOf(boardFor(d, address, pool, target, rules)) - flat;
+  return rota
+    ? { ...before, rota: before.rota + drift }
+    : { ...before, ordinary: before.ordinary + drift };
+}
+
 function carryFor(
   day: number,
   address: string | undefined,
@@ -1236,31 +1266,22 @@ function carryFor(
 ): Carry {
   if (!address || day < rules.gate) return NO_CARRY;
 
-  const from = Math.max(seasonFloorDay(day), day - CARRY_LOOKBACK);
-  const carry: Carry = { ordinary: 0, rota: 0 };
-  for (let d = from; d < day; d++) {
-    if (d < rules.gate) {
-      const board = boardFor(d, address, pool, TARGET_DAY, rules);
-      // A pre-gate day that drew the big quest spends one of this season's
-      // six, but it was budgeted as an ordinary day — around 1,300 where a
-      // rota day gets 1,850. Left alone, the wallet is simply short the
-      // difference for the rest of the season. Booking it against the rota
-      // budget puts that shortfall on the ordinary carry, which has the whole
-      // season to pay it back.
-      const against =
-        rules.rotaPreGate && board.some(isBig)
-          ? rotaTarget(d, address, pool, true)
-          : TARGET_DAY;
-      carry.ordinary += worthOf(board) - against;
-      continue;
-    }
-    const rota = bigDaysCached(address, d, pool, rules).has(d);
-    const flat = rotaTarget(d, address, pool, rota);
-    const target = flat - clampCarry(rota ? carry.rota : carry.ordinary);
-    const drift = worthOf(boardFor(d, address, pool, target, rules)) - flat;
-    if (rota) carry.rota += drift;
-    else carry.ordinary += drift;
+  const floor = seasonFloorDay(day);
+  const from = Math.max(floor, day - CARRY_LOOKBACK);
+
+  // The fold is a prefix: a day's drift depends only on the days before it, so
+  // yesterday's answer is today's, one step short. Worth the care — replaying
+  // the whole season for every board made simulating a pool take eleven
+  // seconds instead of seventy milliseconds, which is an admin panel that
+  // never finishes loading. Only when the window is the season so far can
+  // yesterday be built on; a sliding window or the day before the season
+  // started replays instead.
+  if (from === floor && day - 1 >= rules.gate && seasonFloorDay(day - 1) === floor) {
+    return stepCarry(cachedCarry(day - 1, address, pool, rules), day - 1, address, pool, rules);
   }
+
+  let carry: Carry = { ordinary: 0, rota: 0 };
+  for (let d = from; d < day; d++) carry = stepCarry(carry, d, address, pool, rules);
   return carry;
 }
 
@@ -1347,7 +1368,39 @@ function drawOne(
   return boardFor(day, address, pool, budgetFor(day, address, pool, carry, rules), rules);
 }
 
+/**
+ * Boards already drawn, keyed by everything the draw depends on.
+ *
+ * The levelling asks for the same board twice — once as history, replayed to
+ * work out what today's budget should be, and once as today — and the draw
+ * weighs a batch of candidates each time. Keeping the answer is the
+ * difference between a panel that simulates a pool in a moment and one that
+ * takes seconds over it.
+ */
+let boardCache = new Map<string, QuestDef[]>();
+let boardCachePool: QuestDef[] | null = null;
+
 function boardFor(
+  day: number,
+  address: string | undefined,
+  pool: QuestDef[],
+  target: number,
+  rules: Rules = NOW
+): QuestDef[] {
+  if (boardCachePool !== pool) {
+    boardCache = new Map();
+    boardCachePool = pool;
+  }
+  const key = `${rules.id}:${day}:${address?.toLowerCase() ?? ""}:${target}`;
+  const hit = boardCache.get(key);
+  if (hit) return [...hit];
+  const drawn = drawBoard(day, address, pool, target, rules);
+  if (boardCache.size > 20_000) boardCache = new Map();
+  boardCache.set(key, drawn);
+  return [...drawn];
+}
+
+function drawBoard(
   day: number,
   address: string | undefined,
   pool: QuestDef[],

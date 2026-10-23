@@ -68,7 +68,8 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
     fetch(`/api/quests/admin/pool?address=${address}`)
       .then((res) => res.json())
       .then((json) => {
-        if (!live || !json.admin) return;
+        if (!live) return;
+        if (!json.admin) return setError("That wallet cannot edit quests.");
         setPool(json.pool);
         setSavedPool(json.pool);
         setShipped(json.shipped ?? []);
@@ -149,7 +150,16 @@ export default function QuestsAdminPool({ wallet }: { wallet: RoninWallet }) {
   }, [pool, address, saved, from, wallet, resetIn]);
 
   if (!pool || !report) {
-    return <div className="mono py-16 text-center text-sm text-muted-2">Loading the pool…</div>;
+    // Say so when it is not coming. A failed load used to sit on the spinner
+    // for ever, which reads as a hung page rather than an error.
+    return error ? (
+      <div className="mono flex items-center justify-center gap-2 py-16 text-center text-sm text-rose-400">
+        <AlertTriangle className="h-4 w-4" />
+        {error}
+      </div>
+    ) : (
+      <div className="mono py-16 text-center text-sm text-muted-2">Loading the pool…</div>
+    );
   }
 
   const liveCount = pool.filter((quest) => !quest.retired).length;

@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
     pool: editing,
     live: poolOnDay(today, snapshots),
     shipped: BASE_POOL,
-    report: reportOn(editing, nextDay()),
+    // No report here on purpose: the panel simulates the pool in the browser,
+    // so computing one for the load would be a second or so of server time
+    // nothing reads.
     metrics: METRICS,
     games: GAMES,
     costs: COSTS,
