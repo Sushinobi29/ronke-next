@@ -84,10 +84,12 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
       <header>
         <h3 className="font-semibold">Adopt a Monke per season</h3>
         <p className="mt-1 text-[13px] text-muted-1">
-          How many days a season gives each wallet the adopt quest. Everyone gets the same
-          number, so the points even out whatever this is set to — it changes NFT volume,
-          not the balance. A change starts at the next reset and leaves every day already
-          played exactly as it was.
+          How many days a season gives each wallet the adopt quest. A change starts at the
+          next reset, leaves every day already played exactly as it was, and deals out the
+          days that are left so that everybody finishes the season on the number — which
+          is why saving the number it is already on is worth doing on a season that has
+          drifted. It changes NFT volume, not the balance: the points even out whatever
+          this is set to.
         </p>
       </header>
 
@@ -114,7 +116,10 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
                 />
                 <button
                   onClick={() => void save(row.number)}
-                  disabled={busy !== null || draft[row.number] === row.quota}
+                  // Saving the same number is the point, not a no-op: a season
+                  // under way is levelled by the change, so everyone finishes
+                  // on it whatever the draw has handed out so far.
+                  disabled={busy !== null || (draft[row.number] === row.quota && !row.running)}
                   className="rv-hover inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-[13px] font-semibold disabled:opacity-40"
                 >
                   {busy === row.number ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -123,7 +128,11 @@ export default function QuestsAdminQuota({ wallet }: { wallet: RoninWallet }) {
                 <span className="mono text-[11px] text-muted-3">
                   {row.running ? "now " : ""}
                   {row.quota}
-                  {draft[row.number] !== row.quota ? " · starts at the next reset" : ""}
+                  {draft[row.number] !== row.quota
+                    ? " · starts at the next reset"
+                    : row.running
+                      ? " · save to level the season on it"
+                      : ""}
                   {row.schedule.length > 1 ? ` · changed ${row.schedule.length - 1}×` : ""}
                 </span>
               </>
