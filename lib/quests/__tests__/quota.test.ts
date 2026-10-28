@@ -110,23 +110,40 @@ test("quotaOn reads the number in force on a day", () => {
 /**
  * Season two opened before the rota did, so some wallets drew the quest by
  * luck on those first four days and the season hands them that many fewer
- * afterwards. A change has to carry that discount too, or the lucky wallets
- * would end three ahead of everyone else the moment the number moved.
+ * afterwards. The discount that does that was fixed at the gate and cannot be
+ * revisited — changing it would redraw days people have played — so it is a
+ * day out of step with what the split day actually served, and the season does
+ * not end level.
+ *
+ * A change is the one safe moment to put that right: it only ever re-picks
+ * days nobody has played, so it can aim at what the wallet was really given.
+ * The contract is exact — everybody ends on the number, unless they had
+ * already been handed more than it by the day it starts.
  */
-test("a change keeps season two's head start discounted", () => {
+test("a change levels season two on the number, whatever the gate left behind", () => {
   const S2_FROM = 20737;
   const S2_TO = 20766;
-  const adopts = (wallet: string, schedule?: QuotaStep[]) => {
+  const CHANGE = 20755;
+  const TARGET = 6;
+
+  const adopts = (wallet: string, from: number, to: number, schedule?: QuotaStep[]) => {
     let n = 0;
-    for (let d = S2_FROM; d <= S2_TO; d++) {
+    for (let d = from; d <= to; d++) {
       if (questsForDay(d, wallet, undefined, schedule).some((q) => q.cost === "big")) n++;
     }
     return n;
   };
-  const RAISE = 4;
+
+  const schedule: QuotaStep[] = [{ from: CHANGE, quota: TARGET }];
   for (const wallet of WALLETS.slice(0, 25)) {
-    const before = adopts(wallet);
-    const after = adopts(wallet, [{ from: 20750, quota: 6 + RAISE }]);
-    assert.equal(after, before + RAISE, `${wallet} moved by ${after - before}, not ${RAISE}`);
+    const had = adopts(wallet, S2_FROM, CHANGE - 1);
+    const total = adopts(wallet, S2_FROM, S2_TO, schedule);
+    assert.equal(
+      total,
+      Math.max(had, TARGET),
+      `${wallet} had ${had} by the change and ended the season on ${total}`
+    );
+    // And nothing it had already been given moved.
+    assert.equal(adopts(wallet, S2_FROM, CHANGE - 1, schedule), had);
   }
 });

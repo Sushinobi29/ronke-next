@@ -1178,6 +1178,32 @@ function preGateBigs(address: string, day: number, pool: QuestDef[], rules: Rule
   return seen;
 }
 
+/**
+ * What this wallet was actually handed before the gate, the split day included.
+ *
+ * `preGateBigs` replays those days under today's rulebook, which is right for
+ * the discount it feeds — that discount has been in force since the gate and
+ * changing it now would move days already played. But it is wrong as an answer
+ * to "how many has this wallet had", because day 20740 was served under the
+ * old rulebook, and for about a fifth of wallets the two disagree by one.
+ *
+ * That one day is the entire reason season two does not end level: wallets
+ * with the same discount finish anywhere between five and eight. A mid-season
+ * change is the one safe moment to put it right, since it only ever re-picks
+ * days nobody has played yet.
+ */
+function preGateServed(address: string, day: number, pool: QuestDef[]): number {
+  const { fromDay } = seasonSpan(day);
+  let seen = 0;
+  // Drawn as the day itself was drawn: rulesFor picks the rulebook, so the
+  // split day answers for itself. Nothing here carries a schedule, so this
+  // cannot come back round.
+  for (let d = fromDay; d < NOW.gate; d++) {
+    seen += drawOne(d, address, pool).filter(isBig).length;
+  }
+  return seen;
+}
+
 let rotaCache = new Map<string, Set<number>>();
 let rotaCachePool: QuestDef[] | null = null;
 
@@ -1193,7 +1219,16 @@ function bigDaysCached(address: string, day: number, pool: QuestDef[], rules: Ru
     if (rotaCache.size > 4000) rotaCache = new Map();
     const off = rules.discount ? preGateBigs(address, day, pool, rules) : 0;
     const quota = Math.max(0, rules.quota - off);
-    const scheduled = rules.schedule?.map((s) => ({ ...s, quota: Math.max(0, s.quota - off) }));
+    // The season's own number keeps the discount it has always had, because
+    // changing it would redraw days already played. A change levels the
+    // season instead: it aims at what the wallet was actually given, so
+    // everybody finishes on the same number whatever the gate left behind.
+    const served =
+      rules.discount && rules.schedule?.length ? preGateServed(address, day, pool) : off;
+    const scheduled = rules.schedule?.map((s) => ({
+      ...s,
+      quota: Math.max(0, s.quota - served),
+    }));
     hit = bigDaysFor(address, day, quota, { ...rules, schedule: scheduled });
     rotaCache.set(key, hit);
   }
