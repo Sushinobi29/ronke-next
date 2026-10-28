@@ -147,3 +147,52 @@ test("a change levels season two on the number, whatever the gate left behind", 
     assert.equal(adopts(wallet, S2_FROM, CHANGE - 1, schedule), had);
   }
 });
+
+/**
+ * A change can be told what the wallet has really been handed, rather than
+ * replaying it — which is the only way to be exact, because a replay shifts
+ * whenever the pool is edited. Told the truth, it lands everyone on the
+ * number; and a second change has to count the days the first one handed out,
+ * which is a thing it is easy to get wrong in both directions.
+ */
+test("a counted change lands on the number, and keeps its own books after", () => {
+  const CHANGE = SEASON_FROM + 10;
+  const SECOND = SEASON_FROM + 20;
+
+  const adoptsWith = (wallet: string, schedule?: QuotaStep[], given?: number) => {
+    let n = 0;
+    for (let d = SEASON_FROM; d <= SEASON_TO; d++) {
+      if (questsForDay(d, wallet, undefined, schedule, given).some((q) => q.cost === "big")) n++;
+    }
+    return n;
+  };
+  const upTo = (wallet: string, before: number) => {
+    let n = 0;
+    for (let d = SEASON_FROM; d < before; d++) {
+      if (questsForDay(d, wallet, undefined).some((q) => q.cost === "big")) n++;
+    }
+    return n;
+  };
+
+  for (const wallet of WALLETS.slice(0, 20)) {
+    const had = upTo(wallet, CHANGE);
+    const one: QuotaStep[] = [{ from: CHANGE, quota: 8 }];
+    assert.equal(adoptsWith(wallet, one, had), Math.max(had, 8), `${wallet} missed the number`);
+
+    // The second change must not count the first one's days twice, nor forget
+    // them: either way the wallet ends somewhere other than nine.
+    const two: QuotaStep[] = [...one, { from: SECOND, quota: 9 }];
+    assert.equal(adoptsWith(wallet, two, had), Math.max(had, 9), `${wallet} lost count`);
+
+    // And nothing before the first change moves, whatever it is told.
+    for (const schedule of [one, two]) {
+      let before = 0;
+      for (let d = SEASON_FROM; d < CHANGE; d++) {
+        if (questsForDay(d, wallet, undefined, schedule, had).some((q) => q.cost === "big")) {
+          before++;
+        }
+      }
+      assert.equal(before, had);
+    }
+  }
+});

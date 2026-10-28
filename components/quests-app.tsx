@@ -285,6 +285,30 @@ export default function QuestsApp() {
   const ownBoard = score && scored?.toLowerCase() === connected ? score : null;
 
   /**
+   * Big-ticket days this wallet has already had this season, when the season's
+   * quota has been changed and the draw needs to know. Undefined means not
+   * answered yet; null means there is nothing to count.
+   */
+  const [adoptDays, setAdoptDays] = useState<number | null | undefined>(undefined);
+  const changed = board?.bigQuota?.length ?? 0;
+  useEffect(() => {
+    if (!connected || !changed) {
+      setAdoptDays(null);
+      return;
+    }
+    let live = true;
+    setAdoptDays(undefined);
+    fetch(`/api/quests/adopts?address=${connected}`)
+      .then((res) => res.json())
+      .then((json) => live && setAdoptDays(typeof json.given === "number" ? json.given : null))
+      // A board drawn from the season's own number is better than no board.
+      .catch(() => live && setAdoptDays(null));
+    return () => {
+      live = false;
+    };
+  }, [connected, changed]);
+
+  /**
    * The draw is a pure function of the day and the address, so once the wallet
    * is known the right five can be drawn here and now — no waiting on a chain
    * read that takes seconds. Progress fills in when the score lands; the set
@@ -292,13 +316,20 @@ export default function QuestsApp() {
    */
   const ownPreview = useMemo(() => {
     if (!connected || !board) return null;
+    // A season whose quota was changed draws the days that are left against
+    // what this wallet has already been handed, so there is nothing to draw
+    // until that count arrives. It is a quick read — no chain behind it —
+    // and drawing without it would mean showing a board the server disagrees
+    // with, which is the one thing this preview exists to avoid.
+    if (board.bigQuota?.length && adoptDays === undefined) return null;
     const context = { floorRon: board.floorRon };
     // Same pure draw as the server, from the same day's pool.
     const drawn = questsForDay(
       board.day,
       connected,
       board.pool,
-      board.bigQuota ?? undefined
+      board.bigQuota ?? undefined,
+      adoptDays ?? undefined
     );
     return drawn.map((quest) => ({
       ...quest,

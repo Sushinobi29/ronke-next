@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { poolOnDay } from "@/lib/quests/pool";
+import { bigDaysGiven, givenBefore, poolOnDay } from "@/lib/quests/pool";
 import { isAddress, readDaily } from "@/lib/quests/read";
 import { getToday } from "@/lib/quests/today";
 import { dayIndex, questResults, scoreDay, secondsUntilReset } from "@/lib/quests/daily";
@@ -69,6 +69,9 @@ export async function GET(request: NextRequest) {
       readFeaturedShared(day),
       readQuota(seasonAt().number),
     ]);
+    // A quota changed mid-season aims at what this wallet has really been
+    // handed, so the count comes from the boards it was served.
+    const line = givenBefore(quota);
     const score = scoreDay(
       stats,
       day,
@@ -76,7 +79,8 @@ export async function GET(request: NextRequest) {
       wallet,
       poolOnDay(day, snapshots),
       featured,
-      quota
+      quota,
+      line === null ? undefined : bigDaysGiven(wallet, line, snapshots)
     );
 
     const season = seasonAt();

@@ -69,7 +69,7 @@ import {
   sweptOn,
   writeDayState,
 } from "./store";
-import { poolOnDay } from "./pool";
+import { bigDaysGivenMany, givenBefore, poolOnDay } from "./pool";
 
 /** How long a cached seed stands before one instance refreshes it. */
 const SEED_TTL_S = 300;
@@ -1133,6 +1133,12 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
   ];
 
   const streaks = await priorSweepStreaks(candidates, day);
+  // What each of them has actually been handed this season, for a quota that
+  // has been changed mid-season. One pass for all of them, before the scoring
+  // fans out — it keeps the draw's caches warm instead of emptying them once
+  // per wallet.
+  const line = givenBefore(quota);
+  const given = line === null ? null : bigDaysGivenMany(candidates, line, snapshots);
 
   const rows = await Promise.all(
     candidates.map(async (address) => {
@@ -1159,7 +1165,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           address,
           pool,
           featured,
-          quota
+          quota,
+          given?.get(address.toLowerCase())
         );
         return {
           address,

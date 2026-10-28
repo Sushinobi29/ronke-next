@@ -15,8 +15,10 @@
  * what it would actually do before anybody signs it.
  */
 
+import { seasonAt, seasonDays } from "@/lib/quests/season";
 import {
   BASE_POOL,
+  DAY_SECONDS,
   QUESTS_PER_DAY,
   ALL_DONE_BONUS,
   drawableOn,
@@ -28,6 +30,7 @@ import {
   type CostTier,
   type QuestDef,
   type QuestGame,
+  type QuotaStep,
 } from "@/lib/quests/daily";
 import { isMetric, metric } from "@/lib/quests/metrics";
 
@@ -44,6 +47,60 @@ export const COSTS: CostTier[] = ["free", "tokens", "ron", "big"];
 export const MAX_POOL = 60;
 
 /* --------------------------------------------------------------- reading */
+
+/**
+ * How many big-ticket days a wallet has actually been handed this season,
+ * counting every day before `before` against the pool that was in force on
+ * it rather than the pool in force now.
+ *
+ * This is the number a mid-season change aims at. Deriving it instead — by
+ * replaying those days against today's pool — is what left season two ending
+ * anywhere between five and eight adopt days: retiring Mines changed the
+ * replay, and the rota moved under it. Counted this way it cannot drift,
+ * whatever is edited next, and the client works it out from the same
+ * snapshots so its board never disagrees with the server's.
+ */
+export function bigDaysGiven(
+  address: string,
+  before: number,
+  snapshots: { from: number; pool: QuestDef[] }[]
+): number {
+  return bigDaysGivenMany([address], before, snapshots).get(address.toLowerCase()) ?? 0;
+}
+
+/**
+ * The same for many wallets at once. Walks day by day rather than wallet by
+ * wallet: the draw caches everything against the pool it was handed, so one
+ * pass per day keeps those caches warm instead of emptying them per wallet.
+ */
+export function bigDaysGivenMany(
+  addresses: string[],
+  before: number,
+  snapshots: { from: number; pool: QuestDef[] }[]
+): Map<string, number> {
+  const wallets = [...new Set(addresses.map((a) => a.toLowerCase()))];
+  const given = new Map<string, number>(wallets.map((w) => [w, 0]));
+  const { fromDay } = seasonDays(seasonAt(before * DAY_SECONDS + DAY_SECONDS - 1));
+  for (let day = fromDay; day < before; day++) {
+    const pool = poolOnDay(day, snapshots);
+    for (const wallet of wallets) {
+      if (questsForDay(day, wallet, pool).some((quest) => quest.cost === "big")) {
+        given.set(wallet, (given.get(wallet) ?? 0) + 1);
+      }
+    }
+  }
+  return given;
+}
+
+/**
+ * What to tell the draw about a wallet, given the season's changes: the day
+ * the first change starts is the line, and everything before it is settled.
+ * Without a change there is nothing to count.
+ */
+export function givenBefore(schedule: QuotaStep[] | undefined): number | null {
+  if (!schedule?.length) return null;
+  return Math.min(...schedule.map((step) => step.from));
+}
 
 /** The pool in force on a given day: the newest snapshot dated on or before it. */
 export function poolOnDay(

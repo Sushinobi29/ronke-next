@@ -794,6 +794,17 @@ export interface QuotaStep {
 }
 
 interface Rules {
+  /**
+   * How many big-ticket days this wallet has actually been handed this season
+   * before the first change takes effect — counted from the boards it was
+   * really served, pool by pool, rather than replayed under today's pool.
+   *
+   * Without it a change can only aim at a replay, and a replay moves whenever
+   * the pool is edited: retiring Mines mid-season shifted it for a seventh of
+   * wallets, which is why season two was ending anywhere between five and
+   * eight. With it, a change lands everyone on the number.
+   */
+  given?: number;
   gate: number;
   quota: number;
   /** Changes made to the quota mid-season, oldest first. */
@@ -836,14 +847,17 @@ const MIDDAY: Rules = {
  * somebody already played. Seasons are the smallest unit that cannot be
  * redrawn underneath anybody.
  */
-const rulesFor = (day: number, schedule?: QuotaStep[]): Rules => {
+const rulesFor = (day: number, schedule?: QuotaStep[], given?: number): Rules => {
   if (day === SPLIT_DAY) return MIDDAY;
   if (!schedule?.length) return NOW;
   const sorted = [...schedule].sort((a, b) => a.from - b.from);
   return {
     ...NOW,
     schedule: sorted,
-    id: `now:${sorted.map((s) => `${s.from}=${s.quota}`).join(",")}`,
+    given,
+    id:
+      `now:${sorted.map((s) => `${s.from}=${s.quota}`).join(",")}` +
+      (given === undefined ? "" : `:had${given}`),
   };
 };
 /** The most one day's target may bend to repay drift. */
@@ -1143,15 +1157,31 @@ function bigDaysFor(address: string, day: number, quota: number, rules: Rules): 
   const steps = [{ from: first, quota }, ...(rules.schedule ?? [])];
 
   let chosen: number[] = [];
-  for (const step of steps) {
+  // What the wallet has really been handed before the change being worked on.
+  // The count the caller supplies runs up to the first change; after that this
+  // has to keep its own books, because the days between one change and the
+  // next are ones this very function just handed out.
+  let had = rules.given;
+  let previous: number | null = null;
+  steps.forEach((step, index) => {
     const edge = Math.max(first, step.from);
+    if (index > 0 && had !== undefined && previous !== null) {
+      had += chosen.filter((d) => d >= previous! && d < edge).length;
+    }
     // Days already handed out before this change stand.
     chosen = chosen.filter((d) => d < edge);
     const open: number[] = [];
     for (let d = edge; d <= end; d++) if (!chosen.includes(d)) open.push(d);
-    // The caller has already taken off anything drawn before the gate.
-    chosen = [...chosen, ...pickDays(open, Math.max(0, step.quota - chosen.length), seed)];
-  }
+    // Against what it has had: the true count where the caller knows it, and
+    // the replayed rota days otherwise — in which case the caller has already
+    // taken off anything drawn before the gate.
+    //
+    // The season's own step is never measured this way. It is what defines
+    // the number, and it has to hand out the same days it always has.
+    const already = index === 0 || had === undefined ? chosen.length : had;
+    chosen = [...chosen, ...pickDays(open, Math.max(0, step.quota - already), seed)];
+    if (index > 0) previous = edge;
+  });
   return new Set(chosen);
 }
 
@@ -1224,7 +1254,11 @@ function bigDaysCached(address: string, day: number, pool: QuestDef[], rules: Ru
     // season instead: it aims at what the wallet was actually given, so
     // everybody finishes on the same number whatever the gate left behind.
     const served =
-      rules.discount && rules.schedule?.length ? preGateServed(address, day, pool) : off;
+      rules.given !== undefined
+        ? 0
+        : rules.discount && rules.schedule?.length
+          ? preGateServed(address, day, pool)
+          : off;
     const scheduled = rules.schedule?.map((s) => ({
       ...s,
       quota: Math.max(0, s.quota - served),
@@ -1387,18 +1421,20 @@ export function questsForDay(
   day: number = dayIndex(),
   address?: string,
   pool: QuestDef[] = BASE_POOL,
-  schedule?: QuotaStep[]
+  schedule?: QuotaStep[],
+  given?: number
 ): QuestDef[] {
-  return drawOne(day, address, pool, schedule);
+  return drawOne(day, address, pool, schedule, given);
 }
 
 function drawOne(
   day: number,
   address: string | undefined,
   pool: QuestDef[],
-  schedule?: QuotaStep[]
+  schedule?: QuotaStep[],
+  given?: number
 ): QuestDef[] {
-  const rules = rulesFor(day, schedule);
+  const rules = rulesFor(day, schedule, given);
   const carry = cachedCarry(day, address, pool, rules);
   return boardFor(day, address, pool, budgetFor(day, address, pool, carry, rules), rules);
 }
@@ -1649,7 +1685,8 @@ export function scoreDay(
   address?: string,
   pool: QuestDef[] = BASE_POOL,
   featured: string[] = [],
-  schedule?: QuotaStep[]
+  schedule?: QuotaStep[],
+  given?: number
 ): DailyScore {
   const score = (quest: QuestDef): ScoredQuest => {
     const read = measure(quest);
@@ -1708,7 +1745,7 @@ export function scoreDay(
     };
   };
 
-  const drawn = questsForDay(day, address, pool, schedule);
+  const drawn = questsForDay(day, address, pool, schedule, given);
   const onBoard = new Set(drawn.map((quest) => quest.id));
 
   const quests = drawn.map(score);
