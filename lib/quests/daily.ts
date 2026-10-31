@@ -1578,17 +1578,39 @@ export function pointsFor(quest: QuestDef, context: QuestContext = {}): number {
 }
 
 /**
+ * How far above the day's own price a single purchase is still paid for.
+ *
+ * There has to be a ceiling: the ladder is a square root of RON, so ten
+ * thousand of them pays 5,550 — three days of quests for one click, and a
+ * leaderboard that measures nothing but who has the most money. But the
+ * ceiling has to sit well above what the quest asks for, or it stops being a
+ * ladder at all.
+ */
+export const SPEND_CEILING = 2;
+
+/**
  * What a scaled quest paid, from what was actually spent.
  *
- * Held inside the same band as any other moving price, because the draw
- * budgets against the fixed number and cannot see what anybody spent. That
- * band is also the ceiling on what overpaying is worth.
+ * Measured against the day's price rather than the quest's fixed number,
+ * because the fixed number does not move and the floor does. Pinned to the
+ * fixed number, the ceiling landed at 659 RON against a floor of 654 — so a
+ * monke at the floor and a monke at fourteen times the floor paid the same
+ * 1,470, and the card's promise that it "pays more the more you spend" was
+ * true only of purchases nobody could make. Tied to the price instead, the
+ * ladder runs to about three times the floor and moves with it.
  */
-export function earnedPoints(quest: QuestDef, spent: number): number {
+export function earnedPoints(
+  quest: QuestDef,
+  spent: number,
+  context: QuestContext = {}
+): number {
   // A ceiling and no floor. Holding the bottom up would pay a small purchase
   // as though it were a large one, which is the opposite of scaling — the
   // ladder is allowed to run all the way down.
-  return Math.min(Math.round(quest.points * (1 + DYNAMIC_POINTS_BAND)), pointsForRon(spent));
+  return Math.min(
+    Math.round(pointsFor(quest, context) * SPEND_CEILING),
+    pointsForRon(spent)
+  );
 }
 
 /** What the day's scoring needs from outside the wallet itself. */
@@ -1716,7 +1738,7 @@ export function scoreDay(
         value: finished ? 1 : 0,
         unit: undefined,
         done: finished,
-        points: finished ? earnedPoints(quest, measured) : pointsFor(quest, context),
+        points: finished ? earnedPoints(quest, measured, context) : pointsFor(quest, context),
         // Somebody who bought something that did not count is owed an answer,
         // and staying silent is how a hidden bar becomes a bug report.
         note:
