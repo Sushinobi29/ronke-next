@@ -25,7 +25,7 @@ import {
   targetFor,
   type ScoredQuest,
 } from "@/lib/quests/daily";
-import { secondsLeft, type Season } from "@/lib/quests/season";
+import { seasonDays as seasonWindow, secondsLeft, type Season } from "@/lib/quests/season";
 
 /* --------------------------------------------------------------- types */
 
@@ -482,8 +482,27 @@ export default function QuestsApp() {
     !seasonRows.some((row) => row.address === scored.toLowerCase());
 
   const season = board?.season;
-  const seasonDays =
-    season && now !== null ? Math.ceil(secondsLeft(season, now) / 86_400) : null;
+  const seasonLeft = season && now !== null ? secondsLeft(season, now) : null;
+  /** Days while there are days; hours once "1d left" would mean eleven. */
+  const seasonLabel =
+    seasonLeft === null
+      ? null
+      : seasonLeft >= 2 * 86_400
+        ? `${Math.ceil(seasonLeft / 86_400)}d left`
+        : `${Math.ceil(seasonLeft / 3_600)}h left`;
+
+  /**
+   * A season rolls at 07:00 UTC, a board rolls at midnight. So the last board
+   * a season counts closes seven hours before the season clock reaches zero,
+   * and the board handed out in those seven hours already belongs to the next
+   * season. On every other day that gap is invisible; on these two it is the
+   * only thing a player needs to know, so the header says it outright instead
+   * of showing one countdown and meaning another.
+   */
+  const lastScoringDay = season ? seasonWindow(season).toDay : null;
+  const finalBoard = lastScoringDay !== null && board?.day === lastScoringDay;
+  const overlapBoard =
+    lastScoringDay !== null && board !== null && board.day > lastScoringDay;
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-24 pt-24 sm:px-6">
@@ -512,11 +531,24 @@ export default function QuestsApp() {
               <span className="text-muted-3">·</span>
               <span className="text-muted-2">
                 {season.name}
-                {seasonDays !== null && ` · ${seasonDays}d left`}
+                {seasonLabel !== null && ` · ${seasonLabel}`}
               </span>
             </>
           )}
         </div>
+
+        {season && finalBoard && (
+          <p className="mono mx-auto mt-3 max-w-md text-[11px] uppercase tracking-[0.12em] text-gold">
+            Last board of {season.name} — it stops counting when the clock above hits zero,
+            seven hours before the season timer does.
+          </p>
+        )}
+        {season && overlapBoard && (
+          <p className="mono mx-auto mt-3 max-w-md text-[11px] uppercase tracking-[0.12em] text-muted-2">
+            {season.name} is finished scoring — today&apos;s board already counts toward the
+            next season.
+          </p>
+        )}
       </header>
 
       {/* -------------------------------------------------------- wallet */}
