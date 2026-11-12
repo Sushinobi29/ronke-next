@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Loader2, RefreshCw, Star, Trophy } from "lucide-react";
 import QuestCard from "@/components/quest-card";
 import SocialQuestCard from "@/components/social-quest-card";
@@ -25,7 +26,12 @@ import {
   targetFor,
   type ScoredQuest,
 } from "@/lib/quests/daily";
-import { seasonDays as seasonWindow, secondsLeft, type Season } from "@/lib/quests/season";
+import {
+  QUEST_SEASON_ONE,
+  seasonDays as seasonWindow,
+  secondsLeft,
+  type Season,
+} from "@/lib/quests/season";
 
 /* --------------------------------------------------------------- types */
 
@@ -971,6 +977,20 @@ export default function QuestsApp() {
                   `Show all ${seasonPlayers}`
                 )}
               </button>
+            )}
+            {/*
+              * The season's own page, which this table cannot be: it holds
+              * every row, every scoring correction applied to the season, and
+              * the board as it originally stood. Players asked to be able to
+              * read a finished season rather than take its top ten on trust.
+              */}
+            {(viewing ?? season?.number) !== undefined && (
+              <Link
+                href={`/quests/seasons/${(viewing ?? season!.number) - QUEST_SEASON_ONE + 1}`}
+                className="mono text-[10px] uppercase tracking-[0.12em] text-muted-3 transition-colors hover:text-accent"
+              >
+                Full table and corrections →
+              </Link>
             )}
             {seasonError && <span className="mono text-[11px] text-burn">{seasonError}</span>}
           </div>

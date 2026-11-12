@@ -55,6 +55,8 @@ const SCHEMA = [
   "quest_social_post_id",
   "quest_results",
   "quest_results_day_quest_idx",
+  "quest_corrections",
+  "quest_corrections_day_idx",
   "quest_state",
 ] as const;
 
@@ -164,6 +166,41 @@ async function migrate(sql: Sql): Promise<void> {
   // Completion rates are read per quest across a day, not per wallet.
   await sql`
     create index if not exists quest_results_day_quest_idx on quest_results (day, quest_id)
+  `;
+
+  /**
+   * Scoring corrections, kept beside the score rather than written over it.
+   *
+   * When a quest paid the wrong number, the obvious repair is to go back and
+   * fix the row. That destroys the only evidence of what happened: the board
+   * silently becomes a different board, and nobody outside can tell whether
+   * it was corrected, tampered with, or always said that. For a leaderboard
+   * that pays out — one that has already been accused of a hidden list of
+   * favoured wallets — that is the wrong trade.
+   *
+   * So a correction is an entry, not an edit. `was` is what the day actually
+   * paid and stays true forever; `points` is what it should have paid, and
+   * the standings add the difference on the way out. The scored board and
+   * the corrected board are both derivable, which is what lets the season
+   * page show them side by side and let anyone check the arithmetic.
+   */
+  await sql`
+    create table if not exists quest_corrections (
+      day      integer not null,
+      address  text    not null,
+      quest_id text    not null,
+      -- What the day paid at the time. Never updated.
+      was      integer not null,
+      -- What it should have paid.
+      points   integer not null,
+      -- Shown to players verbatim, so it has to read as a sentence.
+      reason   text    not null,
+      made_at  timestamptz not null default now(),
+      primary key (day, address, quest_id)
+    )
+  `;
+  await sql`
+    create index if not exists quest_corrections_day_idx on quest_corrections (day)
   `;
 
   // One X account per wallet, and one wallet per X account — without the
@@ -417,19 +454,26 @@ export async function seasonStandings(
     const rows = await sql<
       { address: string; points: string; days: string; sweeps: string }[]
     >`
-      select address,
-             sum(points)::text                        as points,
-             count(*)::text                           as days,
-             count(*) filter (where bonus > 0)::text  as sweeps
-        from quest_days
-       where day between ${fromDay} and ${toDay}
-       group by address
-       having sum(points) > 0
+      with fix as (
+        select day, address, sum(points - was)::int as delta
+          from quest_corrections
+         where day between ${fromDay} and ${toDay}
+         group by day, address
+      )
+      select d.address,
+             sum(d.points + coalesce(f.delta, 0))::text  as points,
+             count(*)::text                              as days,
+             count(*) filter (where d.bonus > 0)::text   as sweeps
+        from quest_days d
+        left join fix f on f.day = d.day and f.address = d.address
+       where d.day between ${fromDay} and ${toDay}
+       group by d.address
+       having sum(d.points + coalesce(f.delta, 0)) > 0
        -- The address is not the real tiebreak — Ronke Score is, and it is
        -- applied in lib/quests/standings.ts, which cannot reach it from here.
        -- This only makes the truncation deterministic, so the same wallets
        -- come back each time and the score gets to order the same set.
-       order by sum(points) desc, address asc
+       order by sum(d.points + coalesce(f.delta, 0)) desc, d.address asc
        limit ${limit}
     `;
     return rows.map((row) => ({
@@ -454,12 +498,20 @@ export async function walletSeason(
 
   try {
     const [row] = await sql<{ points: string; days: string; sweeps: string }[]>`
-      select sum(points)::text                       as points,
-             count(*)::text                          as days,
-             count(*) filter (where bonus > 0)::text as sweeps
-        from quest_days
-       where address = ${address.toLowerCase()}
-         and day between ${fromDay} and ${toDay}
+      with fix as (
+        select day, address, sum(points - was)::int as delta
+          from quest_corrections
+         where address = ${address.toLowerCase()}
+           and day between ${fromDay} and ${toDay}
+         group by day, address
+      )
+      select sum(d.points + coalesce(f.delta, 0))::text  as points,
+             count(*)::text                              as days,
+             count(*) filter (where d.bonus > 0)::text   as sweeps
+        from quest_days d
+        left join fix f on f.day = d.day and f.address = d.address
+       where d.address = ${address.toLowerCase()}
+         and d.day between ${fromDay} and ${toDay}
     `;
     if (!row?.points) return null;
     return {
@@ -521,11 +573,17 @@ export async function seasonPlace(
       select count(*)::text                                            as players,
              count(*) filter (where points > ${points ?? 0})::text      as ahead
         from (
-          select address, sum(points) as points
-            from quest_days
-           where day between ${fromDay} and ${toDay}
-           group by address
-          having sum(points) > 0
+          select d.address, sum(d.points + coalesce(f.delta, 0)) as points
+            from quest_days d
+            left join (
+              select day, address, sum(points - was)::int as delta
+                from quest_corrections
+               where day between ${fromDay} and ${toDay}
+               group by day, address
+            ) f on f.day = d.day and f.address = d.address
+           where d.day between ${fromDay} and ${toDay}
+           group by d.address
+          having sum(d.points + coalesce(f.delta, 0)) > 0
         ) t
     `;
     return {
@@ -1044,11 +1102,145 @@ export async function dayStandings(day: number, limit = 15): Promise<
   if (!sql) return [];
   try {
     const rows = await sql<{ address: string; points: number; done: number; bonus: number }[]>`
-      select address, points, done, bonus from quest_days
-       where day = ${day} and points > 0
-       order by points desc, done desc
+      select d.address,
+             (d.points + coalesce(f.delta, 0)) as points,
+             d.done, d.bonus
+        from quest_days d
+        left join (
+          select day, address, sum(points - was)::int as delta
+            from quest_corrections where day = ${day} group by day, address
+        ) f on f.day = d.day and f.address = d.address
+       where d.day = ${day} and d.points > 0
+       order by points desc, d.done desc
        limit ${limit}`;
     return rows;
+  } catch {
+    return [];
+  }
+}
+
+/* ---------------------------------------------------------- corrections */
+
+/** One quest, on one day, that paid the wrong number — and what it should be. */
+export interface Correction {
+  day: number;
+  address: string;
+  questId: string;
+  /** What the day actually paid. Never changes. */
+  was: number;
+  /** What it should have paid. */
+  points: number;
+  /** Shown to players, so it has to read as a sentence. */
+  reason: string;
+}
+
+/**
+ * Files corrections without touching a single scored row.
+ *
+ * A correction may only raise. Lowering someone's score after the fact is a
+ * different act entirely — it takes points off a board a player has already
+ * read — and if that is ever needed it should be written deliberately, not
+ * slipped in through the same door as a repair.
+ */
+export async function writeCorrections(rows: Correction[]): Promise<number> {
+  const sql = await db();
+  if (!sql || rows.length === 0) return 0;
+
+  const raising = rows.filter((row) => row.points > row.was);
+  if (raising.length === 0) return 0;
+
+  try {
+    const written = await sql`
+      insert into quest_corrections ${sql(
+        raising.map((row) => ({
+          day: row.day,
+          address: row.address.toLowerCase(),
+          quest_id: row.questId,
+          was: row.was,
+          points: row.points,
+          reason: row.reason,
+        })),
+        "day",
+        "address",
+        "quest_id",
+        "was",
+        "points",
+        "reason"
+      )}
+      on conflict (day, address, quest_id) do update
+         set points = excluded.points, reason = excluded.reason, made_at = now()
+       where excluded.points > quest_corrections.points
+    `;
+    return written.count ?? 0;
+  } catch (error) {
+    console.error("[quests] writeCorrections failed:", error);
+    return 0;
+  }
+}
+
+/** Every correction in a window, for the page that shows its working. */
+export async function readCorrections(fromDay: number, toDay: number): Promise<Correction[]> {
+  const sql = await db();
+  if (!sql) return [];
+
+  try {
+    const rows = await sql<
+      { day: number; address: string; quest_id: string; was: number; points: number; reason: string }[]
+    >`
+      select day, address, quest_id, was, points, reason
+        from quest_corrections
+       where day between ${fromDay} and ${toDay}
+       order by day, address
+    `;
+    return rows.map((row) => ({
+      day: row.day,
+      address: row.address,
+      questId: row.quest_id,
+      was: row.was,
+      points: row.points,
+      reason: row.reason,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The season as it was scored, with no corrections applied.
+ *
+ * The corrected board is what counts now, but a page claiming a board was
+ * fixed has to be able to show the one it replaced, or it is just an
+ * assertion. This is that board, read the way the old query read it.
+ */
+export async function seasonStandingsAsScored(
+  fromDay: number,
+  toDay: number,
+  limit = 50
+): Promise<SeasonRow[]> {
+  const sql = await db();
+  if (!sql) return [];
+
+  try {
+    const rows = await sql<
+      { address: string; points: string; days: string; sweeps: string }[]
+    >`
+      select address,
+             sum(points)::text                        as points,
+             count(*)::text                           as days,
+             count(*) filter (where bonus > 0)::text  as sweeps
+        from quest_days
+       where day between ${fromDay} and ${toDay}
+       group by address
+       having sum(points) > 0
+       order by sum(points) desc, address asc
+       limit ${limit}
+    `;
+    return rows.map((row) => ({
+      address: row.address,
+      points: Number(row.points),
+      days: Number(row.days),
+      sweeps: Number(row.sweeps),
+    }));
   } catch {
     return [];
   }
