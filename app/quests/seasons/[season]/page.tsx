@@ -3,9 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import PageNavbar from "@/components/page-navbar";
 import { QUEST_SEASON_ONE, seasonAt, seasonByNumber, seasonDays } from "@/lib/quests/season";
-import { hasStore, readCorrections, seasonStandings, seasonStandingsAsScored } from "@/lib/quests/store";
+import {
+  hasStore,
+  readCorrections,
+  readRewards,
+  seasonStandings,
+  seasonStandingsAsScored,
+} from "@/lib/quests/store";
 import { orderStandings, type RankedRow } from "@/lib/quests/standings";
 import { ronkeScores } from "@/lib/quests/score";
+import { describeItem, formatAmount, previewRewards } from "@/lib/quests/rewards";
 
 export const dynamic = "force-dynamic";
 
@@ -42,11 +49,12 @@ export default async function SeasonPage({ params }: { params: Promise<{ season:
 
   if (!hasStore()) notFound();
 
-  const [correctedRaw, scoredRaw, corrections, scores] = await Promise.all([
+  const [correctedRaw, scoredRaw, corrections, scores, stored] = await Promise.all([
     seasonStandings(fromDay, toDay, DEPTH),
     seasonStandingsAsScored(fromDay, toDay, DEPTH),
     readCorrections(fromDay, toDay),
     ronkeScores(),
+    readRewards(season.number),
   ]);
 
   const of = scores?.of ?? null;
@@ -59,6 +67,16 @@ export default async function SeasonPage({ params }: { params: Promise<{ season:
   const touched = new Set(corrections.map((c) => c.address));
   const reason = corrections[0]?.reason ?? null;
   const rows = after.slice(0, ROWS);
+
+  /**
+   * What the board pays. The split is worked out from the same standings the
+   * table shows — corrections included — so the prize column and the points
+   * column can never disagree with each other.
+   */
+  const rewards = stored?.config.published ? stored.config : null;
+  const awards = rewards ? previewRewards(after, rewards) : [];
+  const wonBy = new Map(awards.map((row) => [row.address, row.shares]));
+  const paidCount = awards.filter((row) => row.shares.length > 0).length;
 
   const movement = (row: RankedRow, rank: number) => {
     const was = rankBefore.get(row.address);
@@ -118,6 +136,44 @@ export default async function SeasonPage({ params }: { params: Promise<{ season:
           </section>
         )}
 
+        {/* ------------------------------------------------- what it pays */}
+        {rewards && (
+          <section className="rv-card mt-8 p-5">
+            <h2 className="mono text-[11px] uppercase tracking-[0.14em] text-accent">
+              What this season pays
+            </h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              {rewards.items.map((item) => (
+                <div key={item.id}>
+                  <span className="mono block text-[11px] uppercase tracking-[0.1em] text-muted-3">
+                    {item.label}
+                  </span>
+                  <span className="mono text-[18px] font-bold text-foreground">
+                    {formatAmount(item.amount, item.precision)}
+                  </span>
+                  <span className="mt-1 block text-[12px] text-muted-2">{describeItem(item)}</span>
+                </div>
+              ))}
+            </div>
+            {rewards.note && <p className="mt-4 text-[13px] text-muted-1">{rewards.note}</p>}
+            <p className="mt-4 text-[13px] text-muted-2">
+              {running ? (
+                <>
+                  These are the shares the board would pay if the season ended now. They move
+                  every time anybody plays.
+                </>
+              ) : (
+                <>
+                  {paidCount.toLocaleString()} wallets finished in the money. Each share below is
+                  worked out from the corrected table on this page, so what a wallet is owed and
+                  the points it is owed for are the same arithmetic
+                  {corrections.length > 0 && " — corrections included"}.
+                </>
+              )}
+            </p>
+          </section>
+        )}
+
         {/* ------------------------------------------------------- the table */}
         <section className="mt-8">
           <h2 className="mono text-[11px] uppercase tracking-[0.14em] text-muted-3">
@@ -131,6 +187,11 @@ export default async function SeasonPage({ params }: { params: Promise<{ season:
                   <th className="px-4 py-3">Wallet</th>
                   <th className="px-4 py-3 text-right">Points</th>
                   {corrections.length > 0 && <th className="px-4 py-3 text-right">As scored</th>}
+                  {rewards?.items.map((item) => (
+                    <th key={item.id} className="whitespace-nowrap px-4 py-3 text-right text-accent">
+                      {item.label}
+                    </th>
+                  ))}
                   <th className="px-4 py-3 text-right">Days</th>
                   <th className="px-4 py-3 text-right">Sweeps</th>
                   {corrections.length > 0 && <th className="px-4 py-3 text-right">Moved</th>}
@@ -154,6 +215,19 @@ export default async function SeasonPage({ params }: { params: Promise<{ season:
                           {raised ? was!.toLocaleString() : "—"}
                         </td>
                       )}
+                      {rewards?.items.map((item) => {
+                        const share = wonBy.get(row.address)?.find((won) => won.id === item.id);
+                        return (
+                          <td
+                            key={item.id}
+                            className={`mono whitespace-nowrap px-4 py-2.5 text-right ${
+                              share ? "text-accent" : "text-muted-3"
+                            }`}
+                          >
+                            {share ? formatAmount(share.amount, item.precision) : "—"}
+                          </td>
+                        );
+                      })}
                       <td className="mono px-4 py-2.5 text-right text-muted-2">{row.days}</td>
                       <td className="mono px-4 py-2.5 text-right text-muted-2">{row.sweeps}</td>
                       {corrections.length > 0 && (
