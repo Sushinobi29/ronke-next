@@ -248,7 +248,8 @@ export async function readDaily(
   buysToday: Map<string, DayBuy> = new Map(),
   monkeBuysToday: Map<string, number> = new Map(),
   trainingToday: Map<string, number> = new Map(),
-  tokenBuysToday: Map<string, DayBuy> = new Map()
+  tokenBuysToday: Map<string, DayBuy> = new Map(),
+  racesToday: Map<string, RacePlay> = new Map()
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
@@ -336,6 +337,11 @@ export async function readDaily(
     aorPinball: labels.filter((l) => l === "pinball").length,
     aorHighStakes: labels.filter((l) => l === "blocks_69").length,
     unitsTrained: trainingToday.get(address.toLowerCase()) ?? 0,
+    // Horske. Both numbers and the market set come off the same pair of log
+    // scans, so a wallet that never raced is simply absent rather than zero.
+    races: racesToday.get(address.toLowerCase())?.races ?? 0,
+    raceWins: racesToday.get(address.toLowerCase())?.wins ?? 0,
+    raceMarkets: racesToday.get(address.toLowerCase())?.markets.size ?? 0,
     socialVerified: socialToday.has(address.toLowerCase()),
     /**
      * Ending the day with no fewer monkes than it opened with.
@@ -378,6 +384,22 @@ export interface AorPlay {
   plays: number;
   labels: Set<string>;
   ronkeSpent: number;
+}
+
+/**
+ * One wallet's racing today, across every Horske market.
+ *
+ * Three readings in one entry rather than three maps threaded separately:
+ * they come off the same two log scans, and the readDaily call already takes
+ * a dozen arguments without adding two more that always travel together.
+ */
+export interface RacePlay {
+  /** Races entered. */
+  races: number;
+  /** Races finished in first place. */
+  wins: number;
+  /** Which markets were raced in — the "two stables" quest counts these. */
+  markets: Set<string>;
 }
 
 /** The block a given wall-clock second maps to. Cached per key. */

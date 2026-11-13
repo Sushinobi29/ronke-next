@@ -58,6 +58,15 @@ export const METRICS: Metric[] = [
   { key: "aorBlocks", label: "Ronke Blocks played", kind: "count", unit: "games", needsLogs: true },
   { key: "aorPinball", label: "Ronke Pinball played", kind: "count", unit: "games", needsLogs: true },
   { key: "aorHighStakes", label: "Age of Ronke at the 69 stake", kind: "count", unit: "games", needsLogs: true },
+  { key: "races", label: "Horske races run", kind: "count", unit: "races", needsLogs: true },
+  { key: "raceWins", label: "Horske races won", kind: "count", unit: "wins", needsLogs: true },
+  {
+    key: "raceMarkets",
+    label: "Different race markets played",
+    kind: "count",
+    unit: "markets",
+    needsLogs: true,
+  },
   { key: "socialVerified", label: "Posted on X today", kind: "flag" },
   { key: "heldTheLine", label: "Sold no monke today", kind: "flag" },
 ];

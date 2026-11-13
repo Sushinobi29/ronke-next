@@ -114,7 +114,14 @@ export function voteOpenOn(day: number): boolean {
   );
 }
 
-export type QuestGame = "casino" | "gacha" | "vote" | "ronkeverse" | "age-of-ronke" | "social";
+export type QuestGame =
+  | "casino"
+  | "gacha"
+  | "vote"
+  | "ronkeverse"
+  | "age-of-ronke"
+  | "horske"
+  | "social";
 
 /**
  * What a quest actually costs to do. Points follow this, so a quest that asks
@@ -154,6 +161,7 @@ export const GAME_LABELS: Record<QuestGame, string> = {
   vote: "Ronke Vote",
   ronkeverse: "Ronkeverse",
   "age-of-ronke": "Age of Ronke",
+  horske: "Horske Races",
   social: "Out in the world",
 };
 
@@ -165,6 +173,9 @@ export const GAME_LINKS: Record<QuestGame, string> = {
   vote: "https://ronke-vote.netlify.app",
   ronkeverse: "https://marketplace.roninchain.com/collections/ronkeverse",
   "age-of-ronke": "https://0x-pewpew.com/lenta/#f9home",
+  // The races, not the casino lobby: landing a click away from what the
+  // quest asked for reads as broken even when the scoring is right.
+  horske: "https://games.ronkeverse.com/horske",
   social: "https://x.com/RonkeOnRon",
 };
 
@@ -203,6 +214,10 @@ export const GAME_ART: Record<QuestGame, string> = {
   vote: "/vote-card.webp",
   ronkeverse: "/ronkeverse.png",
   "age-of-ronke": "/age-of-ronke-poster.jpg",
+  // PLACEHOLDER. There is no Horske artwork anywhere in the repo or on the
+  // casino site, so this is the generic casino card standing in. Drop a real
+  // one at /public/quests/horske.webp and point this at it.
+  horske: "/casino-card.webp",
   social: "/ronke-logo.webp",
 };
 
@@ -239,6 +254,12 @@ export interface DailyStats {
   aorHighStakes: number;
   /** Units sent to train in a barracks today. */
   unitsTrained: number;
+  /** Horske — races entered today, across every market. */
+  races: number;
+  /** Races finished in first place. */
+  raceWins: number;
+  /** How many different race markets were played — the "two stables" quest. */
+  raceMarkets: number;
   /** A post about the Ronkeverse, verified against X today. */
   socialVerified: boolean;
   /** Held every monke they woke up with, and woke up with at least one. */
@@ -271,6 +292,9 @@ export const EMPTY_DAILY: DailyStats = {
   aorPinball: 0,
   aorHighStakes: 0,
   unitsTrained: 0,
+  races: 0,
+  raceWins: 0,
+  raceMarkets: 0,
   socialVerified: false,
   heldTheLine: false,
   heldBarracks: false,
@@ -702,6 +726,82 @@ export const BASE_POOL: QuestDef[] = [
     target: 1,
     points: 550,
     metric: "trophies",
+  },
+  /**
+   * Horske Races.
+   *
+   * Priced against the casino quests that ask the same shape of thing rather
+   * than invented fresh: one race is one coinflip, three races are three
+   * flips, winning is winning, and two markets are two Mines tables. A race
+   * costs what the market's offer asks, which is tokens, so the tier matches.
+   *
+   * Going into the drawn pool is a deliberate call made with the numbers in
+   * hand: at the time of writing races see single-digit distinct players a
+   * day, so most wallets drawing one of these will be racing for the first
+   * time. That is the point of putting it on the board - but it does mean a
+   * drawn race quest can cost somebody a clean sweep, which a pinned one
+   * could not.
+   *
+   * All four share one group, which is why they do not read as four separate
+   * ones. Four quests in a pool of twenty-five put a race on half of all
+   * boards however they are grouped - that much is the draw's arithmetic and
+   * cannot be tuned away without dropping quests. What the shared group does
+   * fix is concentration: ungrouped, one board in twenty got two race cards
+   * at once, which to anybody who does not race is two dead cards instead of
+   * one. Grouped, it is never more than one.
+   */
+  {
+    id: "race.one",
+    title: "Out of the gate",
+    task: "Run a race at Horske",
+    game: "horske",
+    tier: "core",
+    group: "races",
+    cost: "tokens",
+    target: 1,
+    unit: "races",
+    points: 100,
+    metric: "races",
+  },
+  {
+    id: "race.three",
+    title: "Three at the gate",
+    task: "Run three races at Horske",
+    game: "horske",
+    tier: "core",
+    group: "races",
+    cost: "tokens",
+    target: 3,
+    unit: "races",
+    points: 175,
+    metric: "races",
+  },
+  {
+    id: "race.win",
+    title: "First past the post",
+    task: "Win a race at Horske",
+    game: "horske",
+    tier: "core",
+    group: "races",
+    cost: "tokens",
+    target: 1,
+    unit: "wins",
+    points: 150,
+    metric: "raceWins",
+  },
+  {
+    id: "race.stables",
+    title: "Two stables",
+    task: "Race with two different tokens",
+    game: "horske",
+    tier: "core",
+    group: "races",
+    cost: "tokens",
+    target: 2,
+    unit: "markets",
+    note: "Any two of the eight race markets count",
+    points: 175,
+    metric: "raceMarkets",
   },
   {
     id: "monke.adopt",

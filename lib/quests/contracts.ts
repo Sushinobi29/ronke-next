@@ -220,6 +220,46 @@ export const FORTUNE_SPIN = {
 } as const;
 
 /**
+ * Horske Races — a race per market, one contract each.
+ *
+ * Season 2, deployed 1 November 2026. Every market is the same contract with
+ * a different stake token, so a quest asking for "a race" means a race in any
+ * of them and the scan filters on the whole set at once rather than eight
+ * times over. The RON market is the native variant; the rest take an ERC-20.
+ *
+ * The events carry everything a quest needs, which is why none of this has to
+ * go anywhere near the Horske backend: the player is topic2 on both, the
+ * stake is the second word of RacePlaced, and the finishing place is the
+ * second word of RaceSettled. Topics derived from the published ABI in
+ * horske-casino/contracts/src/HorskeRaces.sol and checked against live logs.
+ */
+export const HORSKE_RACES = {
+  markets: {
+    HORSKE: "0xdb2988f05d15334d771ed27b3ba1634495f566c6",
+    RON: "0xb4f9b8e75685605e1060aadc65c7e3c3b6ced1a8",
+    RONKE: "0x9ae1406a0ed093452eadc50fa9f80f03d83f12f3",
+    RONKA: "0x735ca8978ba0ab6358ca3b6e83661d251b654b69",
+    RONKESTR: "0xed3846bb2200cce2d600ad283cdd34a548d657bf",
+    LIV: "0x744759637664c87804862aef3e78fb39b239f36f",
+    PEPITOS: "0x97a7c6b14c301a388cb547e880e593e1662a8530",
+    RMILLIO: "0x101e35b6860649cfbc6da914530bff6dce046bca",
+  },
+  /** RacePlaced(bytes32,address,uint8,uint256,bytes32,bytes32,uint8[6],uint32[6]) */
+  placedTopic: "0xaf39b7e2b9b7af721ecd211f1d71133fd39d89028b6bcd2205dd3b3151fa0a73",
+  /** RaceSettled(bytes32,address,uint8,uint8,uint256,uint256,bytes32,bytes32,uint8[6]) */
+  settledTopic: "0x797ea1c94f9c9d713a9f6028b85f907c97fa98e83f71e6452627b8fc8e34f783",
+  url: "https://games.ronkeverse.com/horske",
+} as const;
+
+/** Every race market, lowercased, for a one-pass log filter. */
+export const HORSKE_MARKETS: string[] = Object.values(HORSKE_RACES.markets);
+
+/** Which market a log came from, so "two different stables" can be counted. */
+export const HORSKE_MARKET_OF: Record<string, string> = Object.fromEntries(
+  Object.entries(HORSKE_RACES.markets).map(([name, address]) => [address, name])
+);
+
+/**
  * Function selectors, precomputed. Grouped by what they answer so the call
  * sites read as questions rather than as hashes.
  */

@@ -47,12 +47,16 @@ import {
   TOKEN_SINKS,
   TOKENS,
   TRANSFER_TOPIC,
+  HORSKE_MARKETS,
+  HORSKE_MARKET_OF,
+  HORSKE_RACES,
 } from "./contracts";
 import {
   blockAtSecond,
   readDaily,
   readMinesWindow,
   type AorPlay,
+  type RacePlay,
   type DayBuy,
   type MinesRound,
 } from "./read";
@@ -130,6 +134,8 @@ export interface TodayState {
   training: Map<string, number>;
   /** RON spent on each token today, read from the tokens arriving. */
   tokenBuys: Map<string, DayBuy>;
+  /** Horske races entered, won, and in which markets, by wallet. */
+  races: Map<string, RacePlay>;
   /** Marketplace side, read over GraphQL rather than the node. */
   floorRon: number;
   sales: Sale[];
@@ -157,6 +163,8 @@ interface Seed {
   training: [string, number][];
   /** Token buys read from tokens arriving, whatever the route. */
   tokenBuys: [string, DayBuy][];
+  /** Horske racing, by wallet. The market set travels as a list. */
+  races: [string, { races: number; wins: number; markets: string[] }][];
   /** Where each Mines table's id counter stood when the rounds were read. */
   minesLatest: [string, number][];
   /** True when the walk back ran out of pages before it reached midnight. */
@@ -386,6 +394,42 @@ async function collectTokenBuys(tokenLogs: Log[], tokenBuys: Map<string, DayBuy>
 }
 
 /** Units sent to train today, by wallet. The player is indexed on the event. */
+/**
+ * Racing, from the two Horske events.
+ *
+ * Entering is counted off RacePlaced and winning off RaceSettled, because a
+ * race settles some seconds after it is placed and the placing event cannot
+ * know the result. Both carry the player in topic2; the market is the log's
+ * own address, which is what makes "two different stables" countable without
+ * decoding a stake token.
+ */
+function collectRaces(placed: Log[], settled: Log[], races: Map<string, RacePlay>) {
+  const entry = (player: string): RacePlay => {
+    const found = races.get(player) ?? { races: 0, wins: 0, markets: new Set<string>() };
+    races.set(player, found);
+    return found;
+  };
+
+  for (const log of placed) {
+    const player = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
+    if (!player || /^0x0+$/.test(player)) continue;
+    const found = entry(player);
+    found.races += 1;
+    const market = HORSKE_MARKET_OF[log.address?.toLowerCase() ?? ""];
+    if (market) found.markets.add(market);
+  }
+
+  for (const log of settled) {
+    const player = toAddress(log.topics[2]?.replace(/^0x/, ""))?.toLowerCase();
+    if (!player || /^0x0+$/.test(player)) continue;
+    // data is (lane, place, amount, payout, raceNumber, secret, order);
+    // place is the second word and 1 is the win.
+    const w = words(log.data);
+    if (w.length < 2 || toNumber(w[1]) !== 1) continue;
+    entry(player).wins += 1;
+  }
+}
+
 function collectTraining(trainLogs: Log[], training: Map<string, number>) {
   for (const log of trainLogs) {
     const player = toAddress(log.topics[1]?.replace(/^0x/, ""))?.toLowerCase();
@@ -476,7 +520,10 @@ function wronSpent(logs: Log[], buyer: string): number {
 
 async function scan(from: number, to: number) {
   if (from > to)
-    return { spinLogs: [], aorLogs: [], swapLogs: [], monkeLogs: [], trainLogs: [], tokenLogs: [] };
+    return {
+      spinLogs: [], aorLogs: [], swapLogs: [], monkeLogs: [], trainLogs: [], tokenLogs: [],
+      raceLogs: [], raceSettleLogs: [],
+    };
   // Sequential, not parallel: the throttle paces them either way, and one at a
   // time keeps a slow scan from starving the rest of the request.
   const spinLogs = await getLogsRange(FORTUNE_SPIN.pack, FORTUNE_SPIN.settleTopic, from, to);
@@ -498,7 +545,15 @@ async function scan(from: number, to: number) {
     from,
     to
   );
-  return { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs };
+  // Every race market in one filter: they are the same contract eight times
+  // over, and a quest asking for "a race" does not care which.
+  const raceLogs = await getLogsRange(HORSKE_MARKETS, HORSKE_RACES.placedTopic, from, to);
+  // Entering a race and finishing it are separate events, and only the second
+  // says where the horse came in.
+  const raceSettleLogs = await getLogsRange(HORSKE_MARKETS, HORSKE_RACES.settledTopic, from, to);
+  return {
+    spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs, raceLogs, raceSettleLogs,
+  };
 }
 
 /**
@@ -571,6 +626,7 @@ async function buildSeed(day: number): Promise<Seed> {
   const monkeBuys = new Map<string, number>();
   const training = new Map<string, number>();
   const tokenBuys = new Map<string, DayBuy>();
+  const races = new Map<string, RacePlay>();
 
   /**
    * Log scanning is the expensive half and the first thing a stingy node
@@ -599,6 +655,7 @@ async function buildSeed(day: number): Promise<Seed> {
       await collectMonkeBuys(slice.monkeLogs, monkeBuys);
       collectTraining(slice.trainLogs, training);
       await collectTokenBuys(slice.tokenLogs, tokenBuys);
+      collectRaces(slice.raceLogs, slice.raceSettleLogs, races);
       coveredFrom = slice.from;
       cursor = slice.from - 1;
     } while (coveredFrom > startBlock && Date.now() < until);
@@ -627,6 +684,10 @@ async function buildSeed(day: number): Promise<Seed> {
     monkeBuys: [...monkeBuys.entries()],
     training: [...training.entries()],
     tokenBuys: [...tokenBuys.entries()],
+    races: [...races.entries()].map(([k, v]) => [
+      k,
+      { races: v.races, wins: v.wins, markets: [...v.markets] },
+    ]),
   };
 }
 
@@ -658,6 +719,10 @@ function handover(current: Internal): Handover {
     monkeBuys: [...current.monkeBuys.entries()],
     training: [...current.training.entries()],
     tokenBuys: [...current.tokenBuys.entries()],
+    races: [...current.races.entries()].map(([k, v]) => [
+      k,
+      { races: v.races, wins: v.wins, markets: [...v.markets] },
+    ]),
     floorRon: current.floorRon,
     sales: current.sales,
     at: current.at,
@@ -696,6 +761,13 @@ function hydrate(day: number, seed: Seed): Internal {
   const monkeBuys = new Map<string, number>(seed.monkeBuys ?? []);
   const training = new Map<string, number>(seed.training ?? []);
   const tokenBuys = new Map<string, DayBuy>((seed.tokenBuys ?? []).map(([k, v]) => [k, { ...v }]));
+  // A seed cached before racing was read has none; the next pass fills it.
+  const races = new Map<string, RacePlay>(
+    (seed.races ?? []).map(([k, v]) => [
+      k,
+      { races: v.races, wins: v.wins, markets: new Set(v.markets) },
+    ])
+  );
 
   /**
    * Where the forward read picks up, per table.
@@ -719,6 +791,7 @@ function hydrate(day: number, seed: Seed): Internal {
   return {
     day,
     at: Date.now(),
+    races,
     startBlock: seed.startBlock,
     rounds: seed.rounds,
     spins,
@@ -1039,6 +1112,7 @@ export async function getToday(force = false, work = false): Promise<TodayState>
       startBlock: 0,
       rounds: [],
       spins: new Map(),
+      races: new Map(),
       aor: new Map(),
       spinRon: new Map(),
       monkeBuys: new Map(),
@@ -1155,7 +1229,8 @@ async function scoreWallets(today: TodayState, day: number): Promise<BoardEntry[
           today.buys,
           today.monkeBuys,
           today.training,
-          today.tokenBuys
+          today.tokenBuys,
+          today.races
         );
         // Each wallet is scored against its own five, not a shared set.
         const score = scoreDay(
