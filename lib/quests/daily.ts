@@ -214,10 +214,11 @@ export const GAME_ART: Record<QuestGame, string> = {
   vote: "/vote-card.webp",
   ronkeverse: "/ronkeverse.png",
   "age-of-ronke": "/age-of-ronke-poster.jpg",
-  // PLACEHOLDER. There is no Horske artwork anywhere in the repo or on the
-  // casino site, so this is the generic casino card standing in. Drop a real
-  // one at /public/quests/horske.webp and point this at it.
-  horske: "/casino-card.webp",
+  // Composed from the racing game's own sprites: the Ronkeverse track
+  // background with three of the jockey sheets laid over the dirt, cut to the
+  // same 1100x432 as the other banner cards. Sources live in the casino
+  // frontend at public/horske/.
+  horske: "/quests/horske.webp",
   social: "/ronke-logo.webp",
 };
 
