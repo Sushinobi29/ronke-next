@@ -972,7 +972,9 @@ async function stepForward(current: Internal) {
 
   try {
     // Forward to head first — new activity matters more than old.
-    const { spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs } = await scanForward(
+    const {
+      spinLogs, aorLogs, swapLogs, monkeLogs, trainLogs, tokenLogs, raceLogs, raceSettleLogs,
+    } = await scanForward(
       current.logBlock + 1,
       head
     );
@@ -981,6 +983,7 @@ async function stepForward(current: Internal) {
     await collectMonkeBuys(monkeLogs, current.monkeBuys);
     collectTraining(trainLogs, current.training);
     await collectTokenBuys(tokenLogs, current.tokenBuys);
+    collectRaces(raceLogs, raceSettleLogs, current.races);
     current.logBlock = head;
     if (current.coveredFrom > head) current.coveredFrom = head + 1;
 
@@ -992,6 +995,7 @@ async function stepForward(current: Internal) {
       await collectMonkeBuys(older.monkeLogs, current.monkeBuys);
       collectTraining(older.trainLogs, current.training);
       await collectTokenBuys(older.tokenLogs, current.tokenBuys);
+      collectRaces(older.raceLogs, older.raceSettleLogs, current.races);
       current.coveredFrom = older.from;
     }
 

@@ -41,6 +41,7 @@ export const GAMES: QuestGame[] = [
   "ronkeverse",
   "age-of-ronke",
   "social",
+  "horske",
 ];
 export const COSTS: CostTier[] = ["free", "tokens", "ron", "big"];
 
