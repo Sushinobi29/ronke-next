@@ -1160,6 +1160,10 @@ function activeToday(today: TodayState): string[] {
   for (const [address, play] of today.aor) bump(address, play.plays);
   for (const sale of today.sales) bump(sale.buyer);
   for (const [address] of today.buys) bump(address);
+  // Racing is activity too: a wallet whose whole day was races used to be
+  // invisible here, so it was never a scoring candidate and its race quests
+  // were never written to the season record.
+  for (const [address, play] of today.races) bump(address, play.races);
 
   return [...actions.entries()].sort((a, b) => b[1] - a[1]).map(([address]) => address);
 }

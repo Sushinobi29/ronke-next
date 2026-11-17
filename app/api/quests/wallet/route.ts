@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
       today.buys,
       today.monkeBuys,
       today.training,
-      today.tokenBuys
+      today.tokenBuys,
+      today.races
     );
 
     const day = dayIndex();

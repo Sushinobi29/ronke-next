@@ -249,7 +249,10 @@ export async function readDaily(
   monkeBuysToday: Map<string, number> = new Map(),
   trainingToday: Map<string, number> = new Map(),
   tokenBuysToday: Map<string, DayBuy> = new Map(),
-  racesToday: Map<string, RacePlay> = new Map()
+  // Required, unlike the rest: when this one defaulted to empty, the wallet
+  // route quietly left it out and every race quest read zero on the player's
+  // own board while the scorer saw the real number.
+  racesToday: Map<string, RacePlay>
 ): Promise<DailyStats> {
   const who = padAddress(address);
   const balanceOf = (target: string) => ({ target, data: callData(SELECTORS.balanceOf, who) });
