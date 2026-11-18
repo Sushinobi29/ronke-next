@@ -780,13 +780,18 @@ export const BASE_POOL: QuestDef[] = [
   {
     id: "race.win",
     title: "First past the post",
-    task: "Win a race at Horske",
+    task: "Finish first in a race at Horske",
     game: "horske",
     tier: "core",
     group: "races",
     cost: "tokens",
     target: 1,
     unit: "wins",
+    // Horske pays places one to three, so "win" on its own reads as "get paid"
+    // to anyone who has raced. This card is narrower than the payout, and
+    // says so rather than leaving players to find out from a card that never
+    // ticks.
+    note: "First place only — the podium pays, but this card does not",
     points: 150,
     metric: "raceWins",
   },
